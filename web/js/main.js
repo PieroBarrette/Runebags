@@ -37,10 +37,11 @@ const ONLINE_NAME_MAX = 14;
 
 const elements = {
   mainMenu: document.getElementById("main-menu"),
-  menuAiBtn: document.getElementById("menu-ai-btn"),
+  menuModeSelect: document.getElementById("menu-mode-select"),
+  menuStartBtn: document.getElementById("menu-start-btn"),
+  aiConfigPanel: document.getElementById("ai-config"),
   aiSideSelect: document.getElementById("ai-side-select"),
   aiDepthSelect: document.getElementById("ai-depth-select"),
-  menuPassplayBtn: document.getElementById("menu-passplay-btn"),
   menuOnlineBtn: document.getElementById("menu-online-btn"),
   menuRulesBtn: document.getElementById("menu-rules-btn"),
   menuSettingsBtn: document.getElementById("menu-settings-btn"),
@@ -199,32 +200,37 @@ function wireOnlineEvents() {
 }
 
 function bindEvents() {
-  elements.menuAiBtn.addEventListener("click", () => {
-    online.leaveRoom();
-    const aiSide = Number(elements.aiSideSelect.value);
-    const aiDepth = Number(elements.aiDepthSelect.value);
-    setAiSettings(aiConfig, true, aiSide, aiDepth);
-
-    state = createInitialState();
-    if (state.phase === "shop" && state.shop.currentPlayer !== aiConfig.playerId) {
-      switchShopPlayer(state);
-    }
-    handVisibility = { 1: aiSide !== 1, 2: aiSide !== 2 };
-    clearSave();
-    saveGame(state);
-
-    enterGameScreen("passplay");
-    setStatus(`AI mode started. ${getPlayerName(aiConfig.playerId)} is AI (depth ${aiConfig.depth}).`);
-    render();
+  elements.menuModeSelect.addEventListener("change", () => {
+    syncMenuModeUI();
   });
 
-  elements.menuPassplayBtn.addEventListener("click", () => {
+  elements.menuStartBtn.addEventListener("click", () => {
     if (online.isOnlineActive()) {
       online.leaveRoom();
     }
-    setAiSettings(aiConfig, false, aiConfig.playerId, aiConfig.depth);
+
+    const selectedMode = getSelectedMenuMode();
+    state = createInitialState();
+
+    if (selectedMode === "ai") {
+      const aiSide = Number(elements.aiSideSelect.value);
+      const aiDepth = Number(elements.aiDepthSelect.value);
+      setAiSettings(aiConfig, true, aiSide, aiDepth);
+      if (state.phase === "shop" && state.shop.currentPlayer !== aiConfig.playerId) {
+        switchShopPlayer(state);
+      }
+      handVisibility = { 1: aiSide !== 1, 2: aiSide !== 2 };
+      setStatus(`AI mode started. ${getPlayerName(aiConfig.playerId)} is AI (depth ${aiConfig.depth}).`);
+    } else {
+      setAiSettings(aiConfig, false, aiConfig.playerId, aiConfig.depth);
+      handVisibility = { 1: false, 2: true };
+      setStatus("Pass & Play mode started.");
+    }
+
+    clearSave();
+    saveGame(state);
     enterGameScreen("passplay");
-    setStatus("Pass & Play mode: continuing local game state.");
+    render();
   });
 
   elements.menuOnlineBtn.addEventListener("click", async () => {
@@ -717,6 +723,9 @@ function render() {
         yourToggle.disabled = true;
       }
     }
+  } else if (aiConfig.enabled) {
+    elements.player1Toggle.hidden = true;
+    elements.player2Toggle.hidden = true;
   } else {
     elements.player1Toggle.hidden = false;
     elements.player2Toggle.hidden = false;
@@ -725,17 +734,6 @@ function render() {
   renderBoard(state, elements, pendingTargets, winningLine, forcedColumns);
   renderHands(state, elements, handVisibility, forcedVisible);
   applyOnlinePlayerNames();
-
-  if (aiConfig.enabled) {
-    const aiToggle = aiConfig.playerId === 1 ? elements.player1Toggle : elements.player2Toggle;
-    if (forcedVisible[aiConfig.playerId]) {
-      aiToggle.textContent = "Forced Visible (Uruz)";
-      aiToggle.disabled = true;
-    } else {
-      aiToggle.textContent = "Hidden in AI mode";
-      aiToggle.disabled = true;
-    }
-  }
 
   renderLog(state, elements);
   renderShopPanel();
@@ -787,6 +785,8 @@ function updateTopStatus() {
       elements.status.textContent = waitingRoomState.shopReadyYou
         ? `You are ready. Waiting for opponent.${timerText}`
         : `Shop your own bag and offer, then click Shop Ready.${timerText}`;
+    } else if (aiConfig.enabled) {
+      elements.status.textContent = "Shop: remove once, combine pair, add up to 2 from offer.";
     } else {
       elements.status.textContent = "Shop: remove once, combine pair, add up to 2 from offer. Switch player to pass device.";
     }
@@ -807,7 +807,7 @@ function renderShopPanel() {
   const inShop = state.phase === "shop";
   elements.shopPanel.hidden = !inShop;
   elements.boardEl.hidden = false;
-  elements.shopSwitchPlayer.hidden = !inShop || online.isOnlineActive();
+  elements.shopSwitchPlayer.hidden = !inShop || online.isOnlineActive() || aiConfig.enabled;
 
   elements.phaseBtn.hidden = state.phase === "round" || state.phase === "game-over";
   if (online.isOnlineActive() && state.phase === "shop") {
@@ -1048,16 +1048,29 @@ function initializeEntryMode() {
     return;
   }
 
+  syncMenuModeUI();
   showMainMenu();
 }
 
 function showMainMenu() {
+  syncMenuModeUI();
   elements.mainMenu.hidden = false;
   elements.settingsPanel.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
   elements.onlineConnection.hidden = true;
+}
+
+function getSelectedMenuMode() {
+  return elements.menuModeSelect?.value === "ai" ? "ai" : "passplay";
+}
+
+function syncMenuModeUI() {
+  const aiMode = getSelectedMenuMode() === "ai";
+  if (elements.aiConfigPanel) {
+    elements.aiConfigPanel.hidden = !aiMode;
+  }
 }
 
 function showOnlinePanel() {
