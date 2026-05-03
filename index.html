@@ -68,6 +68,10 @@
     <section id="online-panel" class="panel menu-panel" hidden>
       <h2>Play Online</h2>
       <p>Choose Quick Play or create a friend room.</p>
+      <p class="online-server-status">
+        <span id="online-server-dot" class="online-dot" aria-hidden="true"></span>
+        <span id="online-server-text">Server: Disconnected</span>
+      </p>
       <div class="settings-grid online-name-grid">
         <label for="online-pseudo">Temporary Name</label>
         <input id="online-pseudo" type="text" maxlength="14" placeholder="Your name">
@@ -87,6 +91,7 @@
       <div id="online-room-link-wrap" hidden>
         <label for="online-room-link">Room Link</label>
         <input id="online-room-link" type="text" readonly>
+        <img id="online-room-qr" class="online-room-qr" alt="QR code for room link" loading="lazy" referrerpolicy="no-referrer">
       </div>
       <div class="waiting-room">
         <h3>Waiting Room</h3>

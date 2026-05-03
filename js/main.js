@@ -53,9 +53,12 @@ const elements = {
   animationToggle: document.getElementById("animation-toggle"),
   settingsBackBtn: document.getElementById("settings-back-btn"),
   onlinePanel: document.getElementById("online-panel"),
+  onlineServerDot: document.getElementById("online-server-dot"),
+  onlineServerText: document.getElementById("online-server-text"),
   onlineRoomCode: document.getElementById("online-room-code"),
   onlineRoomLinkWrap: document.getElementById("online-room-link-wrap"),
   onlineRoomLink: document.getElementById("online-room-link"),
+  onlineRoomQr: document.getElementById("online-room-qr"),
   waitingRole: document.getElementById("waiting-role"),
   waitingSummary: document.getElementById("waiting-summary"),
   waitingYouStatus: document.getElementById("waiting-you-status"),
@@ -1170,6 +1173,7 @@ function showOnlinePanel() {
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
   elements.onlinePseudo.value = normalizePseudo(elements.onlinePseudo.value || online.getSession().displayName || "");
+  updateOnlineConnectionStatus();
 }
 
 function showRulesPanel() {
@@ -1211,10 +1215,24 @@ function enterGameScreen(mode, roomCode = null) {
 function updateOnlineRoomUI(roomCode) {
   const isFriendMode = waitingRoomState.mode === "friend";
   const isQueueMode = waitingRoomState.mode === "queue";
+  const hasRoomCode = isFriendMode && typeof roomCode === "string" && /^[A-Z2-9]{6}$/.test(roomCode);
+  const roomLink = hasRoomCode ? buildRoomLink(roomCode) : "";
 
   elements.onlineRoomCode.textContent = isFriendMode ? `Room: ${roomCode}` : "Room: Auto-match";
   if (elements.onlineRoomLinkWrap) {
-    elements.onlineRoomLinkWrap.hidden = true;
+    elements.onlineRoomLinkWrap.hidden = !hasRoomCode;
+  }
+  if (elements.onlineRoomLink) {
+    elements.onlineRoomLink.value = roomLink;
+  }
+  if (elements.onlineRoomQr) {
+    if (hasRoomCode) {
+      elements.onlineRoomQr.src = buildRoomQrUrl(roomLink);
+      elements.onlineRoomQr.hidden = false;
+    } else {
+      elements.onlineRoomQr.removeAttribute("src");
+      elements.onlineRoomQr.hidden = true;
+    }
   }
   elements.waitingRole.textContent = waitingRoomState.playerId
     ? `You are: ${waitingRoomState.yourName || getDisplayPlayerName(waitingRoomState.playerId)}`
@@ -1303,6 +1321,15 @@ function tickOnlineShopTimer() {
 }
 
 function updateOnlineConnectionStatus() {
+  const serverConnected = isOnlineServerConnected();
+
+  if (elements.onlineServerDot) {
+    elements.onlineServerDot.classList.toggle("connected", serverConnected);
+  }
+  if (elements.onlineServerText) {
+    elements.onlineServerText.textContent = serverConnected ? "Server: Connected" : "Server: Disconnected";
+  }
+
   if (!online.isOnlineActive()) {
     elements.p1OnlineDot.hidden = true;
     elements.p2OnlineDot.hidden = true;
@@ -1330,6 +1357,11 @@ function updateOnlineConnectionStatus() {
 
   elements.p1OnlineDot.classList.toggle("connected", isP1Connected);
   elements.p2OnlineDot.classList.toggle("connected", isP2Connected);
+}
+
+function isOnlineServerConnected() {
+  const session = online.getSession();
+  return Boolean(session.socket && session.socket.readyState === WebSocket.OPEN);
 }
 
 function updateTopButtons() {
@@ -1372,6 +1404,11 @@ function buildRoomLink(roomCode) {
   url.searchParams.set("mode", "online");
   url.searchParams.set("room", roomCode);
   return url.toString();
+}
+
+function buildRoomQrUrl(link) {
+  const base = "https://api.qrserver.com/v1/create-qr-code/";
+  return `${base}?size=240x240&margin=0&data=${encodeURIComponent(link)}`;
 }
 
 function applyRoomQuery(roomCode) {

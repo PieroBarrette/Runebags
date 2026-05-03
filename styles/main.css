@@ -202,6 +202,31 @@ body[data-theme="dark"] .menu-logo {
   margin-top: 0.4rem;
 }
 
+.online-server-status {
+  margin: 0.25rem 0 0.45rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  color: var(--text-soft);
+}
+
+.online-server-status .online-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+}
+
+.online-room-qr {
+  display: block;
+  width: 124px;
+  height: 124px;
+  margin: 0.6rem auto 0;
+  border-radius: 10px;
+  border: 1px solid rgba(36, 51, 71, 0.25);
+  background: rgba(255, 255, 255, 0.92);
+  padding: 0.35rem;
+}
+
 #online-join-code {
   width: 150px;
   text-transform: uppercase;
@@ -234,6 +259,11 @@ body[data-theme="dark"] .settings-select {
 
 body[data-theme="dark"] .settings-checkbox {
   accent-color: #f0f6ff;
+}
+
+body[data-theme="dark"] .online-room-qr {
+  border-color: rgba(220, 230, 241, 0.28);
+  background: rgba(243, 248, 255, 0.96);
 }
 
 body[data-theme="dark"] .ai-config select,
