@@ -1,8 +1,10 @@
 const STORAGE_PREFIX = "runebags-online-token:";
+const GUEST_ID_KEY = "runebags-guest-id";
 
 export function createOnlineController() {
   const listeners = {
     waiting: () => {},
+    queue: () => {},
     state: () => {},
     error: () => {},
     status: () => {},
@@ -15,6 +17,8 @@ export function createOnlineController() {
     token: null,
     seq: 0,
     clientSeq: 0,
+    queued: false,
+    guestId: loadOrCreateGuestId(),
     started: false,
   };
 
@@ -96,6 +100,7 @@ export function createOnlineController() {
   }
 
   function leaveRoom() {
+    cancelQueue();
     if (session.socket && session.socket.readyState === WebSocket.OPEN) {
       send({ type: "leave_room" });
       session.socket.close();
@@ -103,6 +108,24 @@ export function createOnlineController() {
     session.started = false;
     session.seq = 0;
     session.clientSeq = 0;
+  }
+
+  async function joinQueue() {
+    try {
+      await connect();
+      send({ type: "queue_join", guestId: session.guestId });
+      return true;
+    } catch {
+      listeners.error("Failed to join quick play queue.");
+      return false;
+    }
+  }
+
+  function cancelQueue() {
+    if (session.socket && session.socket.readyState === WebSocket.OPEN && session.queued) {
+      send({ type: "queue_cancel" });
+    }
+    session.queued = false;
   }
 
   function sendAction(actionType, payload = {}) {
@@ -145,6 +168,7 @@ export function createOnlineController() {
       session.playerId = msg.playerId;
       session.token = msg.token || session.token;
       session.started = Boolean(msg.started);
+      session.queued = false;
       if (typeof msg.nextClientSeq === "number") {
         session.clientSeq = Math.max(0, msg.nextClientSeq - 1);
       }
@@ -175,8 +199,27 @@ export function createOnlineController() {
 
       session.seq = msg.seq;
       session.started = true;
+      session.queued = false;
       session.playerId = msg.playerId;
       listeners.state({ state: msg.state, seq: msg.seq, playerId: msg.playerId, roomCode: msg.roomCode });
+      return;
+    }
+
+    if (msg.type === "queue_status") {
+      session.queued = Boolean(msg.queued);
+      listeners.queue({
+        queued: session.queued,
+        position: Number(msg.position || 0),
+        message: msg.message || "",
+      });
+      return;
+    }
+
+    if (msg.type === "queue_matched") {
+      session.roomCode = msg.roomCode;
+      session.playerId = msg.playerId;
+      session.queued = false;
+      listeners.status("Opponent found. Starting match...");
     }
   }
 
@@ -186,11 +229,28 @@ export function createOnlineController() {
     setReady,
     startMatch,
     leaveRoom,
+    joinQueue,
+    cancelQueue,
     sendAction,
     isOnlineActive,
     getSession,
     setListeners,
   };
+}
+
+function loadOrCreateGuestId() {
+  try {
+    const existing = window.localStorage.getItem(GUEST_ID_KEY);
+    if (existing && /^[a-z0-9-]{6,64}$/i.test(existing)) {
+      return existing;
+    }
+
+    const generated = (window.crypto?.randomUUID?.() || `guest-${Math.random().toString(36).slice(2, 11)}`).toLowerCase();
+    window.localStorage.setItem(GUEST_ID_KEY, generated);
+    return generated;
+  } catch {
+    return `guest-${Math.random().toString(36).slice(2, 11)}`;
+  }
 }
 
 function resolveSocketUrl() {

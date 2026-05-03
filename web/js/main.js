@@ -53,6 +53,10 @@ const elements = {
   waitingSummary: document.getElementById("waiting-summary"),
   waitingYouStatus: document.getElementById("waiting-you-status"),
   waitingOpponentStatus: document.getElementById("waiting-opponent-status"),
+  onlineQuickBtn: document.getElementById("online-quick-btn"),
+  onlineFriendBtn: document.getElementById("online-friend-btn"),
+  onlineJoinCode: document.getElementById("online-join-code"),
+  onlineJoinBtn: document.getElementById("online-join-btn"),
   onlineCopyLinkBtn: document.getElementById("online-copy-link-btn"),
   onlineReadyBtn: document.getElementById("online-ready-btn"),
   onlineStartBtn: document.getElementById("online-start-btn"),
@@ -101,15 +105,7 @@ let handVisibility = {
   2: state.currentPlayer === 2,
 };
 let activeRoomCode = null;
-let waitingRoomState = {
-  youReady: false,
-  opponentJoined: false,
-  opponentReady: false,
-  canStart: false,
-  started: false,
-  playerId: null,
-  opponentConnected: false,
-};
+let waitingRoomState = createWaitingRoomState();
 const aiConfig = createAiConfig();
 const online = createOnlineController();
 let aiBusy = false;
@@ -126,6 +122,9 @@ function wireOnlineEvents() {
     waiting: (snapshot) => {
       activeRoomCode = snapshot.roomCode;
       waitingRoomState = {
+        mode: waitingRoomState.mode === "queue" ? "queue" : "friend",
+        queued: false,
+        queuePosition: 0,
         youReady: snapshot.youReady,
         opponentJoined: snapshot.opponentJoined,
         opponentReady: snapshot.opponentReady,
@@ -148,6 +147,18 @@ function wireOnlineEvents() {
       }
       updateOnlineConnectionStatus();
       render();
+    },
+    queue: (snapshot) => {
+      waitingRoomState = {
+        ...waitingRoomState,
+        mode: "queue",
+        queued: snapshot.queued,
+        queuePosition: snapshot.position,
+      };
+      updateOnlineRoomUI(activeRoomCode || "-");
+      if (snapshot.message) {
+        setStatus(snapshot.message);
+      }
     },
     error: (message) => {
       setStatus(message);
@@ -193,22 +204,66 @@ function bindEvents() {
 
   elements.menuOnlineBtn.addEventListener("click", async () => {
     setAiSettings(aiConfig, false, aiConfig.playerId, aiConfig.depth);
+    online.leaveRoom();
+    activeRoomCode = null;
+    waitingRoomState = createWaitingRoomState();
+    updateOnlineRoomUI("-");
+    showOnlinePanel();
+  });
+
+  elements.onlineQuickBtn.addEventListener("click", async () => {
+    online.leaveRoom();
+    activeRoomCode = null;
+    waitingRoomState = {
+      ...createWaitingRoomState(),
+      mode: "queue",
+      queued: true,
+      queuePosition: 1,
+    };
+    updateOnlineRoomUI("-");
+    setStatus("Searching for opponent...");
+    const ok = await online.joinQueue();
+    if (!ok) {
+      waitingRoomState = createWaitingRoomState();
+      updateOnlineRoomUI("-");
+    }
+  });
+
+  elements.onlineFriendBtn.addEventListener("click", async () => {
+    online.leaveRoom();
     activeRoomCode = createRoomCode();
     waitingRoomState = {
-      youReady: false,
-      opponentJoined: false,
-      opponentReady: false,
-      canStart: false,
-      started: false,
-      playerId: null,
-      opponentConnected: false,
+      ...createWaitingRoomState(),
+      mode: "friend",
     };
     updateOnlineRoomUI(activeRoomCode);
-    showOnlinePanel();
-
     const ok = await online.createRoom(activeRoomCode);
     if (!ok) {
-      showMainMenu();
+      waitingRoomState = createWaitingRoomState();
+      activeRoomCode = null;
+      updateOnlineRoomUI("-");
+    }
+  });
+
+  elements.onlineJoinBtn.addEventListener("click", async () => {
+    const code = elements.onlineJoinCode.value.trim().toUpperCase();
+    if (!/^[A-Z2-9]{6}$/.test(code)) {
+      window.alert("Enter a valid 6-character room code.");
+      return;
+    }
+
+    online.leaveRoom();
+    activeRoomCode = code;
+    waitingRoomState = {
+      ...createWaitingRoomState(),
+      mode: "friend",
+    };
+    updateOnlineRoomUI(activeRoomCode);
+    const ok = await online.joinRoom(code);
+    if (!ok) {
+      waitingRoomState = createWaitingRoomState();
+      activeRoomCode = null;
+      updateOnlineRoomUI("-");
     }
   });
 
@@ -875,13 +930,9 @@ function initializeEntryMode() {
   if (mode === "online" && room) {
     activeRoomCode = room;
     waitingRoomState = {
-      youReady: false,
+      ...createWaitingRoomState(),
+      mode: "friend",
       opponentJoined: true,
-      opponentReady: false,
-      canStart: false,
-      started: false,
-      playerId: null,
-      opponentConnected: false,
     };
     updateOnlineRoomUI(room);
     showOnlinePanel();
@@ -949,26 +1000,72 @@ function enterGameScreen(mode, roomCode = null) {
 }
 
 function updateOnlineRoomUI(roomCode) {
-  elements.onlineRoomCode.textContent = `Room: ${roomCode}`;
-  elements.onlineRoomLink.value = buildRoomLink(roomCode);
+  const isFriendMode = waitingRoomState.mode === "friend";
+  const isQueueMode = waitingRoomState.mode === "queue";
+
+  elements.onlineRoomCode.textContent = isFriendMode ? `Room: ${roomCode}` : "Room: Auto-match";
+  elements.onlineRoomLink.value = isFriendMode && roomCode !== "-" ? buildRoomLink(roomCode) : "";
   elements.waitingRole.textContent = waitingRoomState.playerId
     ? `You are: ${getPlayerName(waitingRoomState.playerId)}`
     : "You are: -";
 
-  elements.onlineReadyBtn.textContent = waitingRoomState.youReady ? "Set Not Ready" : "Set Ready";
-  elements.waitingYouStatus.textContent = `You: ${waitingRoomState.youReady ? "Ready" : "Not ready"}`;
-  elements.waitingOpponentStatus.textContent = waitingRoomState.opponentJoined
-    ? `Opponent: ${waitingRoomState.opponentReady ? "Ready" : "Joined (not ready)"}${waitingRoomState.opponentConnected ? "" : " - offline"}`
-    : "Opponent: Waiting to join...";
-  elements.onlineStartBtn.disabled = !waitingRoomState.canStart;
+  elements.onlineReadyBtn.hidden = !isFriendMode;
+  elements.onlineStartBtn.hidden = !isFriendMode;
+  elements.onlineCopyLinkBtn.hidden = !isFriendMode;
+  elements.onlineReadyBtn.disabled = !isFriendMode;
+  elements.onlineStartBtn.disabled = !isFriendMode || !waitingRoomState.canStart;
+
+  elements.waitingYouStatus.textContent = isFriendMode
+    ? `You: ${waitingRoomState.youReady ? "Ready" : "Not ready"}`
+    : `You: ${waitingRoomState.queued ? "In queue" : "Not queued"}`;
+
+  if (isQueueMode) {
+    elements.waitingOpponentStatus.textContent = waitingRoomState.queued
+      ? waitingRoomState.queuePosition > 1
+        ? `Queue position: ${waitingRoomState.queuePosition}`
+        : "Queue position: 1"
+      : "Queue: not active";
+  } else {
+    elements.waitingOpponentStatus.textContent = waitingRoomState.opponentJoined
+      ? `Opponent: ${waitingRoomState.opponentReady ? "Ready" : "Joined (not ready)"}${waitingRoomState.opponentConnected ? "" : " - offline"}`
+      : "Opponent: Waiting to join...";
+  }
 
   if (waitingRoomState.started) {
     elements.waitingSummary.textContent = "Match started. Entering game...";
-  } else {
+    return;
+  }
+
+  if (isQueueMode) {
+    elements.waitingSummary.textContent = waitingRoomState.queued
+      ? "Searching for opponent..."
+      : "Click Quick Play to enter matchmaking.";
+    return;
+  }
+
+  if (isFriendMode) {
     elements.waitingSummary.textContent = waitingRoomState.youReady
       ? "You are ready. Start when your opponent is ready."
       : "Share your link, then set Ready.";
+    return;
   }
+
+  elements.waitingSummary.textContent = "Choose Quick Play or create/join a friend room.";
+}
+
+function createWaitingRoomState() {
+  return {
+    mode: "none",
+    queued: false,
+    queuePosition: 0,
+    youReady: false,
+    opponentJoined: false,
+    opponentReady: false,
+    canStart: false,
+    started: false,
+    playerId: null,
+    opponentConnected: false,
+  };
 }
 
 function updateOnlineConnectionStatus() {

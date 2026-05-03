@@ -54,7 +54,18 @@
 
     <section id="online-panel" class="panel menu-panel" hidden>
       <h2>Play Online</h2>
-      <p>Create a room link and send it to your opponent.</p>
+      <p>Choose Quick Play or create a friend room.</p>
+      <div class="menu-actions compact">
+        <button id="online-quick-btn" class="menu-btn" type="button">Quick Play</button>
+        <button id="online-friend-btn" class="menu-btn" type="button">Play with Friend</button>
+      </div>
+      <div class="settings-grid online-join-grid">
+        <label for="online-join-code">Join with Room Code</label>
+        <div class="menu-actions compact">
+          <input id="online-join-code" type="text" maxlength="6" placeholder="ABC123">
+          <button id="online-join-btn" class="menu-btn" type="button">Join</button>
+        </div>
+      </div>
       <p id="online-room-code" class="bag-meta">Room: -</p>
       <label for="online-room-link">Room Link</label>
       <input id="online-room-link" type="text" readonly>

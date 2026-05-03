@@ -40,6 +40,7 @@ const MIME = {
 /** @type {Map<string, any>} */
 const rooms = new Map();
 const wsToSession = new Map();
+const quickQueue = [];
 
 await loadRooms();
 
@@ -71,6 +72,7 @@ wss.on("connection", (ws) => {
   });
 
   ws.on("close", () => {
+    removeFromQueueBySocket(ws);
     const session = wsToSession.get(ws);
     if (!session) {
       return;
@@ -139,6 +141,10 @@ function handleMessage(ws, message) {
       return onCreateRoom(ws, message);
     case "join_room":
       return onJoinRoom(ws, message);
+    case "queue_join":
+      return onQueueJoin(ws, message);
+    case "queue_cancel":
+      return onQueueCancel(ws, message);
     case "set_ready":
       return onSetReady(ws, message);
     case "start_match":
@@ -154,6 +160,105 @@ function handleMessage(ws, message) {
     default:
       return send(ws, { type: "error", message: `Unknown message type: ${message.type}` });
   }
+}
+
+function onQueueJoin(ws, message) {
+  const guestId = normalizeGuestId(message.guestId);
+  if (!guestId) {
+    send(ws, { type: "error", message: "Invalid guest id for quick play." });
+    return;
+  }
+
+  const existing = quickQueue.find((entry) => entry.ws === ws || entry.guestId === guestId);
+  if (!existing) {
+    quickQueue.push({ ws, guestId, joinedAt: Date.now() });
+  }
+
+  const position = quickQueue.findIndex((entry) => entry.ws === ws) + 1;
+  send(ws, {
+    type: "queue_status",
+    queued: true,
+    position,
+    message: position === 1 ? "Searching for opponent..." : `In queue: #${position}`,
+  });
+
+  tryMatchQueue();
+}
+
+function onQueueCancel(ws) {
+  const removed = removeFromQueueBySocket(ws);
+  send(ws, {
+    type: "queue_status",
+    queued: false,
+    position: 0,
+    message: removed ? "Quick play cancelled." : "Not currently in queue.",
+  });
+}
+
+function tryMatchQueue() {
+  while (quickQueue.length >= 2) {
+    const first = quickQueue.shift();
+    const second = quickQueue.shift();
+
+    if (!isSocketOpen(first.ws) || !isSocketOpen(second.ws)) {
+      if (isSocketOpen(first.ws)) {
+        send(first.ws, { type: "queue_status", queued: true, position: 1, message: "Searching for opponent..." });
+      }
+      if (isSocketOpen(second.ws)) {
+        send(second.ws, { type: "queue_status", queued: true, position: 1, message: "Searching for opponent..." });
+      }
+      continue;
+    }
+
+    createInstantMatch(first.ws, second.ws);
+  }
+
+  // Refresh queue positions for remaining players.
+  quickQueue.forEach((entry, index) => {
+    if (!isSocketOpen(entry.ws)) {
+      return;
+    }
+
+    send(entry.ws, {
+      type: "queue_status",
+      queued: true,
+      position: index + 1,
+      message: index === 0 ? "Searching for opponent..." : `In queue: #${index + 1}`,
+    });
+  });
+}
+
+function createInstantMatch(firstWs, secondWs) {
+  const roomCode = generateRoomCode();
+  const token1 = createToken();
+  const token2 = createToken();
+
+  const room = {
+    code: roomCode,
+    createdAt: Date.now(),
+    started: true,
+    seq: 1,
+    state: restoreState(createInitialState()),
+    players: {
+      1: createPlayerRecord(token1),
+      2: createPlayerRecord(token2),
+    },
+  };
+
+  room.players[1].ready = true;
+  room.players[2].ready = true;
+
+  rooms.set(roomCode, room);
+  attachSession(firstWs, roomCode, 1, token1);
+  attachSession(secondWs, roomCode, 2, token2);
+
+  send(firstWs, { type: "queue_matched", roomCode, playerId: 1 });
+  send(secondWs, { type: "queue_matched", roomCode, playerId: 2 });
+
+  sendWaitingSnapshot(firstWs, room, 1, token1);
+  sendWaitingSnapshot(secondWs, room, 2, token2);
+  broadcastState(room);
+  persistRooms().catch(() => {});
 }
 
 function onCreateRoom(ws, message) {
@@ -359,6 +464,7 @@ function onAction(ws, message) {
 }
 
 function onLeaveRoom(ws) {
+  removeFromQueueBySocket(ws);
   const session = wsToSession.get(ws);
   if (!session) {
     return;
@@ -534,6 +640,29 @@ function createPlayerRecord(token) {
     lastClientSeq: 0,
     ws: null,
   };
+}
+
+function removeFromQueueBySocket(ws) {
+  const index = quickQueue.findIndex((entry) => entry.ws === ws);
+  if (index < 0) {
+    return false;
+  }
+
+  quickQueue.splice(index, 1);
+  return true;
+}
+
+function normalizeGuestId(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const id = value.trim();
+  return /^[a-z0-9-]{6,64}$/i.test(id) ? id : null;
+}
+
+function isSocketOpen(ws) {
+  return ws && ws.readyState === 1;
 }
 
 function generateRoomCode() {
