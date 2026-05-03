@@ -37,11 +37,13 @@ const ONLINE_NAME_MAX = 14;
 
 const elements = {
   mainMenu: document.getElementById("main-menu"),
-  menuModeSelect: document.getElementById("menu-mode-select"),
-  menuStartBtn: document.getElementById("menu-start-btn"),
-  aiConfigPanel: document.getElementById("ai-config"),
+  menuAiBtn: document.getElementById("menu-ai-btn"),
+  menuPassplayBtn: document.getElementById("menu-passplay-btn"),
   aiSideSelect: document.getElementById("ai-side-select"),
   aiDepthSelect: document.getElementById("ai-depth-select"),
+  aiPanel: document.getElementById("ai-panel"),
+  aiStartBtn: document.getElementById("ai-start-btn"),
+  aiBackBtn: document.getElementById("ai-back-btn"),
   menuOnlineBtn: document.getElementById("menu-online-btn"),
   menuRulesBtn: document.getElementById("menu-rules-btn"),
   menuSettingsBtn: document.getElementById("menu-settings-btn"),
@@ -200,37 +202,42 @@ function wireOnlineEvents() {
 }
 
 function bindEvents() {
-  elements.menuModeSelect.addEventListener("change", () => {
-    syncMenuModeUI();
+  elements.menuAiBtn.addEventListener("click", () => {
+    showAiPanel();
   });
 
-  elements.menuStartBtn.addEventListener("click", () => {
+  elements.menuPassplayBtn.addEventListener("click", () => {
+    if (online.isOnlineActive()) {
+      online.leaveRoom();
+    }
+    setAiSettings(aiConfig, false, aiConfig.playerId, aiConfig.depth);
+    enterGameScreen("passplay");
+    setStatus("Pass & Play mode: continuing local game state.");
+  });
+
+  elements.aiStartBtn.addEventListener("click", () => {
     if (online.isOnlineActive()) {
       online.leaveRoom();
     }
 
-    const selectedMode = getSelectedMenuMode();
     state = createInitialState();
-
-    if (selectedMode === "ai") {
-      const aiSide = Number(elements.aiSideSelect.value);
-      const aiDepth = Number(elements.aiDepthSelect.value);
-      setAiSettings(aiConfig, true, aiSide, aiDepth);
-      if (state.phase === "shop" && state.shop.currentPlayer !== aiConfig.playerId) {
-        switchShopPlayer(state);
-      }
-      handVisibility = { 1: aiSide !== 1, 2: aiSide !== 2 };
-      setStatus(`AI mode started. ${getPlayerName(aiConfig.playerId)} is AI (depth ${aiConfig.depth}).`);
-    } else {
-      setAiSettings(aiConfig, false, aiConfig.playerId, aiConfig.depth);
-      handVisibility = { 1: false, 2: true };
-      setStatus("Pass & Play mode started.");
+    const aiSide = Number(elements.aiSideSelect.value);
+    const aiDepth = Number(elements.aiDepthSelect.value);
+    setAiSettings(aiConfig, true, aiSide, aiDepth);
+    if (state.phase === "shop" && state.shop.currentPlayer !== aiConfig.playerId) {
+      switchShopPlayer(state);
     }
+    handVisibility = { 1: aiSide !== 1, 2: aiSide !== 2 };
+    setStatus(`AI mode started. ${getPlayerName(aiConfig.playerId)} is AI (depth ${aiConfig.depth}).`);
 
     clearSave();
     saveGame(state);
     enterGameScreen("passplay");
     render();
+  });
+
+  elements.aiBackBtn.addEventListener("click", () => {
+    showMainMenu();
   });
 
   elements.menuOnlineBtn.addEventListener("click", async () => {
@@ -1048,13 +1055,12 @@ function initializeEntryMode() {
     return;
   }
 
-  syncMenuModeUI();
   showMainMenu();
 }
 
 function showMainMenu() {
-  syncMenuModeUI();
   elements.mainMenu.hidden = false;
+  elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
@@ -1062,19 +1068,18 @@ function showMainMenu() {
   elements.onlineConnection.hidden = true;
 }
 
-function getSelectedMenuMode() {
-  return elements.menuModeSelect?.value === "ai" ? "ai" : "passplay";
-}
-
-function syncMenuModeUI() {
-  const aiMode = getSelectedMenuMode() === "ai";
-  if (elements.aiConfigPanel) {
-    elements.aiConfigPanel.hidden = !aiMode;
-  }
+function showAiPanel() {
+  elements.mainMenu.hidden = true;
+  elements.aiPanel.hidden = false;
+  elements.settingsPanel.hidden = true;
+  elements.onlinePanel.hidden = true;
+  elements.rulesPanel.hidden = true;
+  elements.gameScreen.hidden = true;
 }
 
 function showOnlinePanel() {
   elements.mainMenu.hidden = true;
+  elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
   elements.onlinePanel.hidden = false;
   elements.rulesPanel.hidden = true;
@@ -1084,6 +1089,7 @@ function showOnlinePanel() {
 
 function showRulesPanel() {
   elements.mainMenu.hidden = true;
+  elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = false;
@@ -1092,6 +1098,7 @@ function showRulesPanel() {
 
 function showSettingsPanel() {
   elements.mainMenu.hidden = true;
+  elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = false;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
@@ -1100,6 +1107,7 @@ function showSettingsPanel() {
 
 function enterGameScreen(mode, roomCode = null) {
   elements.mainMenu.hidden = true;
+  elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;

@@ -124,27 +124,6 @@ h2 {
   justify-content: center;
 }
 
-.mode-config {
-  display: grid;
-  gap: 0.45rem;
-  justify-items: center;
-}
-
-.mode-config label {
-  color: var(--text-soft);
-  font-size: 0.95rem;
-}
-
-.mode-config select {
-  min-width: 200px;
-  border: 1px solid rgba(36, 51, 71, 0.25);
-  border-radius: 8px;
-  background: rgba(252, 253, 255, 0.88);
-  color: var(--text-main);
-  padding: 0.4rem 0.5rem;
-  font: inherit;
-}
-
 .ai-config {
   display: grid;
   grid-template-columns: auto minmax(110px, 170px) auto minmax(110px, 170px);
@@ -213,7 +192,6 @@ body[data-theme="dark"] .settings-select {
 }
 
 body[data-theme="dark"] .ai-config select,
-body[data-theme="dark"] .mode-config select,
 body[data-theme="dark"] .menu-panel input {
   border-color: rgba(220, 230, 241, 0.28);
   background: rgba(16, 22, 29, 0.82);

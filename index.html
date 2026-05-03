@@ -16,20 +16,18 @@
     <section id="main-menu" class="menu-screen">
       <h1>RuneBags</h1>
       <p class="menu-subtitle">Runic tactics, hidden hands, and evolving rounds.</p>
-      <div class="mode-config">
-        <label for="menu-mode-select">Mode</label>
-        <select id="menu-mode-select">
-          <option value="passplay" selected>Pass &amp; Play</option>
-          <option value="ai">Play Against AI</option>
-        </select>
-      </div>
       <div class="menu-actions">
-        <button id="menu-start-btn" class="menu-btn" type="button">New Game</button>
+        <button id="menu-ai-btn" class="menu-btn" type="button">Play Against AI</button>
+        <button id="menu-passplay-btn" class="menu-btn" type="button">Pass &amp; Play</button>
         <button id="menu-online-btn" class="menu-btn" type="button">Play Online</button>
         <button id="menu-rules-btn" class="menu-btn" type="button">Rules</button>
         <button id="menu-settings-btn" class="menu-btn" type="button">Settings</button>
       </div>
-      <div id="ai-config" class="ai-config" hidden>
+    </section>
+
+    <section id="ai-panel" class="panel menu-panel" hidden>
+      <h2>Play Against AI</h2>
+      <div class="ai-config">
         <label for="ai-side-select">AI Side</label>
         <select id="ai-side-select">
           <option value="1">Black</option>
@@ -41,6 +39,10 @@
           <option value="2" selected>Medium</option>
           <option value="3">Hard</option>
         </select>
+      </div>
+      <div class="menu-actions compact">
+        <button id="ai-start-btn" class="menu-btn" type="button">New Game</button>
+        <button id="ai-back-btn" class="menu-btn secondary" type="button">Back</button>
       </div>
     </section>
 
