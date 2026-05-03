@@ -56,7 +56,7 @@
 }
 
 .rune-chip.black .rune-chip-symbol {
-  filter: grayscale(1) brightness(1.2);
+  filter: grayscale(1) brightness(2.15) contrast(1.15) drop-shadow(0 0 1px rgba(255, 255, 255, 0.55));
 }
 
 .rune-chip-dot {
