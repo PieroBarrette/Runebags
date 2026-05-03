@@ -49,6 +49,7 @@ const elements = {
   settingsBackBtn: document.getElementById("settings-back-btn"),
   onlinePanel: document.getElementById("online-panel"),
   onlineRoomCode: document.getElementById("online-room-code"),
+  onlineRoomLinkWrap: document.getElementById("online-room-link-wrap"),
   onlineRoomLink: document.getElementById("online-room-link"),
   waitingRole: document.getElementById("waiting-role"),
   waitingSummary: document.getElementById("waiting-summary"),
@@ -218,7 +219,9 @@ function bindEvents() {
   });
 
   elements.menuPassplayBtn.addEventListener("click", () => {
-    online.leaveRoom();
+    if (online.isOnlineActive()) {
+      online.leaveRoom();
+    }
     setAiSettings(aiConfig, false, aiConfig.playerId, aiConfig.depth);
     enterGameScreen("passplay");
     setStatus("Pass & Play mode: continuing local game state.");
@@ -226,10 +229,21 @@ function bindEvents() {
 
   elements.menuOnlineBtn.addEventListener("click", async () => {
     setAiSettings(aiConfig, false, aiConfig.playerId, aiConfig.depth);
-    online.leaveRoom();
-    activeRoomCode = null;
-    waitingRoomState = createWaitingRoomState();
-    updateOnlineRoomUI("-");
+    const session = online.getSession();
+    if (online.isOnlineActive() && session.roomCode) {
+      enterGameScreen("online", session.roomCode);
+      return;
+    }
+
+    if (session.roomCode) {
+      activeRoomCode = session.roomCode;
+      updateOnlineRoomUI(activeRoomCode);
+    } else {
+      activeRoomCode = null;
+      waitingRoomState = createWaitingRoomState();
+      updateOnlineRoomUI("-");
+    }
+
     elements.onlinePseudo.value = normalizePseudo(elements.onlinePseudo.value || online.getSession().displayName || "");
     showOnlinePanel();
   });
@@ -325,6 +339,9 @@ function bindEvents() {
 
   elements.onlineBackBtn.addEventListener("click", () => {
     online.leaveRoom();
+    online.clearRoomToken(activeRoomCode || online.getSession().roomCode);
+    activeRoomCode = null;
+    waitingRoomState = createWaitingRoomState();
     showMainMenu();
   });
 
@@ -333,7 +350,7 @@ function bindEvents() {
   });
 
   elements.onlineCopyLinkBtn.addEventListener("click", async () => {
-    const link = elements.onlineRoomLink.value;
+    const link = activeRoomCode && activeRoomCode !== "-" ? buildRoomLink(activeRoomCode) : "";
     if (!link) {
       return;
     }
@@ -361,9 +378,10 @@ function bindEvents() {
 
   elements.menuBtn.addEventListener("click", () => {
     cancelAiTimer();
-    online.leaveRoom();
     showMainMenu();
-    clearRoomQuery();
+    if (!online.isOnlineActive()) {
+      clearRoomQuery();
+    }
   });
 
   elements.boardEl.addEventListener("click", (event) => {
@@ -492,7 +510,13 @@ function bindEvents() {
 
   elements.newGameBtn.addEventListener("click", () => {
     if (online.isOnlineActive()) {
-      setStatus("New Game is disabled in online mode. Return to menu to create a room.");
+      const roomToLeave = activeRoomCode || online.getSession().roomCode;
+      online.leaveRoom();
+      online.clearRoomToken(roomToLeave);
+      activeRoomCode = null;
+      waitingRoomState = createWaitingRoomState();
+      clearRoomQuery();
+      showMainMenu();
       return;
     }
 
@@ -717,6 +741,7 @@ function render() {
   renderShopPanel();
   updateMeta();
   updateTopStatus();
+  updateTopButtons();
   updateOnlineConnectionStatus();
 
   scheduleAiTurnIfNeeded();
@@ -1009,22 +1034,17 @@ function initializeEntryMode() {
   const room = url.searchParams.get("room");
 
   if (mode === "online" && room) {
-    activeRoomCode = room;
+    activeRoomCode = room.toUpperCase();
     waitingRoomState = {
       ...createWaitingRoomState(),
       mode: "friend",
-      opponentJoined: true,
     };
-    updateOnlineRoomUI(room);
+    elements.onlineJoinCode.value = activeRoomCode;
+    updateOnlineRoomUI(activeRoomCode);
     showOnlinePanel();
     const pseudo = normalizePseudo(elements.onlinePseudo.value || online.getSession().displayName || "");
     elements.onlinePseudo.value = pseudo;
     online.setDisplayName(pseudo);
-    online.joinRoom(room, { displayName: pseudo }).then((ok) => {
-      if (!ok) {
-        showMainMenu();
-      }
-    });
     return;
   }
 
@@ -1089,7 +1109,9 @@ function updateOnlineRoomUI(roomCode) {
   const isQueueMode = waitingRoomState.mode === "queue";
 
   elements.onlineRoomCode.textContent = isFriendMode ? `Room: ${roomCode}` : "Room: Auto-match";
-  elements.onlineRoomLink.value = isFriendMode && roomCode !== "-" ? buildRoomLink(roomCode) : "";
+  if (elements.onlineRoomLinkWrap) {
+    elements.onlineRoomLinkWrap.hidden = true;
+  }
   elements.waitingRole.textContent = waitingRoomState.playerId
     ? `You are: ${waitingRoomState.yourName || getDisplayPlayerName(waitingRoomState.playerId)}`
     : "You are: -";
@@ -1186,6 +1208,12 @@ function updateOnlineConnectionStatus() {
   const role = waitingRoomState.playerId ? getDisplayPlayerName(waitingRoomState.playerId) : "-";
   const oppStatus = waitingRoomState.opponentConnected ? "connected" : "disconnected";
   elements.onlineConnection.textContent = `Online: You are ${role}. Opponent ${oppStatus}.`;
+}
+
+function updateTopButtons() {
+  const onlineGame = online.isOnlineActive();
+  elements.newGameBtn.hidden = false;
+  elements.newGameBtn.textContent = onlineGame ? "Leave Game" : "New Game";
 }
 
 function getValidatedOnlinePseudo() {

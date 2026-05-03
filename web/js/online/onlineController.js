@@ -114,9 +114,30 @@ export function createOnlineController() {
       send({ type: "leave_room" });
       session.socket.close();
     }
+    session.roomCode = null;
+    session.playerId = null;
+    session.token = null;
     session.started = false;
     session.seq = 0;
     session.clientSeq = 0;
+  }
+
+  function clearRoomToken(roomCode) {
+    if (!roomCode) {
+      return;
+    }
+
+    const key = `${STORAGE_PREFIX}${roomCode}`;
+    try {
+      window.sessionStorage.removeItem(key);
+    } catch {
+      // Ignore storage failures.
+    }
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      // Ignore storage failures.
+    }
   }
 
   async function joinQueue(displayName = session.displayName) {
@@ -263,6 +284,7 @@ export function createOnlineController() {
     isOnlineActive,
     getSession,
     setDisplayName,
+    clearRoomToken,
     setListeners,
   };
 }
