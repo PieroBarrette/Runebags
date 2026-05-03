@@ -259,7 +259,7 @@ function bindEvents() {
       mode: "friend",
     };
     updateOnlineRoomUI(activeRoomCode);
-    const ok = await online.joinRoom(code);
+    const ok = await online.joinRoom(code, { allowReconnect: false });
     if (!ok) {
       waitingRoomState = createWaitingRoomState();
       activeRoomCode = null;

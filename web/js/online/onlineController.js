@@ -74,12 +74,13 @@ export function createOnlineController() {
     }
   }
 
-  async function joinRoom(roomCode) {
+  async function joinRoom(roomCode, options = {}) {
     try {
       await connect();
       session.roomCode = roomCode;
+      const allowReconnect = options.allowReconnect !== false;
       const token = loadToken(roomCode);
-      if (token) {
+      if (allowReconnect && token) {
         send({ type: "reconnect", roomCode, token });
         return true;
       }
