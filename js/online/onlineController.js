@@ -196,6 +196,11 @@ export function createOnlineController() {
 function resolveSocketUrl() {
   const configured = String(window.RUNEBAGS_ONLINE_SERVER || "").trim();
   if (configured) {
+    const lower = configured.toLowerCase();
+    if (lower.includes("your-real-render-url") || lower.includes("your-service") || lower.includes("example")) {
+      throw new Error("RUNEBAGS_ONLINE_SERVER is still a placeholder. Set your real Render URL.");
+    }
+
     const parsed = new URL(configured);
     if (parsed.protocol === "http:") {
       parsed.protocol = "ws:";
