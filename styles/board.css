@@ -108,6 +108,90 @@
   opacity: 0.74;
 }
 
+body[data-animations="on"] .cell.anim-place.has-piece::before {
+  animation: rune-drop-in 170ms ease-out;
+}
+
+body[data-animations="on"] .cell.anim-place .rune-symbol,
+body[data-animations="on"] .cell.anim-move .rune-symbol {
+  animation: rune-symbol-fade-in 180ms ease-out;
+}
+
+body[data-animations="on"] .cell.anim-move.has-piece::before {
+  animation: rune-move-cue 140ms ease-out;
+}
+
+body[data-animations="on"] .cell.anim-remove::after {
+  content: "";
+  position: absolute;
+  inset: 18%;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 160, 122, 0.8);
+  pointer-events: none;
+  animation: rune-remove-cue 160ms ease-out;
+}
+
+body[data-animations="on"] .cell.anim-effect::after {
+  content: "";
+  position: absolute;
+  inset: 10%;
+  border-radius: 50%;
+  border: 2px solid rgba(123, 215, 137, 0.8);
+  pointer-events: none;
+  animation: rune-effect-pulse 220ms ease-out;
+}
+
+@keyframes rune-drop-in {
+  from {
+    transform: translateY(-12%) scale(0.93);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes rune-symbol-fade-in {
+  from {
+    opacity: 0.25;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes rune-move-cue {
+  0% {
+    transform: translateX(4%) scale(0.98);
+  }
+  100% {
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes rune-remove-cue {
+  from {
+    transform: scale(1);
+    opacity: 0.95;
+  }
+  to {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+}
+
+@keyframes rune-effect-pulse {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.95;
+  }
+  100% {
+    transform: scale(1.2);
+    opacity: 0;
+  }
+}
+
 body[data-theme="dark"] .board {
   border-color: rgba(220, 230, 241, 0.24);
 }
@@ -127,4 +211,12 @@ body[data-theme="dark"] .cell.forced-column {
 
 body[data-theme="dark"] .cell.winning-cell {
   background: rgba(123, 215, 137, 0.28);
+}
+
+body[data-theme="dark"][data-animations="on"] .cell.anim-remove::after {
+  border-color: rgba(255, 170, 141, 0.85);
+}
+
+body[data-theme="dark"][data-animations="on"] .cell.anim-effect::after {
+  border-color: rgba(158, 232, 169, 0.85);
 }

@@ -33,6 +33,7 @@ import { createOnlineController } from "./online/onlineController.js";
 import { getRuneById } from "./runes/runeCatalog.js";
 
 const THEME_STORAGE_KEY = "runebags-theme-v1";
+const ANIMATION_STORAGE_KEY = "runebags-animations-v1";
 const ONLINE_NAME_MAX = 14;
 
 const elements = {
@@ -49,6 +50,7 @@ const elements = {
   menuSettingsBtn: document.getElementById("menu-settings-btn"),
   settingsPanel: document.getElementById("settings-panel"),
   themeSelect: document.getElementById("theme-select"),
+  animationToggle: document.getElementById("animation-toggle"),
   settingsBackBtn: document.getElementById("settings-back-btn"),
   onlinePanel: document.getElementById("online-panel"),
   onlineRoomCode: document.getElementById("online-room-code"),
@@ -120,10 +122,13 @@ const aiConfig = createAiConfig();
 const online = createOnlineController();
 let aiBusy = false;
 let aiTimer = null;
+let animationsEnabled = true;
+let previousBoardSnapshot = null;
 
 wireOnlineEvents();
 bindEvents();
 initializeTheme();
+initializeAnimations();
 render();
 initializeEntryMode();
 window.setInterval(tickOnlineShopTimer, 1000);
@@ -349,6 +354,12 @@ function bindEvents() {
     const selectedTheme = elements.themeSelect.value === "dark" ? "dark" : "light";
     applyTheme(selectedTheme);
     saveThemePreference(selectedTheme);
+  });
+
+  elements.animationToggle.addEventListener("change", () => {
+    const enabled = Boolean(elements.animationToggle.checked);
+    applyAnimationsSetting(enabled);
+    saveAnimationsPreference(enabled);
   });
 
   elements.onlineBackBtn.addEventListener("click", () => {
@@ -787,7 +798,9 @@ function render() {
     elements.player2Toggle.hidden = false;
   }
 
-  renderBoard(state, elements, pendingTargets, winningLine, forcedColumns);
+  const animationFrame = buildBoardAnimationFrame(state, animationsEnabled, previousBoardSnapshot);
+  renderBoard(state, elements, pendingTargets, winningLine, forcedColumns, animationFrame);
+  previousBoardSnapshot = snapshotBoard(state.boardRunes);
   renderHands(state, elements, handVisibility, forcedVisible);
   applyOnlinePlayerNames();
 
@@ -1397,10 +1410,150 @@ function initializeTheme() {
   elements.themeSelect.value = theme;
 }
 
+function initializeAnimations() {
+  const saved = localStorage.getItem(ANIMATION_STORAGE_KEY);
+  const enabled = saved !== "off";
+  applyAnimationsSetting(enabled);
+}
+
 function applyTheme(theme) {
   document.body.setAttribute("data-theme", theme);
 }
 
 function saveThemePreference(theme) {
   localStorage.setItem(THEME_STORAGE_KEY, theme);
+}
+
+function applyAnimationsSetting(enabled) {
+  animationsEnabled = Boolean(enabled);
+  document.body.setAttribute("data-animations", animationsEnabled ? "on" : "off");
+  elements.animationToggle.checked = animationsEnabled;
+  if (!animationsEnabled) {
+    previousBoardSnapshot = snapshotBoard(state.boardRunes);
+  }
+}
+
+function saveAnimationsPreference(enabled) {
+  localStorage.setItem(ANIMATION_STORAGE_KEY, enabled ? "on" : "off");
+}
+
+function snapshotBoard(boardRunes) {
+  return boardRunes.map((row) => row.map((rune) => {
+    if (!rune) {
+      return null;
+    }
+    return {
+      instanceId: rune.instanceId || null,
+      id: rune.id,
+    };
+  }));
+}
+
+function buildBoardAnimationFrame(currentState, enabled, previousSnapshot) {
+  const none = {
+    enabled: false,
+    placed: new Set(),
+    movedTo: new Set(),
+    removedFrom: new Set(),
+    effectPulse: new Set(),
+  };
+
+  if (!enabled || currentState.phase !== "round" || !previousSnapshot) {
+    return none;
+  }
+
+  const prevByInstance = new Map();
+  const currByInstance = new Map();
+  const prevCells = new Map();
+  const currCells = new Map();
+
+  for (let row = 0; row < currentState.rows; row += 1) {
+    for (let col = 0; col < currentState.columns; col += 1) {
+      const key = `${row}:${col}`;
+      const prevRune = previousSnapshot[row]?.[col] || null;
+      const currRune = currentState.boardRunes[row][col] || null;
+
+      if (prevRune) {
+        prevCells.set(key, prevRune);
+        if (prevRune.instanceId) {
+          prevByInstance.set(prevRune.instanceId, key);
+        }
+      }
+
+      if (currRune) {
+        currCells.set(key, currRune);
+        if (currRune.instanceId) {
+          currByInstance.set(currRune.instanceId, key);
+        }
+      }
+    }
+  }
+
+  const placed = new Set();
+  const movedTo = new Set();
+  const removedFrom = new Set();
+  const effectPulse = new Set();
+
+  currCells.forEach((rune, key) => {
+    const instanceId = rune.instanceId || null;
+    if (!instanceId) {
+      if (!prevCells.has(key)) {
+        placed.add(key);
+      }
+      if (rune.id !== "basic" && rune.id !== "neutral") {
+        effectPulse.add(key);
+      }
+      return;
+    }
+
+    const previousCell = prevByInstance.get(instanceId);
+    if (!previousCell) {
+      placed.add(key);
+      if (rune.id !== "basic" && rune.id !== "neutral") {
+        effectPulse.add(key);
+      }
+      return;
+    }
+
+    if (previousCell !== key) {
+      movedTo.add(key);
+      removedFrom.add(previousCell);
+      if (rune.id !== "basic" && rune.id !== "neutral") {
+        effectPulse.add(key);
+      }
+      return;
+    }
+
+    const previousRune = prevCells.get(key);
+    if (previousRune && previousRune.id !== rune.id && rune.id !== "basic" && rune.id !== "neutral") {
+      effectPulse.add(key);
+    }
+  });
+
+  prevCells.forEach((prevRune, key) => {
+    const instanceId = prevRune.instanceId || null;
+    if (!instanceId) {
+      if (!currCells.has(key)) {
+        removedFrom.add(key);
+      }
+      return;
+    }
+
+    if (!currByInstance.has(instanceId)) {
+      removedFrom.add(key);
+    }
+  });
+
+  const totalChanges = placed.size + movedTo.size + removedFrom.size;
+  if (totalChanges === 0 || totalChanges > 8) {
+    return none;
+  }
+
+  return {
+    enabled: true,
+    placed,
+    movedTo,
+    removedFrom,
+    effectPulse,
+  };
 }

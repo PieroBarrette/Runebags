@@ -1,4 +1,11 @@
-export function renderBoard(state, elements, pendingTargets, winningLine, forcedColumns = []) {
+export function renderBoard(
+  state,
+  elements,
+  pendingTargets,
+  winningLine,
+  forcedColumns = [],
+  animationFrame = { enabled: false }
+) {
   const { boardEl } = elements;
   boardEl.innerHTML = "";
 
@@ -67,6 +74,25 @@ export function renderBoard(state, elements, pendingTargets, winningLine, forced
         pendingTargets.pending &&
         ((pendingTargets.mode === "columns" && isTargetColumn) ||
           (pendingTargets.mode === "cells" && isTargetCell));
+      const animationKey = `${row}:${col}`;
+
+      if (animationFrame.enabled) {
+        if (animationFrame.placed?.has(animationKey)) {
+          button.classList.add("anim-place");
+        }
+
+        if (animationFrame.movedTo?.has(animationKey)) {
+          button.classList.add("anim-move");
+        }
+
+        if (animationFrame.removedFrom?.has(animationKey)) {
+          button.classList.add("anim-remove");
+        }
+
+        if (animationFrame.effectPulse?.has(animationKey)) {
+          button.classList.add("anim-effect");
+        }
+      }
 
       if (isInteractiveTarget) {
         button.classList.add("target-cell");
