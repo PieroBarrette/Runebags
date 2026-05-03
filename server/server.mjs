@@ -16,12 +16,12 @@ import {
   shopSelectOfferRune,
   startRoundFromShop,
   switchShopPlayer,
-} from "../web/js/core/gameState.js";
+} from "../js/core/gameState.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, "..");
-const WEB_ROOT = path.join(ROOT, "web");
+const PUBLIC_ROOT = ROOT;
 const PERSIST_PATH = path.join(__dirname, "rooms.json");
 const PORT = Number(process.env.PORT || 8080);
 const SHOP_READY_TIMEOUT_MS = 180000;
@@ -108,10 +108,15 @@ setInterval(() => {
 async function handleHttp(req, res) {
   const reqPath = decodeURIComponent((req.url || "/").split("?")[0]);
   let target = reqPath === "/" ? "/index.html" : reqPath;
-  target = target.replace(/^\/+/, "");
+  if (!isAllowedPublicPath(target)) {
+    res.writeHead(403);
+    res.end("Forbidden");
+    return;
+  }
 
-  const filePath = path.normalize(path.join(WEB_ROOT, target));
-  if (!filePath.startsWith(WEB_ROOT)) {
+  target = target.replace(/^\/+/, "");
+  const filePath = path.normalize(path.join(PUBLIC_ROOT, target));
+  if (!filePath.startsWith(PUBLIC_ROOT)) {
     res.writeHead(403);
     res.end("Forbidden");
     return;
@@ -133,6 +138,14 @@ async function handleHttp(req, res) {
     res.writeHead(404);
     res.end("Not found");
   }
+}
+
+function isAllowedPublicPath(target) {
+  return target === "/index.html"
+    || target === "/"
+    || target.startsWith("/js/")
+    || target.startsWith("/styles/")
+    || target.startsWith("/assets/");
 }
 
 function handleMessage(ws, message) {
