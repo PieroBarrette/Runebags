@@ -3,6 +3,7 @@
 }
 
 .board {
+  --board-anim-duration: 500ms;
   --columns: 7;
   --rows: 6;
   display: grid;
@@ -109,26 +110,29 @@
 }
 
 body[data-animations="on"] .cell.anim-place.has-piece::before {
-  animation: rune-drop-in 170ms ease-out;
+  animation: rune-drop-in var(--board-anim-duration) cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 body[data-animations="on"] .cell.anim-place .rune-symbol,
 body[data-animations="on"] .cell.anim-move .rune-symbol {
-  animation: rune-symbol-fade-in 180ms ease-out;
+  animation: rune-symbol-fade-in var(--board-anim-duration) cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 body[data-animations="on"] .cell.anim-move.has-piece::before {
-  animation: rune-move-cue 140ms ease-out;
+  animation: rune-move-cue var(--board-anim-duration) cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 body[data-animations="on"] .cell.anim-remove::after {
   content: "";
   position: absolute;
-  inset: 18%;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 160, 122, 0.8);
+  left: 18%;
+  right: 18%;
+  top: 46%;
+  height: 10%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(255, 160, 122, 0), rgba(255, 160, 122, 0.92), rgba(255, 160, 122, 0));
   pointer-events: none;
-  animation: rune-remove-cue 160ms ease-out;
+  animation: rune-remove-cue var(--board-anim-duration) cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 body[data-animations="on"] .cell.anim-effect::after {
@@ -138,12 +142,12 @@ body[data-animations="on"] .cell.anim-effect::after {
   border-radius: 50%;
   border: 2px solid rgba(123, 215, 137, 0.8);
   pointer-events: none;
-  animation: rune-effect-pulse 220ms ease-out;
+  animation: rune-effect-pulse var(--board-anim-duration) cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 @keyframes rune-drop-in {
   from {
-    transform: translateY(-12%) scale(0.93);
+    transform: translateY(-24%) scale(0.9);
     opacity: 0.6;
   }
   to {
@@ -154,40 +158,54 @@ body[data-animations="on"] .cell.anim-effect::after {
 
 @keyframes rune-symbol-fade-in {
   from {
+    transform: translateY(-18%);
     opacity: 0.25;
   }
   to {
+    transform: translateY(0);
     opacity: 1;
   }
 }
 
 @keyframes rune-move-cue {
   0% {
-    transform: translateX(4%) scale(0.98);
+    transform: translateX(-14%) scale(0.95);
+    opacity: 0.72;
+  }
+  65% {
+    transform: translateX(8%) scale(1.02);
+    opacity: 1;
   }
   100% {
     transform: translateX(0) scale(1);
+    opacity: 1;
   }
 }
 
 @keyframes rune-remove-cue {
-  from {
-    transform: scale(1);
+  0% {
+    transform: translateX(-34%) rotate(-14deg);
+    opacity: 0;
+  }
+  35% {
     opacity: 0.95;
   }
-  to {
-    transform: scale(0.6);
+  100% {
+    transform: translateX(34%) rotate(-14deg);
     opacity: 0;
   }
 }
 
 @keyframes rune-effect-pulse {
   0% {
-    transform: scale(0.7);
-    opacity: 0.95;
+    transform: translateY(18%) rotate(0deg);
+    opacity: 0;
+  }
+  35% {
+    opacity: 0.92;
   }
   100% {
-    transform: scale(1.2);
+    transform: translateY(-18%) rotate(120deg);
     opacity: 0;
   }
 }
@@ -214,7 +232,7 @@ body[data-theme="dark"] .cell.winning-cell {
 }
 
 body[data-theme="dark"][data-animations="on"] .cell.anim-remove::after {
-  border-color: rgba(255, 170, 141, 0.85);
+  background: linear-gradient(90deg, rgba(255, 170, 141, 0), rgba(255, 170, 141, 0.95), rgba(255, 170, 141, 0));
 }
 
 body[data-theme="dark"][data-animations="on"] .cell.anim-effect::after {
