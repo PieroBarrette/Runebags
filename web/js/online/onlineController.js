@@ -1,5 +1,6 @@
 const STORAGE_PREFIX = "runebags-online-token:";
 const GUEST_ID_KEY = "runebags-guest-id";
+const DISPLAY_NAME_KEY = "runebags-display-name";
 
 export function createOnlineController() {
   const listeners = {
@@ -19,6 +20,7 @@ export function createOnlineController() {
     clientSeq: 0,
     queued: false,
     guestId: loadOrCreateGuestId(),
+    displayName: loadOrCreateDisplayName(),
     started: false,
   };
 
@@ -63,10 +65,13 @@ export function createOnlineController() {
     });
   }
 
-  async function createRoom(roomCode) {
+  async function createRoom(roomCode, displayName = session.displayName) {
     try {
       await connect();
-      send({ type: "create_room", roomCode });
+      const normalizedName = normalizeDisplayName(displayName);
+      session.displayName = normalizedName;
+      saveDisplayName(normalizedName);
+      send({ type: "create_room", roomCode, displayName: normalizedName });
       return true;
     } catch {
       listeners.error("Failed to create room.");
@@ -79,12 +84,15 @@ export function createOnlineController() {
       await connect();
       session.roomCode = roomCode;
       const allowReconnect = options.allowReconnect !== false;
+      const normalizedName = normalizeDisplayName(options.displayName || session.displayName);
+      session.displayName = normalizedName;
+      saveDisplayName(normalizedName);
       const token = loadToken(roomCode);
       if (allowReconnect && token) {
-        send({ type: "reconnect", roomCode, token });
+        send({ type: "reconnect", roomCode, token, displayName: normalizedName });
         return true;
       }
-      send({ type: "join_room", roomCode });
+      send({ type: "join_room", roomCode, displayName: normalizedName });
       return true;
     } catch {
       listeners.error("Failed to join room.");
@@ -111,15 +119,24 @@ export function createOnlineController() {
     session.clientSeq = 0;
   }
 
-  async function joinQueue() {
+  async function joinQueue(displayName = session.displayName) {
     try {
       await connect();
-      send({ type: "queue_join", guestId: session.guestId });
+      const normalizedName = normalizeDisplayName(displayName);
+      session.displayName = normalizedName;
+      saveDisplayName(normalizedName);
+      send({ type: "queue_join", guestId: session.guestId, displayName: normalizedName });
       return true;
     } catch {
       listeners.error("Failed to join quick play queue.");
       return false;
     }
+  }
+
+  function setDisplayName(displayName) {
+    const normalizedName = normalizeDisplayName(displayName);
+    session.displayName = normalizedName;
+    saveDisplayName(normalizedName);
   }
 
   function cancelQueue() {
@@ -181,6 +198,9 @@ export function createOnlineController() {
       listeners.waiting({
         roomCode: msg.roomCode,
         playerId: msg.playerId,
+        youName: msg.youName || session.displayName,
+        opponentName: msg.opponentName || "Opponent",
+        playerNames: msg.playerNames || null,
         youReady: Boolean(msg.youReady),
         opponentJoined: Boolean(msg.opponentJoined),
         opponentReady: Boolean(msg.opponentReady),
@@ -202,7 +222,14 @@ export function createOnlineController() {
       session.started = true;
       session.queued = false;
       session.playerId = msg.playerId;
-      listeners.state({ state: msg.state, seq: msg.seq, playerId: msg.playerId, roomCode: msg.roomCode });
+      listeners.state({
+        state: msg.state,
+        seq: msg.seq,
+        playerId: msg.playerId,
+        roomCode: msg.roomCode,
+        playerNames: msg.playerNames || null,
+        shopSync: msg.shopSync || null,
+      });
       return;
     }
 
@@ -235,8 +262,35 @@ export function createOnlineController() {
     sendAction,
     isOnlineActive,
     getSession,
+    setDisplayName,
     setListeners,
   };
+}
+
+function normalizeDisplayName(value) {
+  const safe = String(value || "").replace(/\s+/g, " ").trim();
+  return safe.slice(0, 14) || "Guest";
+}
+
+function loadOrCreateDisplayName() {
+  try {
+    const existing = window.localStorage.getItem(DISPLAY_NAME_KEY);
+    if (existing) {
+      return normalizeDisplayName(existing);
+    }
+  } catch {
+    // Ignore storage failures.
+  }
+
+  return `Guest-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+}
+
+function saveDisplayName(name) {
+  try {
+    window.localStorage.setItem(DISPLAY_NAME_KEY, normalizeDisplayName(name));
+  } catch {
+    // Ignore storage failures.
+  }
 }
 
 function loadOrCreateGuestId() {

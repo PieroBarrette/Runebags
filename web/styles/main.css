@@ -162,6 +162,11 @@ h2 {
   margin-top: 0.35rem;
 }
 
+.online-name-grid {
+  max-width: 320px;
+  margin-top: 0.4rem;
+}
+
 #online-join-code {
   width: 150px;
   text-transform: uppercase;

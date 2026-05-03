@@ -33,6 +33,7 @@ import { createOnlineController } from "./online/onlineController.js";
 import { getRuneById } from "./runes/runeCatalog.js";
 
 const THEME_STORAGE_KEY = "runebags-theme-v1";
+const ONLINE_NAME_MAX = 14;
 
 const elements = {
   mainMenu: document.getElementById("main-menu"),
@@ -55,6 +56,7 @@ const elements = {
   waitingOpponentStatus: document.getElementById("waiting-opponent-status"),
   onlineQuickBtn: document.getElementById("online-quick-btn"),
   onlineFriendBtn: document.getElementById("online-friend-btn"),
+  onlinePseudo: document.getElementById("online-pseudo"),
   onlineJoinCode: document.getElementById("online-join-code"),
   onlineJoinBtn: document.getElementById("online-join-btn"),
   onlineCopyLinkBtn: document.getElementById("online-copy-link-btn"),
@@ -73,6 +75,8 @@ const elements = {
   newGameBtn: document.getElementById("new-game-btn"),
   player1Panel: document.getElementById("player-1-panel"),
   player2Panel: document.getElementById("player-2-panel"),
+  p1Name: document.getElementById("p1-name"),
+  p2Name: document.getElementById("p2-name"),
   player1Hand: document.getElementById("p1-hand"),
   player2Hand: document.getElementById("p2-hand"),
   player1Toggle: document.getElementById("p1-hand-toggle"),
@@ -116,6 +120,7 @@ bindEvents();
 initializeTheme();
 render();
 initializeEntryMode();
+window.setInterval(tickOnlineShopTimer, 1000);
 
 function wireOnlineEvents() {
   online.setListeners({
@@ -125,6 +130,9 @@ function wireOnlineEvents() {
         mode: waitingRoomState.mode === "queue" ? "queue" : "friend",
         queued: false,
         queuePosition: 0,
+        playerNames: snapshot.playerNames || waitingRoomState.playerNames,
+        yourName: snapshot.youName || waitingRoomState.yourName,
+        opponentName: snapshot.opponentName || waitingRoomState.opponentName,
         youReady: snapshot.youReady,
         opponentJoined: snapshot.opponentJoined,
         opponentReady: snapshot.opponentReady,
@@ -132,16 +140,30 @@ function wireOnlineEvents() {
         started: snapshot.started,
         playerId: snapshot.playerId,
         opponentConnected: snapshot.opponentConnected,
+        shopReadyYou: false,
+        shopReadyOpponent: false,
+        shopDeadlineAt: null,
+        shopSecondsRemaining: 0,
       };
 
+      applyOnlinePlayerNames();
       updateOnlineRoomUI(activeRoomCode);
       if (!elements.onlinePanel.hidden) {
-        setStatus(`Room ${activeRoomCode}: ${getPlayerName(snapshot.playerId)} connected.`);
+        setStatus(`Room ${activeRoomCode}: ${getDisplayPlayerName(snapshot.playerId)} connected.`);
       }
       updateOnlineConnectionStatus();
     },
     state: (snapshot) => {
       state = restoreState(snapshot.state);
+      waitingRoomState = {
+        ...waitingRoomState,
+        playerNames: snapshot.playerNames || waitingRoomState.playerNames,
+        shopReadyYou: Boolean(snapshot.shopSync?.youReady),
+        shopReadyOpponent: Boolean(snapshot.shopSync?.opponentReady),
+        shopDeadlineAt: snapshot.shopSync?.deadlineAt || null,
+        shopSecondsRemaining: Number(snapshot.shopSync?.secondsRemaining || 0),
+      };
+      applyOnlinePlayerNames();
       if (elements.gameScreen.hidden) {
         enterGameScreen("online", snapshot.roomCode);
       }
@@ -208,10 +230,16 @@ function bindEvents() {
     activeRoomCode = null;
     waitingRoomState = createWaitingRoomState();
     updateOnlineRoomUI("-");
+    elements.onlinePseudo.value = normalizePseudo(elements.onlinePseudo.value || online.getSession().displayName || "");
     showOnlinePanel();
   });
 
   elements.onlineQuickBtn.addEventListener("click", async () => {
+    const pseudo = getValidatedOnlinePseudo();
+    if (!pseudo) {
+      return;
+    }
+    online.setDisplayName(pseudo);
     online.leaveRoom();
     activeRoomCode = null;
     waitingRoomState = {
@@ -222,7 +250,7 @@ function bindEvents() {
     };
     updateOnlineRoomUI("-");
     setStatus("Searching for opponent...");
-    const ok = await online.joinQueue();
+    const ok = await online.joinQueue(pseudo);
     if (!ok) {
       waitingRoomState = createWaitingRoomState();
       updateOnlineRoomUI("-");
@@ -230,6 +258,11 @@ function bindEvents() {
   });
 
   elements.onlineFriendBtn.addEventListener("click", async () => {
+    const pseudo = getValidatedOnlinePseudo();
+    if (!pseudo) {
+      return;
+    }
+    online.setDisplayName(pseudo);
     online.leaveRoom();
     activeRoomCode = createRoomCode();
     waitingRoomState = {
@@ -237,7 +270,7 @@ function bindEvents() {
       mode: "friend",
     };
     updateOnlineRoomUI(activeRoomCode);
-    const ok = await online.createRoom(activeRoomCode);
+    const ok = await online.createRoom(activeRoomCode, pseudo);
     if (!ok) {
       waitingRoomState = createWaitingRoomState();
       activeRoomCode = null;
@@ -246,6 +279,11 @@ function bindEvents() {
   });
 
   elements.onlineJoinBtn.addEventListener("click", async () => {
+    const pseudo = getValidatedOnlinePseudo();
+    if (!pseudo) {
+      return;
+    }
+    online.setDisplayName(pseudo);
     const code = elements.onlineJoinCode.value.trim().toUpperCase();
     if (!/^[A-Z2-9]{6}$/.test(code)) {
       window.alert("Enter a valid 6-character room code.");
@@ -259,7 +297,7 @@ function bindEvents() {
       mode: "friend",
     };
     updateOnlineRoomUI(activeRoomCode);
-    const ok = await online.joinRoom(code, { allowReconnect: false });
+    const ok = await online.joinRoom(code, { allowReconnect: false, displayName: pseudo });
     if (!ok) {
       waitingRoomState = createWaitingRoomState();
       activeRoomCode = null;
@@ -413,6 +451,10 @@ function bindEvents() {
 
   elements.phaseBtn.addEventListener("click", () => {
     if (online.isOnlineActive()) {
+      if (state.phase === "shop") {
+        online.sendAction("shop_ready", { ready: !waitingRoomState.shopReadyYou });
+        return;
+      }
       online.sendAction("phase_action", {});
       return;
     }
@@ -631,6 +673,8 @@ function render() {
   }
 
   if (online.isOnlineActive()) {
+    elements.player1Toggle.hidden = true;
+    elements.player2Toggle.hidden = true;
     const yourId = waitingRoomState.playerId;
     const opponentId = yourId === 1 ? 2 : 1;
 
@@ -649,10 +693,14 @@ function render() {
         yourToggle.disabled = true;
       }
     }
+  } else {
+    elements.player1Toggle.hidden = false;
+    elements.player2Toggle.hidden = false;
   }
 
   renderBoard(state, elements, pendingTargets, winningLine, forcedColumns);
   renderHands(state, elements, handVisibility, forcedVisible);
+  applyOnlinePlayerNames();
 
   if (aiConfig.enabled) {
     const aiToggle = aiConfig.playerId === 1 ? elements.player1Toggle : elements.player2Toggle;
@@ -676,25 +724,25 @@ function render() {
 
 function updateTopStatus() {
   if (state.pendingAction) {
-    elements.turnPill.textContent = `Round ${state.roundNumber} - ${getPlayerName(state.currentPlayer)} choice`;
+    elements.turnPill.textContent = `Round ${state.roundNumber} - ${getDisplayPlayerName(state.currentPlayer)} choice`;
     elements.status.textContent = getPendingActionPrompt(state);
     return;
   }
 
   if (state.phase === "game-over") {
     elements.turnPill.textContent = state.gameWinner
-      ? `Game Winner: ${getPlayerName(state.gameWinner)}`
+      ? `Game Winner: ${getDisplayPlayerName(state.gameWinner)}`
       : "Game End: Draw";
     elements.status.textContent = state.gameWinner
-      ? `${getPlayerName(state.gameWinner)} wins the game.`
+      ? `${getDisplayPlayerName(state.gameWinner)} wins the game.`
       : "Game ended in a full tie.";
     return;
   }
 
   if (state.phase === "round-end") {
     if (state.winner) {
-      elements.turnPill.textContent = `Round Winner: ${getPlayerName(state.winner)}`;
-      elements.status.textContent = `Round ${state.roundNumber} won by ${getPlayerName(state.winner)}. Click Phase Action for shop.`;
+      elements.turnPill.textContent = `Round Winner: ${getDisplayPlayerName(state.winner)}`;
+      elements.status.textContent = `Round ${state.roundNumber} won by ${getDisplayPlayerName(state.winner)}. Click Phase Action for shop.`;
     } else {
       elements.turnPill.textContent = `Round ${state.roundNumber}: Draw`;
       elements.status.textContent = "Round draw. Click Phase Action for shop.";
@@ -703,40 +751,66 @@ function updateTopStatus() {
   }
 
   if (state.phase === "shop") {
-    elements.turnPill.textContent = `Shop Phase - ${getPlayerName(state.shop.currentPlayer)}`;
-    elements.status.textContent = "Shop: remove once, combine pair, add up to 2 from offer. Switch player to pass device.";
+    elements.turnPill.textContent = online.isOnlineActive()
+      ? "Shop Phase - Simultaneous"
+      : `Shop Phase - ${getDisplayPlayerName(state.shop.currentPlayer)}`;
+
+    if (online.isOnlineActive()) {
+      const timerText = waitingRoomState.shopSecondsRemaining > 0
+        ? ` Timer: ${waitingRoomState.shopSecondsRemaining}s.`
+        : "";
+      elements.status.textContent = waitingRoomState.shopReadyYou
+        ? `You are ready. Waiting for opponent.${timerText}`
+        : `Shop your own bag and offer, then click Shop Ready.${timerText}`;
+    } else {
+      elements.status.textContent = "Shop: remove once, combine pair, add up to 2 from offer. Switch player to pass device.";
+    }
     return;
   }
 
-  elements.turnPill.textContent = `Round ${state.roundNumber} - Turn: ${getPlayerName(state.currentPlayer)}`;
+  elements.turnPill.textContent = `Round ${state.roundNumber} - Turn: ${getDisplayPlayerName(state.currentPlayer)}`;
   const forcedColumns = state.nextTurnConstraints?.[state.currentPlayer] || [];
   if (forcedColumns.length > 0) {
-    elements.status.textContent = `${getPlayerName(state.currentPlayer)}: forced to play adjacent columns (${forcedColumns.map((col) => col + 1).join(", ")}).`;
+    elements.status.textContent = `${getDisplayPlayerName(state.currentPlayer)}: forced to play adjacent columns (${forcedColumns.map((col) => col + 1).join(", ")}).`;
     return;
   }
 
-  elements.status.textContent = `${getPlayerName(state.currentPlayer)}: choose a rune, then click a column.`;
+  elements.status.textContent = `${getDisplayPlayerName(state.currentPlayer)}: choose a rune, then click a column.`;
 }
 
 function renderShopPanel() {
   const inShop = state.phase === "shop";
   elements.shopPanel.hidden = !inShop;
   elements.boardEl.hidden = false;
-  elements.shopSwitchPlayer.hidden = !inShop;
+  elements.shopSwitchPlayer.hidden = !inShop || online.isOnlineActive();
 
   elements.phaseBtn.hidden = state.phase === "round" || state.phase === "game-over";
-  elements.phaseBtn.textContent = state.phase === "shop" ? "Start Next Round" : "Start Shop Phase";
+  if (online.isOnlineActive() && state.phase === "shop") {
+    elements.phaseBtn.textContent = waitingRoomState.shopReadyYou ? "Cancel Ready" : "Shop Ready";
+  } else {
+    elements.phaseBtn.textContent = state.phase === "shop" ? "Start Next Round" : "Start Shop Phase";
+  }
 
   if (!inShop) {
     return;
   }
 
-  const playerId = state.shop.currentPlayer;
+  const playerId = online.isOnlineActive() && waitingRoomState.playerId
+    ? waitingRoomState.playerId
+    : state.shop.currentPlayer;
+
+  const previousShopPlayer = state.shop.currentPlayer;
+  if (previousShopPlayer !== playerId) {
+    state.shop.currentPlayer = playerId;
+  }
+
   const data = state.shop.players[playerId];
   const highlights = getShopHighlights(state);
   const actions = getShopActionAvailability(state);
 
-  elements.shopPlayerTitle.textContent = `Shop - ${getPlayerName(playerId)}`;
+  elements.shopPlayerTitle.textContent = online.isOnlineActive()
+    ? `Your Shop - ${getDisplayPlayerName(playerId)}`
+    : `Shop - ${getDisplayPlayerName(playerId)}`;
   elements.shopModeLabel.textContent = `Mode: ${data.mode || "none"} | Added: ${data.addedCount}/2 | Remove used: ${data.removeUsed ? "yes" : "no"}`;
 
   renderRuneList(elements.shopOffer, data.offer, playerId, highlights.offerHighlightIds);
@@ -744,6 +818,10 @@ function renderShopPanel() {
 
   elements.shopRemoveBtn.hidden = !actions.removeVisible;
   elements.shopCombineBtn.hidden = !actions.combineVisible;
+
+  if (previousShopPlayer !== playerId) {
+    state.shop.currentPlayer = previousShopPlayer;
+  }
 }
 
 function renderRuneList(container, runes, playerId, highlightIds) {
@@ -816,8 +894,8 @@ function renderRuneList(container, runes, playerId, highlightIds) {
 }
 
 function updateMeta() {
-  elements.p1Points.textContent = `Black points: ${state.players[1].points}`;
-  elements.p2Points.textContent = `White points: ${state.players[2].points}`;
+  elements.p1Points.textContent = `${getDisplayPlayerName(1)} points: ${state.players[1].points}`;
+  elements.p2Points.textContent = `${getDisplayPlayerName(2)} points: ${state.players[2].points}`;
   elements.p1Bag.textContent = `Bag: ${state.players[1].bag.length}`;
   elements.p1Discard.textContent = `Discard: ${state.players[1].discard.length}`;
   elements.p2Bag.textContent = `Bag: ${state.players[2].bag.length}`;
@@ -878,7 +956,10 @@ function getCurrentShopMode() {
     return null;
   }
 
-  return state.shop.players[state.shop.currentPlayer].mode;
+  const playerId = online.isOnlineActive() && waitingRoomState.playerId
+    ? waitingRoomState.playerId
+    : state.shop.currentPlayer;
+  return state.shop.players[playerId].mode;
 }
 
 function setStatus(text) {
@@ -936,7 +1017,10 @@ function initializeEntryMode() {
     };
     updateOnlineRoomUI(room);
     showOnlinePanel();
-    online.joinRoom(room).then((ok) => {
+    const pseudo = normalizePseudo(elements.onlinePseudo.value || online.getSession().displayName || "");
+    elements.onlinePseudo.value = pseudo;
+    online.setDisplayName(pseudo);
+    online.joinRoom(room, { displayName: pseudo }).then((ok) => {
       if (!ok) {
         showMainMenu();
       }
@@ -962,6 +1046,7 @@ function showOnlinePanel() {
   elements.onlinePanel.hidden = false;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
+  elements.onlinePseudo.value = normalizePseudo(elements.onlinePseudo.value || online.getSession().displayName || "");
 }
 
 function showRulesPanel() {
@@ -1006,7 +1091,7 @@ function updateOnlineRoomUI(roomCode) {
   elements.onlineRoomCode.textContent = isFriendMode ? `Room: ${roomCode}` : "Room: Auto-match";
   elements.onlineRoomLink.value = isFriendMode && roomCode !== "-" ? buildRoomLink(roomCode) : "";
   elements.waitingRole.textContent = waitingRoomState.playerId
-    ? `You are: ${getPlayerName(waitingRoomState.playerId)}`
+    ? `You are: ${waitingRoomState.yourName || getDisplayPlayerName(waitingRoomState.playerId)}`
     : "You are: -";
 
   elements.onlineReadyBtn.hidden = !isFriendMode;
@@ -1016,7 +1101,7 @@ function updateOnlineRoomUI(roomCode) {
   elements.onlineStartBtn.disabled = !isFriendMode || !waitingRoomState.canStart;
 
   elements.waitingYouStatus.textContent = isFriendMode
-    ? `You: ${waitingRoomState.youReady ? "Ready" : "Not ready"}`
+    ? `${waitingRoomState.yourName || "You"}: ${waitingRoomState.youReady ? "Ready" : "Not ready"}`
     : `You: ${waitingRoomState.queued ? "In queue" : "Not queued"}`;
 
   if (isQueueMode) {
@@ -1027,7 +1112,7 @@ function updateOnlineRoomUI(roomCode) {
       : "Queue: not active";
   } else {
     elements.waitingOpponentStatus.textContent = waitingRoomState.opponentJoined
-      ? `Opponent: ${waitingRoomState.opponentReady ? "Ready" : "Joined (not ready)"}${waitingRoomState.opponentConnected ? "" : " - offline"}`
+      ? `${waitingRoomState.opponentName || "Opponent"}: ${waitingRoomState.opponentReady ? "Ready" : "Joined (not ready)"}${waitingRoomState.opponentConnected ? "" : " - offline"}`
       : "Opponent: Waiting to join...";
   }
 
@@ -1058,6 +1143,9 @@ function createWaitingRoomState() {
     mode: "none",
     queued: false,
     queuePosition: 0,
+    playerNames: null,
+    yourName: "",
+    opponentName: "",
     youReady: false,
     opponentJoined: false,
     opponentReady: false,
@@ -1065,7 +1153,27 @@ function createWaitingRoomState() {
     started: false,
     playerId: null,
     opponentConnected: false,
+    shopReadyYou: false,
+    shopReadyOpponent: false,
+    shopDeadlineAt: null,
+    shopSecondsRemaining: 0,
   };
+}
+
+function tickOnlineShopTimer() {
+  if (!online.isOnlineActive() || state.phase !== "shop" || !waitingRoomState.shopDeadlineAt) {
+    return;
+  }
+
+  const seconds = Math.max(0, Math.ceil((waitingRoomState.shopDeadlineAt - Date.now()) / 1000));
+  if (seconds === waitingRoomState.shopSecondsRemaining) {
+    return;
+  }
+
+  waitingRoomState.shopSecondsRemaining = seconds;
+  if (!elements.gameScreen.hidden) {
+    updateTopStatus();
+  }
 }
 
 function updateOnlineConnectionStatus() {
@@ -1075,9 +1183,38 @@ function updateOnlineConnectionStatus() {
   }
 
   elements.onlineConnection.hidden = false;
-  const role = waitingRoomState.playerId ? getPlayerName(waitingRoomState.playerId) : "-";
+  const role = waitingRoomState.playerId ? getDisplayPlayerName(waitingRoomState.playerId) : "-";
   const oppStatus = waitingRoomState.opponentConnected ? "connected" : "disconnected";
   elements.onlineConnection.textContent = `Online: You are ${role}. Opponent ${oppStatus}.`;
+}
+
+function getValidatedOnlinePseudo() {
+  const pseudo = normalizePseudo(elements.onlinePseudo.value || "");
+  if (!pseudo) {
+    window.alert("Enter a temporary name (1-14 characters) before joining online.");
+    return null;
+  }
+
+  elements.onlinePseudo.value = pseudo;
+  return pseudo;
+}
+
+function normalizePseudo(value) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  return text.slice(0, ONLINE_NAME_MAX);
+}
+
+function getDisplayPlayerName(playerId) {
+  const mapped = waitingRoomState.playerNames?.[playerId];
+  if (online.isOnlineActive() && mapped) {
+    return mapped;
+  }
+  return getPlayerName(playerId);
+}
+
+function applyOnlinePlayerNames() {
+  elements.p1Name.textContent = getDisplayPlayerName(1);
+  elements.p2Name.textContent = getDisplayPlayerName(2);
 }
 
 function buildRoomLink(roomCode) {

@@ -55,6 +55,10 @@
     <section id="online-panel" class="panel menu-panel" hidden>
       <h2>Play Online</h2>
       <p>Choose Quick Play or create a friend room.</p>
+      <div class="settings-grid online-name-grid">
+        <label for="online-pseudo">Temporary Name</label>
+        <input id="online-pseudo" type="text" maxlength="14" placeholder="Your name">
+      </div>
       <div class="menu-actions compact">
         <button id="online-quick-btn" class="menu-btn" type="button">Quick Play</button>
         <button id="online-friend-btn" class="menu-btn" type="button">Play with Friend</button>
@@ -160,7 +164,7 @@
 
       <section class="game-layout">
         <aside class="panel player-panel" id="player-1-panel">
-          <h2>Black</h2>
+          <h2 id="p1-name">Black</h2>
           <p class="bag-meta"><span id="p1-points">Points: 0</span></p>
           <p class="bag-meta"><span id="p1-bag">Bag: 0</span> | <span id="p1-discard">Discard: 0</span></p>
           <button id="p1-hand-toggle" class="hand-toggle" type="button">Reveal Hand</button>
@@ -191,7 +195,7 @@
         </section>
 
         <aside class="panel player-panel" id="player-2-panel">
-          <h2>White</h2>
+          <h2 id="p2-name">White</h2>
           <p class="bag-meta"><span id="p2-points">Points: 0</span></p>
           <p class="bag-meta"><span id="p2-bag">Bag: 0</span> | <span id="p2-discard">Discard: 0</span></p>
           <button id="p2-hand-toggle" class="hand-toggle" type="button">Reveal Hand</button>

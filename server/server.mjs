@@ -24,6 +24,7 @@ const ROOT = path.resolve(__dirname, "..");
 const WEB_ROOT = path.join(ROOT, "web");
 const PERSIST_PATH = path.join(__dirname, "rooms.json");
 const PORT = Number(process.env.PORT || 8080);
+const SHOP_READY_TIMEOUT_MS = 180000;
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -100,6 +101,10 @@ server.listen(PORT, () => {
   console.log(`RuneBags online server listening on http://127.0.0.1:${PORT}`);
 });
 
+setInterval(() => {
+  processShopDeadlines();
+}, 1000);
+
 async function handleHttp(req, res) {
   const reqPath = decodeURIComponent((req.url || "/").split("?")[0]);
   let target = reqPath === "/" ? "/index.html" : reqPath;
@@ -169,9 +174,13 @@ function onQueueJoin(ws, message) {
     return;
   }
 
+  const displayName = normalizeDisplayName(message.displayName, `Guest-${guestId.slice(-4).toUpperCase()}`);
+
   const existing = quickQueue.find((entry) => entry.ws === ws || entry.guestId === guestId);
   if (!existing) {
-    quickQueue.push({ ws, guestId, joinedAt: Date.now() });
+    quickQueue.push({ ws, guestId, displayName, joinedAt: Date.now() });
+  } else {
+    existing.displayName = displayName;
   }
 
   const position = quickQueue.findIndex((entry) => entry.ws === ws) + 1;
@@ -210,7 +219,7 @@ function tryMatchQueue() {
       continue;
     }
 
-    createInstantMatch(first.ws, second.ws);
+    createInstantMatch(first, second);
   }
 
   // Refresh queue positions for remaining players.
@@ -228,7 +237,9 @@ function tryMatchQueue() {
   });
 }
 
-function createInstantMatch(firstWs, secondWs) {
+function createInstantMatch(firstEntry, secondEntry) {
+  const firstWs = firstEntry.ws;
+  const secondWs = secondEntry.ws;
   const roomCode = generateRoomCode();
   const token1 = createToken();
   const token2 = createToken();
@@ -239,9 +250,10 @@ function createInstantMatch(firstWs, secondWs) {
     started: true,
     seq: 1,
     state: restoreState(createInitialState()),
+    shopSync: createShopSyncState(),
     players: {
-      1: createPlayerRecord(token1),
-      2: createPlayerRecord(token2),
+      1: createPlayerRecord(token1, normalizeDisplayName(firstEntry?.displayName, "Player 1")),
+      2: createPlayerRecord(token2, normalizeDisplayName(secondEntry?.displayName, "Player 2")),
     },
   };
 
@@ -269,15 +281,17 @@ function onCreateRoom(ws, message) {
   }
 
   const token = createToken();
+  const displayName = normalizeDisplayName(message.displayName, "Player 1");
   const room = {
     code: roomCode,
     createdAt: Date.now(),
     started: false,
     seq: 0,
     state: null,
+    shopSync: null,
     players: {
-      1: createPlayerRecord(token),
-      2: createPlayerRecord(null),
+      1: createPlayerRecord(token, displayName),
+      2: createPlayerRecord(null, "Player 2"),
     },
   };
 
@@ -312,8 +326,8 @@ function onJoinRoom(ws, message) {
 
   const playerId = room.players[1].token ? 2 : 1;
   const token = createToken();
-
-  room.players[playerId] = createPlayerRecord(token);
+  const defaultName = playerId === 1 ? "Player 1" : "Player 2";
+  room.players[playerId] = createPlayerRecord(token, normalizeDisplayName(message.displayName, defaultName));
   attachSession(ws, room.code, playerId, token);
   persistRooms().catch(() => {});
 
@@ -339,6 +353,10 @@ function onReconnect(ws, message) {
 
   room.players[playerId].connected = true;
   room.players[playerId].lastSeen = Date.now();
+  room.players[playerId].name = normalizeDisplayName(
+    message.displayName,
+    room.players[playerId].name || `Player ${playerId}`,
+  );
 
   attachSession(ws, room.code, playerId, token);
   persistRooms().catch(() => {});
@@ -404,6 +422,7 @@ function onStartMatch(ws) {
   }
 
   room.state = restoreState(createInitialState());
+  room.shopSync = createShopSyncState();
   room.started = true;
   room.seq += 1;
   room.players[1].lastClientSeq = 0;
@@ -431,6 +450,11 @@ function onAction(ws, message) {
   const payload = message.payload || {};
   const clientSeq = Number(message.clientSeq);
 
+  if (actionType === "phase_action" && room.state.phase === "shop") {
+    send(ws, { type: "action_rejected", message: "Use Shop Ready in online shop phase.", actionType });
+    return;
+  }
+
   if (!Number.isInteger(clientSeq)) {
     send(ws, { type: "action_rejected", message: "Missing action sequence number.", actionType });
     return;
@@ -449,11 +473,41 @@ function onAction(ws, message) {
   }
 
   const result = applyAction(room.state, session.playerId, actionType, payload);
+  const previousPhase = room.state.phase;
   room.state = result.state;
+
+  if (actionType === "shop_ready") {
+    const readyValue = payload.ready !== false;
+    const syncResult = setShopReady(room, session.playerId, readyValue);
+    if (syncResult.error) {
+      send(ws, { type: "action_rejected", message: syncResult.error, actionType });
+      return;
+    }
+
+    if (syncResult.startedRound) {
+      playerState.lastClientSeq = clientSeq;
+      room.seq += 1;
+      persistRooms().catch(() => {});
+      broadcastState(room);
+      return;
+    }
+
+    playerState.lastClientSeq = clientSeq;
+    room.seq += 1;
+    persistRooms().catch(() => {});
+    broadcastState(room);
+    return;
+  }
 
   if (result.error) {
     send(ws, { type: "action_rejected", message: result.error, actionType });
     return;
+  }
+
+  if (previousPhase !== "shop" && room.state.phase === "shop") {
+    room.shopSync = createShopSyncState();
+  } else if (room.state.phase !== "shop") {
+    room.shopSync = null;
   }
 
   playerState.lastClientSeq = clientSeq;
@@ -519,32 +573,55 @@ function applyAction(state, playerId, actionType, payload) {
     return { state, error: "Phase action is not available." };
   }
 
+  if (actionType === "shop_ready") {
+    if (state.phase !== "shop") {
+      return { state, error: "Shop ready is only available in shop phase." };
+    }
+    return { state, error: null };
+  }
+
   if (actionType === "shop_switch_player") {
-    if (state.phase !== "shop" || state.shop.currentPlayer !== playerId) {
+    if (state.phase !== "shop") {
       return { state, error: "Cannot switch shop player now." };
     }
-    return switchShopPlayer(state);
+    const original = state.shop.currentPlayer;
+    state.shop.currentPlayer = playerId;
+    const result = switchShopPlayer(state);
+    state.shop.currentPlayer = original;
+    return result;
   }
 
   if (actionType === "shop_set_mode") {
-    if (state.phase !== "shop" || state.shop.currentPlayer !== playerId) {
+    if (state.phase !== "shop") {
       return { state, error: "Cannot set shop mode now." };
     }
-    return setShopMode(state, payload.mode ?? null);
+    const original = state.shop.currentPlayer;
+    state.shop.currentPlayer = playerId;
+    const result = setShopMode(state, payload.mode ?? null);
+    state.shop.currentPlayer = original;
+    return result;
   }
 
   if (actionType === "shop_bag_select") {
-    if (state.phase !== "shop" || state.shop.currentPlayer !== playerId) {
+    if (state.phase !== "shop") {
       return { state, error: "Cannot pick bag rune now." };
     }
-    return shopSelectBagRune(state, payload.runeInstanceId);
+    const original = state.shop.currentPlayer;
+    state.shop.currentPlayer = playerId;
+    const result = shopSelectBagRune(state, payload.runeInstanceId);
+    state.shop.currentPlayer = original;
+    return result;
   }
 
   if (actionType === "shop_offer_select") {
-    if (state.phase !== "shop" || state.shop.currentPlayer !== playerId) {
+    if (state.phase !== "shop") {
       return { state, error: "Cannot pick offer rune now." };
     }
-    return shopSelectOfferRune(state, payload.runeInstanceId);
+    const original = state.shop.currentPlayer;
+    state.shop.currentPlayer = playerId;
+    const result = shopSelectOfferRune(state, payload.runeInstanceId);
+    state.shop.currentPlayer = original;
+    return result;
   }
 
   return { state, error: `Unknown action type: ${actionType}` };
@@ -572,6 +649,8 @@ function broadcastState(room) {
       seq: room.seq,
       state: room.state,
       playerId,
+      playerNames: getRoomPlayerNames(room),
+      shopSync: getShopSyncPayload(room, playerId),
     });
   });
 }
@@ -590,6 +669,9 @@ function sendWaitingSnapshot(ws, room, playerId, token) {
     roomCode: room.code,
     playerId,
     token,
+    youName: you.name || `Player ${playerId}`,
+    opponentName: opp.name || `Player ${playerId === 1 ? 2 : 1}`,
+    playerNames: getRoomPlayerNames(room),
     started: room.started,
     youReady: you.ready,
     opponentJoined: Boolean(opp.token),
@@ -631,15 +713,141 @@ function attachSession(ws, roomCode, playerId, token) {
   wsToSession.set(ws, { roomCode, playerId, token });
 }
 
-function createPlayerRecord(token) {
+function createPlayerRecord(token, name) {
   return {
     token,
+    name: normalizeDisplayName(name, "Player"),
     ready: false,
     connected: Boolean(token),
     lastSeen: Date.now(),
     lastClientSeq: 0,
     ws: null,
   };
+}
+
+function createShopSyncState() {
+  return {
+    ready: { 1: false, 2: false },
+    firstReadyPlayerId: null,
+    deadlineAt: null,
+  };
+}
+
+function setShopReady(room, playerId, ready) {
+  if (!room.state || room.state.phase !== "shop") {
+    return { error: "Shop ready is only available in shop phase.", startedRound: false };
+  }
+
+  if (!room.shopSync) {
+    room.shopSync = createShopSyncState();
+  }
+
+  const opponentId = playerId === 1 ? 2 : 1;
+  room.shopSync.ready[playerId] = Boolean(ready);
+
+  if (room.shopSync.ready[1] && room.shopSync.ready[2]) {
+    return startRoundAfterShopReady(room);
+  }
+
+  if (room.shopSync.ready[playerId] && !room.shopSync.ready[opponentId]) {
+    room.shopSync.firstReadyPlayerId = playerId;
+    room.shopSync.deadlineAt = Date.now() + SHOP_READY_TIMEOUT_MS;
+  }
+
+  if (!room.shopSync.ready[playerId]) {
+    room.shopSync.firstReadyPlayerId = room.shopSync.ready[opponentId] ? opponentId : null;
+    room.shopSync.deadlineAt = room.shopSync.ready[opponentId] ? Date.now() + SHOP_READY_TIMEOUT_MS : null;
+  }
+
+  return { error: null, startedRound: false };
+}
+
+function startRoundAfterShopReady(room) {
+  if (!room.state || room.state.phase !== "shop") {
+    return { error: "Shop phase is not active.", startedRound: false };
+  }
+
+  const result = startRoundFromShop(room.state);
+  room.state = result.state;
+  if (result.error) {
+    return { error: result.error, startedRound: false };
+  }
+
+  room.shopSync = null;
+  return { error: null, startedRound: true };
+}
+
+function processShopDeadlines() {
+  const now = Date.now();
+  let changed = false;
+
+  rooms.forEach((room) => {
+    if (!room.started || !room.state || room.state.phase !== "shop" || !room.shopSync?.deadlineAt) {
+      return;
+    }
+
+    if (now < room.shopSync.deadlineAt) {
+      return;
+    }
+
+    const sync = room.shopSync;
+    if (sync.ready[1] && sync.ready[2]) {
+      return;
+    }
+
+    const starter = sync.firstReadyPlayerId || (sync.ready[1] ? 1 : sync.ready[2] ? 2 : null);
+    if (starter) {
+      const starterName = room.players[starter]?.name || `Player ${starter}`;
+      room.state.log.unshift(`Shop timer expired. ${starterName} was ready, so round starts automatically.`);
+    } else {
+      room.state.log.unshift("Shop timer expired. Round starts automatically.");
+    }
+
+    const started = startRoundAfterShopReady(room);
+    if (started.error) {
+      return;
+    }
+
+    room.seq += 1;
+    broadcastState(room);
+    changed = true;
+  });
+
+  if (changed) {
+    persistRooms().catch(() => {});
+  }
+}
+
+function getRoomPlayerNames(room) {
+  return {
+    1: room.players[1]?.name || "Player 1",
+    2: room.players[2]?.name || "Player 2",
+  };
+}
+
+function getShopSyncPayload(room, playerId) {
+  if (!room.shopSync || !room.state || room.state.phase !== "shop") {
+    return null;
+  }
+
+  const opponentId = playerId === 1 ? 2 : 1;
+  const deadlineAt = room.shopSync.deadlineAt || null;
+  const secondsRemaining = deadlineAt ? Math.max(0, Math.ceil((deadlineAt - Date.now()) / 1000)) : 0;
+
+  return {
+    youReady: Boolean(room.shopSync.ready[playerId]),
+    opponentReady: Boolean(room.shopSync.ready[opponentId]),
+    deadlineAt,
+    secondsRemaining,
+    firstReadyPlayerId: room.shopSync.firstReadyPlayerId,
+  };
+}
+
+function normalizeDisplayName(value, fallback = "Guest") {
+  const text = typeof value === "string" ? value : "";
+  const collapsed = text.replace(/\s+/g, " ").trim();
+  const clipped = collapsed.slice(0, 14);
+  return clipped || fallback;
 }
 
 function removeFromQueueBySocket(ws) {
@@ -717,15 +925,16 @@ async function loadRooms() {
         started: Boolean(entry.started),
         seq: Number(entry.seq || 0),
         state: entry.state ? restoreState(entry.state) : null,
+        shopSync: entry.shopSync || null,
         players: {
           1: {
-            ...createPlayerRecord(entry.players?.[1]?.token || null),
+            ...createPlayerRecord(entry.players?.[1]?.token || null, entry.players?.[1]?.name || "Player 1"),
             ready: Boolean(entry.players?.[1]?.ready),
             connected: false,
             lastClientSeq: Number(entry.players?.[1]?.lastClientSeq || 0),
           },
           2: {
-            ...createPlayerRecord(entry.players?.[2]?.token || null),
+            ...createPlayerRecord(entry.players?.[2]?.token || null, entry.players?.[2]?.name || "Player 2"),
             ready: Boolean(entry.players?.[2]?.ready),
             connected: false,
             lastClientSeq: Number(entry.players?.[2]?.lastClientSeq || 0),
@@ -755,15 +964,18 @@ function persistRooms() {
             started: room.started,
             seq: room.seq,
             state: room.state,
+            shopSync: room.shopSync,
             players: {
               1: {
                 token: room.players[1].token,
+                name: room.players[1].name,
                 ready: room.players[1].ready,
                 lastSeen: room.players[1].lastSeen,
                 lastClientSeq: room.players[1].lastClientSeq,
               },
               2: {
                 token: room.players[2].token,
+                name: room.players[2].name,
                 ready: room.players[2].ready,
                 lastSeen: room.players[2].lastSeen,
                 lastClientSeq: room.players[2].lastClientSeq,
