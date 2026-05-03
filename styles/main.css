@@ -300,8 +300,12 @@ body[data-theme="dark"] .turn-pill {
   width: 0.95rem;
   height: 0.95rem;
   object-fit: contain;
-  filter: grayscale(1) brightness(0.22);
+  filter: grayscale(1) brightness(0.18);
   flex: 0 0 auto;
+}
+
+body[data-theme="dark"] .rules-rune-symbol {
+  filter: grayscale(1) brightness(2.2);
 }
 
 .game-layout {

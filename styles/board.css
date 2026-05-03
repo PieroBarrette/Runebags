@@ -86,7 +86,7 @@
 }
 
 .cell.p1 .rune-symbol {
-  filter: grayscale(1) brightness(2.15) contrast(1.15) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+  filter: invert(1) brightness(1.25) contrast(1.2) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
 }
 
 .cell.p2 .rune-symbol,
@@ -99,7 +99,7 @@
 }
 
 .cell.p1 .rune-symbol.level-2-rune {
-  filter: grayscale(1) brightness(2.15) contrast(1.15)
+  filter: invert(1) brightness(1.25) contrast(1.2)
     drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45))
     drop-shadow(0 0 5px rgba(255, 214, 102, 0.8));
 }

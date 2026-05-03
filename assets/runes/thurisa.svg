@@ -1,1 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" x="0px" y="0px" viewBox="-5.0 -10.0 110.0 135.0" style="enable-background:new 0 0 100 100;" xml:space="preserve"><path d="M66.61,48.05L37.95,28.91V12.64c0-1.54-1.3-2.79-2.9-2.79c-1.6,0-2.9,1.25-2.9,2.79v17.7c0,0,0,0,0,0v57.02  c0,1.54,1.3,2.79,2.9,2.79c1.6,0,2.9-1.25,2.9-2.79V71.92l28.68-19.28c0.78-0.52,1.24-1.38,1.24-2.29  C67.86,49.43,67.39,48.58,66.61,48.05z M37.95,65.1V35.72l21.93,14.64L37.95,65.1z"/><text x="0.0" y="117.5" font-size="5.0" font-weight="bold" font-family="Arbeit Regular, Helvetica, Arial-Unicode, Arial, Sans-serif" fill="#000000">Created by Miro</text><text x="0.0" y="122.5" font-size="5.0" font-weight="bold" font-family="Arbeit Regular, Helvetica, Arial-Unicode, Arial, Sans-serif" fill="#000000">from Noun Project</text></svg>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 110 135" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g transform="matrix(1,0,0,1,5,10)">
+        <path d="M66.61,48.05L37.95,28.91L37.95,12.64C37.95,11.1 36.65,9.85 35.05,9.85C33.45,9.85 32.15,11.1 32.15,12.64L32.15,87.36C32.15,88.9 33.45,90.15 35.05,90.15C36.65,90.15 37.95,88.9 37.95,87.36L37.95,71.92L66.63,52.64C67.41,52.12 67.87,51.26 67.87,50.35C67.86,49.43 67.39,48.58 66.61,48.05ZM37.95,65.1L37.95,35.72L59.88,50.36L37.95,65.1Z" style="fill-rule:nonzero;"/>
+    </g>
+</svg>
