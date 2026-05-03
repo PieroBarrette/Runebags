@@ -502,12 +502,35 @@ function bindEvents() {
         }
       }
     } else if (state.phase === "shop") {
-      result = startRoundFromShop(state);
-      if (!result.error) {
-        handVisibility = {
-          1: result.state.currentPlayer === 1,
-          2: result.state.currentPlayer === 2,
-        };
+      if (isPassPlayMode()) {
+        const playerId = state.shop.currentPlayer;
+        const data = state.shop.players[playerId];
+
+        if (data) {
+          if (!data.ready) {
+            setShopMode(state, null);
+          }
+          data.ready = !data.ready;
+          state.log.unshift(`${getDisplayPlayerName(playerId)} marked ${data.ready ? "ready" : "not ready"} in shop.`);
+
+          if (state.shop.players[1].ready && state.shop.players[2].ready) {
+            result = startRoundFromShop(state);
+            if (!result.error) {
+              handVisibility = {
+                1: result.state.currentPlayer === 1,
+                2: result.state.currentPlayer === 2,
+              };
+            }
+          }
+        }
+      } else {
+        result = startRoundFromShop(state);
+        if (!result.error) {
+          handVisibility = {
+            1: result.state.currentPlayer === 1,
+            2: result.state.currentPlayer === 2,
+          };
+        }
       }
     }
 
@@ -569,6 +592,11 @@ function bindEvents() {
       return;
     }
 
+    if (isCurrentLocalShopPlayerReady()) {
+      setStatus("This player is marked ready. Click Cancel Ready to continue shopping.");
+      return;
+    }
+
     const mode = getCurrentShopMode();
     const result = setShopMode(state, mode === "remove" ? null : "remove");
     state = result.state;
@@ -587,6 +615,11 @@ function bindEvents() {
       return;
     }
 
+    if (isCurrentLocalShopPlayerReady()) {
+      setStatus("This player is marked ready. Click Cancel Ready to continue shopping.");
+      return;
+    }
+
     const mode = getCurrentShopMode();
     const result = setShopMode(state, mode === "combine" ? null : "combine");
     state = result.state;
@@ -601,6 +634,11 @@ function bindEvents() {
   elements.shopCancelBtn.addEventListener("click", () => {
     if (online.isOnlineActive()) {
       online.sendAction("shop_set_mode", { mode: null });
+      return;
+    }
+
+    if (isCurrentLocalShopPlayerReady()) {
+      setStatus("This player is marked ready. Click Cancel Ready to continue shopping.");
       return;
     }
 
@@ -627,6 +665,11 @@ function bindEvents() {
       return;
     }
 
+    if (isCurrentLocalShopPlayerReady()) {
+      setStatus("This player is marked ready. Click Cancel Ready to continue shopping.");
+      return;
+    }
+
     const result = shopSelectBagRune(state, runeInstanceId);
     state = result.state;
     if (result.error) {
@@ -646,6 +689,11 @@ function bindEvents() {
 
     if (online.isOnlineActive()) {
       online.sendAction("shop_offer_select", { runeInstanceId });
+      return;
+    }
+
+    if (isCurrentLocalShopPlayerReady()) {
+      setStatus("This player is marked ready. Click Cancel Ready to continue shopping.");
       return;
     }
 
@@ -792,6 +840,10 @@ function updateTopStatus() {
       elements.status.textContent = waitingRoomState.shopReadyYou
         ? `You are ready. Waiting for opponent.${timerText}`
         : `Shop your own bag and offer, then click Shop Ready.${timerText}`;
+    } else if (isPassPlayMode()) {
+      const blackReady = state.shop.players[1]?.ready ? "ready" : "not ready";
+      const whiteReady = state.shop.players[2]?.ready ? "ready" : "not ready";
+      elements.status.textContent = `Shop: remove once, combine pair, add up to 2 from offer. Black is ${blackReady}, White is ${whiteReady}.`;
     } else if (aiConfig.enabled) {
       elements.status.textContent = "Shop: remove once, combine pair, add up to 2 from offer.";
     } else {
@@ -819,6 +871,9 @@ function renderShopPanel() {
   elements.phaseBtn.hidden = state.phase === "round" || state.phase === "game-over";
   if (online.isOnlineActive() && state.phase === "shop") {
     elements.phaseBtn.textContent = waitingRoomState.shopReadyYou ? "Cancel Ready" : "Shop Ready";
+  } else if (isPassPlayMode() && state.phase === "shop") {
+    const playerReady = Boolean(state.shop.players[state.shop.currentPlayer]?.ready);
+    elements.phaseBtn.textContent = playerReady ? "Cancel Ready" : "Shop Ready";
   } else {
     elements.phaseBtn.textContent = state.phase === "shop" ? "Start Next Round" : "Start Shop Phase";
   }
@@ -839,17 +894,21 @@ function renderShopPanel() {
   const data = state.shop.players[playerId];
   const highlights = getShopHighlights(state);
   const actions = getShopActionAvailability(state);
+  const playerReady = Boolean(data.ready);
 
   elements.shopPlayerTitle.textContent = online.isOnlineActive()
     ? `Your Shop - ${getDisplayPlayerName(playerId)}`
     : `Shop - ${getDisplayPlayerName(playerId)}`;
-  elements.shopModeLabel.textContent = `Mode: ${data.mode || "none"} | Added: ${data.addedCount}/2 | Remove used: ${data.removeUsed ? "yes" : "no"}`;
+  elements.shopModeLabel.textContent = `Mode: ${data.mode || "none"} | Added: ${data.addedCount}/2 | Remove used: ${data.removeUsed ? "yes" : "no"} | Ready: ${playerReady ? "yes" : "no"}`;
 
   renderRuneList(elements.shopOffer, data.offer, playerId, highlights.offerHighlightIds);
   renderRuneList(elements.shopBag, state.players[playerId].bag, playerId, highlights.bagHighlightIds);
 
   elements.shopRemoveBtn.hidden = !actions.removeVisible;
   elements.shopCombineBtn.hidden = !actions.combineVisible;
+  elements.shopRemoveBtn.disabled = playerReady && isPassPlayMode();
+  elements.shopCombineBtn.disabled = playerReady && isPassPlayMode();
+  elements.shopCancelBtn.disabled = playerReady && isPassPlayMode();
 
   if (previousShopPlayer !== playerId) {
     state.shop.currentPlayer = previousShopPlayer;
@@ -992,6 +1051,19 @@ function getCurrentShopMode() {
     ? waitingRoomState.playerId
     : state.shop.currentPlayer;
   return state.shop.players[playerId].mode;
+}
+
+function isPassPlayMode() {
+  return !online.isOnlineActive() && !aiConfig.enabled;
+}
+
+function isCurrentLocalShopPlayerReady() {
+  if (!isPassPlayMode() || state.phase !== "shop") {
+    return false;
+  }
+
+  const data = state.shop.players[state.shop.currentPlayer];
+  return Boolean(data?.ready);
 }
 
 function setStatus(text) {

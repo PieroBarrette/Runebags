@@ -72,6 +72,15 @@ export function restoreState(candidate) {
     initializeShopOffers(candidate);
   }
 
+  for (const playerId of [BLACK, WHITE]) {
+    if (!candidate.shop.players?.[playerId]) {
+      continue;
+    }
+    if (typeof candidate.shop.players[playerId].ready !== "boolean") {
+      candidate.shop.players[playerId].ready = false;
+    }
+  }
+
   if (!Array.isArray(candidate.roundAwayRunes)) {
     candidate.roundAwayRunes = [];
   }
@@ -717,6 +726,7 @@ function createShopState(currentPlayer) {
         offer: [],
         addedCount: 0,
         removeUsed: false,
+        ready: false,
         mode: null,
         combineSelection: [],
       },
@@ -724,6 +734,7 @@ function createShopState(currentPlayer) {
         offer: [],
         addedCount: 0,
         removeUsed: false,
+        ready: false,
         mode: null,
         combineSelection: [],
       },
