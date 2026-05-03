@@ -71,7 +71,6 @@ const elements = {
   rulesBackBtn: document.getElementById("rules-back-btn"),
   gameScreen: document.getElementById("game-screen"),
   status: document.getElementById("game-status"),
-  onlineConnection: document.getElementById("online-connection"),
   turnPill: document.getElementById("turn-pill"),
   boardEl: document.getElementById("board"),
   menuBtn: document.getElementById("menu-btn"),
@@ -81,6 +80,8 @@ const elements = {
   player2Panel: document.getElementById("player-2-panel"),
   p1Name: document.getElementById("p1-name"),
   p2Name: document.getElementById("p2-name"),
+  p1OnlineDot: document.getElementById("p1-online-dot"),
+  p2OnlineDot: document.getElementById("p2-online-dot"),
   player1Hand: document.getElementById("p1-hand"),
   player2Hand: document.getElementById("p2-hand"),
   player1Toggle: document.getElementById("p1-hand-toggle"),
@@ -101,6 +102,7 @@ const elements = {
   shopModeLabel: document.getElementById("shop-mode-label"),
   shopOffer: document.getElementById("shop-offer"),
   shopBag: document.getElementById("shop-bag"),
+  shopInstruction: document.getElementById("shop-instruction"),
   shopSwitchPlayer: document.getElementById("shop-switch-player"),
   shopRemoveBtn: document.getElementById("shop-remove-btn"),
   shopCombineBtn: document.getElementById("shop-combine-btn"),
@@ -212,7 +214,6 @@ function bindEvents() {
     }
     setAiSettings(aiConfig, false, aiConfig.playerId, aiConfig.depth);
     enterGameScreen("passplay");
-    setStatus("Pass & Play mode: continuing local game state.");
   });
 
   elements.aiStartBtn.addEventListener("click", () => {
@@ -832,23 +833,7 @@ function updateTopStatus() {
     elements.turnPill.textContent = online.isOnlineActive()
       ? "Shop Phase - Simultaneous"
       : `Shop Phase - ${getDisplayPlayerName(state.shop.currentPlayer)}`;
-
-    if (online.isOnlineActive()) {
-      const timerText = waitingRoomState.shopSecondsRemaining > 0
-        ? ` Timer: ${waitingRoomState.shopSecondsRemaining}s.`
-        : "";
-      elements.status.textContent = waitingRoomState.shopReadyYou
-        ? `You are ready. Waiting for opponent.${timerText}`
-        : `Shop your own bag and offer, then click Shop Ready.${timerText}`;
-    } else if (isPassPlayMode()) {
-      const blackReady = state.shop.players[1]?.ready ? "ready" : "not ready";
-      const whiteReady = state.shop.players[2]?.ready ? "ready" : "not ready";
-      elements.status.textContent = `Shop: remove once, combine pair, add up to 2 from offer. Black is ${blackReady}, White is ${whiteReady}.`;
-    } else if (aiConfig.enabled) {
-      elements.status.textContent = "Shop: remove once, combine pair, add up to 2 from offer.";
-    } else {
-      elements.status.textContent = "Shop: remove once, combine pair, add up to 2 from offer. Switch player to pass device.";
-    }
+    elements.status.textContent = "Shop phase.";
     return;
   }
 
@@ -866,6 +851,7 @@ function renderShopPanel() {
   const inShop = state.phase === "shop";
   elements.shopPanel.hidden = !inShop;
   elements.boardEl.hidden = false;
+  elements.shopInstruction.hidden = !inShop;
   elements.shopSwitchPlayer.hidden = !inShop || online.isOnlineActive() || aiConfig.enabled;
 
   elements.phaseBtn.hidden = state.phase === "round" || state.phase === "game-over";
@@ -880,6 +866,21 @@ function renderShopPanel() {
 
   if (!inShop) {
     return;
+  }
+
+  if (online.isOnlineActive()) {
+    const timerText = waitingRoomState.shopSecondsRemaining > 0
+      ? ` Timer: ${waitingRoomState.shopSecondsRemaining}s.`
+      : "";
+    elements.shopInstruction.textContent = waitingRoomState.shopReadyYou
+      ? `You are ready. Waiting for opponent.${timerText}`
+      : `Shop your own bag and offer, then click Shop Ready.${timerText}`;
+  } else if (isPassPlayMode()) {
+    const blackReady = state.shop.players[1]?.ready ? "ready" : "not ready";
+    const whiteReady = state.shop.players[2]?.ready ? "ready" : "not ready";
+    elements.shopInstruction.textContent = `Shop your own bag and offer, then click Shop Ready. Black is ${blackReady}, White is ${whiteReady}.`;
+  } else {
+    elements.shopInstruction.textContent = "Shop: remove once, combine pair, add up to 2 from offer.";
   }
 
   const playerId = online.isOnlineActive() && waitingRoomState.playerId
@@ -1137,7 +1138,6 @@ function showMainMenu() {
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
-  elements.onlineConnection.hidden = true;
 }
 
 function showAiPanel() {
@@ -1188,10 +1188,8 @@ function enterGameScreen(mode, roomCode = null) {
   if (mode === "online" && roomCode) {
     applyRoomQuery(roomCode);
     setStatus(`Online room ${roomCode}. Share your link with your opponent.`);
-    elements.onlineConnection.hidden = false;
   } else {
     clearRoomQuery();
-    elements.onlineConnection.hidden = true;
   }
 
   render();
@@ -1293,14 +1291,32 @@ function tickOnlineShopTimer() {
 
 function updateOnlineConnectionStatus() {
   if (!online.isOnlineActive()) {
-    elements.onlineConnection.hidden = true;
+    elements.p1OnlineDot.hidden = true;
+    elements.p2OnlineDot.hidden = true;
+    elements.p1OnlineDot.classList.remove("connected");
+    elements.p2OnlineDot.classList.remove("connected");
     return;
   }
 
-  elements.onlineConnection.hidden = false;
-  const role = waitingRoomState.playerId ? getDisplayPlayerName(waitingRoomState.playerId) : "-";
-  const oppStatus = waitingRoomState.opponentConnected ? "connected" : "disconnected";
-  elements.onlineConnection.textContent = `Online: You are ${role}. Opponent ${oppStatus}.`;
+  elements.p1OnlineDot.hidden = false;
+  elements.p2OnlineDot.hidden = false;
+
+  const yourId = waitingRoomState.playerId;
+  const opponentId = yourId === 1 ? 2 : 1;
+
+  const isP1Connected = yourId === 1
+    ? true
+    : opponentId === 1
+      ? waitingRoomState.opponentConnected
+      : false;
+  const isP2Connected = yourId === 2
+    ? true
+    : opponentId === 2
+      ? waitingRoomState.opponentConnected
+      : false;
+
+  elements.p1OnlineDot.classList.toggle("connected", isP1Connected);
+  elements.p2OnlineDot.classList.toggle("connected", isP2Connected);
 }
 
 function updateTopButtons() {

@@ -165,7 +165,6 @@
         <h1>RuneBags</h1>
         <div class="status-wrap">
           <p id="game-status">Loading match...</p>
-          <p id="online-connection" class="bag-meta" hidden>Online: connecting...</p>
           <button id="menu-btn" type="button">Main Menu</button>
           <button id="new-game-btn" type="button">New Game</button>
         </div>
@@ -173,7 +172,7 @@
 
       <section class="game-layout">
         <aside class="panel player-panel" id="player-1-panel">
-          <h2 id="p1-name">Black</h2>
+          <h2 class="player-title"><span id="p1-name">Black</span><span id="p1-online-dot" class="online-dot" hidden aria-label="Player online status"></span></h2>
           <p class="bag-meta"><span id="p1-points">Points: 0</span></p>
           <p class="bag-meta"><span id="p1-bag">Bag: 0</span> | <span id="p1-discard">Discard: 0</span></p>
           <button id="p1-hand-toggle" class="hand-toggle" type="button">Reveal Hand</button>
@@ -189,6 +188,7 @@
             <button id="phase-btn" type="button">Phase Action</button>
             <button id="shop-switch-player" type="button">Pass Device</button>
           </div>
+          <p id="shop-instruction" class="shop-instruction" hidden></p>
           <div id="shop-panel" class="shop-panel" hidden>
             <h3 id="shop-player-title">Shop - White</h3>
             <p id="shop-mode-label" class="bag-meta">Mode: none</p>
@@ -205,7 +205,7 @@
         </section>
 
         <aside class="panel player-panel" id="player-2-panel">
-          <h2 id="p2-name">White</h2>
+          <h2 class="player-title"><span id="p2-name">White</span><span id="p2-online-dot" class="online-dot" hidden aria-label="Player online status"></span></h2>
           <p class="bag-meta"><span id="p2-points">Points: 0</span></p>
           <p class="bag-meta"><span id="p2-bag">Bag: 0</span> | <span id="p2-discard">Discard: 0</span></p>
           <button id="p2-hand-toggle" class="hand-toggle" type="button">Reveal Hand</button>

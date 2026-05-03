@@ -80,9 +80,33 @@ h2 {
   color: var(--text-soft);
 }
 
-#online-connection {
-  margin: 0;
-  font-size: 0.92rem;
+.player-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.online-dot {
+  width: 0.62rem;
+  height: 0.62rem;
+  border-radius: 999px;
+  border: 1px solid rgba(40, 58, 82, 0.3);
+  background: #d44a4a;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
+}
+
+.online-dot.connected {
+  background: #2fb458;
+}
+
+.shop-instruction {
+  margin: 0 0 0.6rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid rgba(36, 51, 71, 0.2);
+  border-radius: 9px;
+  background: rgba(241, 246, 252, 0.7);
+  color: var(--text-soft);
+  font-size: 0.94rem;
 }
 
 #new-game-btn,
@@ -213,6 +237,7 @@ body[data-theme="dark"] .menu-btn.secondary {
 
 body[data-theme="dark"] .waiting-room,
 body[data-theme="dark"] .shop-panel,
+body[data-theme="dark"] .shop-instruction,
 body[data-theme="dark"] .log-row,
 body[data-theme="dark"] .turn-pill {
   background: rgba(35, 45, 57, 0.8);
