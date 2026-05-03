@@ -70,7 +70,6 @@ const elements = {
   onlineJoinBtn: document.getElementById("online-join-btn"),
   onlineCopyLinkBtn: document.getElementById("online-copy-link-btn"),
   onlineReadyBtn: document.getElementById("online-ready-btn"),
-  onlineStartBtn: document.getElementById("online-start-btn"),
   onlineBackBtn: document.getElementById("online-back-btn"),
   rulesPanel: document.getElementById("rules-panel"),
   rulesBackBtn: document.getElementById("rules-back-btn"),
@@ -139,6 +138,13 @@ window.setInterval(tickOnlineShopTimer, 1000);
 function wireOnlineEvents() {
   online.setListeners({
     waiting: (snapshot) => {
+      const shouldAutoStart = Boolean(
+        snapshot.canStart &&
+        snapshot.youReady &&
+        snapshot.opponentReady &&
+        !snapshot.started
+      );
+      const previousAutoStartRequested = waitingRoomState.autoStartRequested;
       activeRoomCode = snapshot.roomCode;
       waitingRoomState = {
         mode: waitingRoomState.mode === "queue" ? "queue" : "friend",
@@ -158,6 +164,7 @@ function wireOnlineEvents() {
         shopReadyOpponent: false,
         shopDeadlineAt: null,
         shopSecondsRemaining: 0,
+        autoStartRequested: shouldAutoStart ? previousAutoStartRequested : false,
       };
 
       applyOnlinePlayerNames();
@@ -166,6 +173,11 @@ function wireOnlineEvents() {
         setStatus(`Room ${activeRoomCode}: ${getDisplayPlayerName(snapshot.playerId)} connected.`);
       }
       updateOnlineConnectionStatus();
+
+      if (shouldAutoStart && !waitingRoomState.autoStartRequested) {
+        waitingRoomState.autoStartRequested = true;
+        online.startMatch();
+      }
     },
     state: (snapshot) => {
       state = restoreState(snapshot.state);
@@ -333,7 +345,7 @@ function bindEvents() {
       mode: "friend",
     };
     updateOnlineRoomUI(activeRoomCode);
-    const ok = await online.joinRoom(code, { allowReconnect: false, displayName: pseudo });
+    const ok = await online.joinRoom(code, { displayName: pseudo });
     if (!ok) {
       waitingRoomState = createWaitingRoomState();
       activeRoomCode = null;
@@ -389,15 +401,6 @@ function bindEvents() {
     } catch {
       window.alert("Could not copy automatically. Copy the link manually.");
     }
-  });
-
-  elements.onlineStartBtn.addEventListener("click", () => {
-    if (!waitingRoomState.canStart) {
-      window.alert("Both players must be ready to start.");
-      return;
-    }
-
-    online.startMatch();
   });
 
   elements.onlineReadyBtn.addEventListener("click", () => {
@@ -1173,6 +1176,9 @@ function showOnlinePanel() {
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
   elements.onlinePseudo.value = normalizePseudo(elements.onlinePseudo.value || online.getSession().displayName || "");
+  if (activeRoomCode && /^[A-Z2-9]{6}$/.test(activeRoomCode)) {
+    elements.onlineJoinCode.value = activeRoomCode;
+  }
   updateOnlineConnectionStatus();
 }
 
@@ -1239,10 +1245,8 @@ function updateOnlineRoomUI(roomCode) {
     : "You are: -";
 
   elements.onlineReadyBtn.hidden = !isFriendMode;
-  elements.onlineStartBtn.hidden = !isFriendMode;
   elements.onlineCopyLinkBtn.hidden = !isFriendMode;
   elements.onlineReadyBtn.disabled = !isFriendMode;
-  elements.onlineStartBtn.disabled = !isFriendMode || !waitingRoomState.canStart;
 
   elements.waitingYouStatus.textContent = isFriendMode
     ? `${waitingRoomState.yourName || "You"}: ${waitingRoomState.youReady ? "Ready" : "Not ready"}`
@@ -1273,8 +1277,12 @@ function updateOnlineRoomUI(roomCode) {
   }
 
   if (isFriendMode) {
+    if (waitingRoomState.canStart) {
+      elements.waitingSummary.textContent = "Both players are ready. Starting match...";
+      return;
+    }
     elements.waitingSummary.textContent = waitingRoomState.youReady
-      ? "You are ready. Start when your opponent is ready."
+      ? "You are ready. Waiting for opponent to be ready."
       : "Share your link, then set Ready.";
     return;
   }
@@ -1301,6 +1309,7 @@ function createWaitingRoomState() {
     shopReadyOpponent: false,
     shopDeadlineAt: null,
     shopSecondsRemaining: 0,
+    autoStartRequested: false,
   };
 }
 
