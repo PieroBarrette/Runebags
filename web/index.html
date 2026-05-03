@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RuneBags</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles/main.css">
+  <link rel="stylesheet" href="./styles/board.css">
+  <link rel="stylesheet" href="./styles/runes.css">
+</head>
+<body>
+  <main class="app-shell">
+    <section id="main-menu" class="menu-screen">
+      <h1>RuneBags</h1>
+      <p class="menu-subtitle">Runic tactics, hidden hands, and evolving rounds.</p>
+      <div class="ai-config">
+        <label for="ai-side-select">AI Side</label>
+        <select id="ai-side-select">
+          <option value="1">Black</option>
+          <option value="2" selected>White</option>
+        </select>
+        <label for="ai-depth-select">AI Depth</label>
+        <select id="ai-depth-select">
+          <option value="1">Easy</option>
+          <option value="2" selected>Medium</option>
+          <option value="3">Hard</option>
+        </select>
+      </div>
+      <div class="menu-actions">
+        <button id="menu-ai-btn" class="menu-btn" type="button">Play Against AI</button>
+        <button id="menu-passplay-btn" class="menu-btn" type="button">Pass & Play</button>
+        <button id="menu-online-btn" class="menu-btn" type="button">Play Online</button>
+        <button id="menu-rules-btn" class="menu-btn" type="button">Rules</button>
+        <button id="menu-settings-btn" class="menu-btn" type="button">Settings</button>
+      </div>
+    </section>
+
+    <section id="settings-panel" class="panel menu-panel" hidden>
+      <h2>Settings</h2>
+      <div class="settings-grid">
+        <label for="theme-select">Theme Mode</label>
+        <select id="theme-select" class="settings-select">
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </div>
+      <div class="menu-actions compact">
+        <button id="settings-back-btn" class="menu-btn secondary" type="button">Back</button>
+      </div>
+    </section>
+
+    <section id="online-panel" class="panel menu-panel" hidden>
+      <h2>Play Online</h2>
+      <p>Create a room link and send it to your opponent.</p>
+      <p id="online-room-code" class="bag-meta">Room: -</p>
+      <label for="online-room-link">Room Link</label>
+      <input id="online-room-link" type="text" readonly>
+      <div class="waiting-room">
+        <h3>Waiting Room</h3>
+        <p id="waiting-role" class="bag-meta">You are: -</p>
+        <p id="waiting-summary" class="bag-meta">Share your link, then set Ready.</p>
+        <p id="waiting-you-status" class="bag-meta">You: Not ready</p>
+        <p id="waiting-opponent-status" class="bag-meta">Opponent: Waiting to join...</p>
+      </div>
+      <div class="menu-actions compact">
+        <button id="online-copy-link-btn" class="menu-btn" type="button">Copy Link</button>
+        <button id="online-ready-btn" class="menu-btn" type="button">Set Ready</button>
+        <button id="online-start-btn" class="menu-btn" type="button">Start Match</button>
+        <button id="online-back-btn" class="menu-btn secondary" type="button">Back</button>
+      </div>
+    </section>
+
+    <section id="rules-panel" class="panel menu-panel rules-panel" hidden>
+      <h2>RuneBags Rules</h2>
+      <div class="rules-content">
+        <h3>1. Goal</h3>
+        <p>Win points by creating winning lines of 4. The game revolves around a shared 10-point supply.</p>
+
+        <h3>2. Core Win and Points</h3>
+        <p>A round ends immediately when a player forms a winning line of 4. That player takes 1 point from supply.</p>
+        <p>If a round is tied, 1 point is removed from supply instead of awarded.</p>
+        <p>A player wins the game by majority of remaining obtainable points. If supply reaches 0, highest score wins. If scores are tied, fewer runes in bag wins.</p>
+
+        <h3>3. Round, Shop, and Turn Flow</h3>
+        <p>The game starts in Shop Phase.</p>
+        <p>After shop, a new round starts. Starter by parity: even supply means White starts, odd means Black starts.</p>
+        <p>When a round ends, you enter Shop Phase before the next round.</p>
+
+        <h3>4. Hands and Visibility</h3>
+        <p>Hands are pass-and-play hidden by default. Active player hand is shown during round turns.</p>
+        <p>If Uruz is on board for one side, opponent hand is forced visible.</p>
+
+        <h3>5. Neutral Runes</h3>
+        <p>Neutral runes are gray blockers. They are not Black or White ownership.</p>
+        <p>They do not score by themselves, do not return to player bags, and return to neutral supply when removed or at round settlement.</p>
+
+        <h3>6. Forced Pass</h3>
+        <p>If a player has no legal playable rune, they must pass.</p>
+        <p>If both players cannot play, the round is a draw.</p>
+
+        <h3>7. Shop Phase</h3>
+        <p>Each player reveals 5 runes from their personal shop supply and may add up to 2 to their bag.</p>
+        <p>Shop actions in any order:</p>
+        <p>- Remove 1 rune once per shop phase: basic removed permanently, neutral to supply, symbol rune returns to that player's shop supply.</p>
+        <p>- Combine 2 matching level-1 runes into one level-2 rune (except non-combinable runes).</p>
+        <p>- Add up to 2 runes from the 5 offered.</p>
+
+        <h3>8. Rune Effects</h3>
+        <p class="rules-rune-line"><img class="rules-rune-symbol" src="./assets/runes/inguz.svg" alt="Inguz symbol"> <strong>Inguz:</strong> center column only.</p>
+        <p class="rules-rune-line"><img class="rules-rune-symbol" src="./assets/runes/jera.svg" alt="Jera symbol"> <strong>Jera:</strong> edge columns only.</p>
+        <p class="rules-rune-line"><img class="rules-rune-symbol" src="./assets/runes/algiz.svg" alt="Algiz symbol"> <strong>Algiz:</strong> inserts from column bottom and pushes upward.</p>
+        <p class="rules-rune-line"><img class="rules-rune-symbol" src="./assets/runes/ansuz.svg" alt="Ansuz symbol"> <strong>Ansuz:</strong> returns rune directly beneath to owner bag (not neutral).</p>
+        <p class="rules-rune-line"><img class="rules-rune-symbol" src="./assets/runes/berkana.svg" alt="Berkana symbol"> <strong>Berkana:</strong> if in winning line for owner, grants +1 bonus point.</p>
+        <p class="rules-rune-line"><img class="rules-rune-symbol" src="./assets/runes/ehwaz.svg" alt="Ehwaz symbol"> <strong>Ehwaz:</strong> increases owner max hand size while on board.</p>
+        <p class="rules-rune-line"><img class="rules-rune-symbol" src="./assets/runes/gebo.svg" alt="Gebo symbol"> <strong>Gebo:</strong> removes rune for the round (L2 chooses adjacent target).</p>
+        <p class="rules-rune-line"><img class="rules-rune-symbol" src="./assets/runes/hagalz.svg" alt="Hagalz symbol"> <strong>Hagalz:</strong> adjacent neutral runes can count for owner wins, one Hagalz per converted neutral in a line.</p>
+        <p class="rules-rune-line"><img class="rules-rune-symbol" src="./assets/runes/isa.svg" alt="Isa symbol"> <strong>Isa:</strong> remains on board across rounds.</p>
+        <p class="rules-rune-line"><img class="rules-rune-symbol" src="./assets/runes/mannaz.svg" alt="Mannaz symbol"> <strong>Mannaz:</strong> adds neutral rune to opponent bag; level 1 is ethereal.</p>
+        <p class="rules-rune-line"><img class="rules-rune-symbol" src="./assets/runes/perth.svg" alt="Perth symbol"> <strong>Perth:</strong> constrains opponent next turn to adjacent columns; level 2 lets you choose the adjacent forced column.</p>
+        <p class="rules-rune-line"><img class="rules-rune-symbol" src="./assets/runes/raido.svg" alt="Raido symbol"> <strong>Raido:</strong> grants extra turn; level 1 is ethereal.</p>
+        <p class="rules-rune-line"><img class="rules-rune-symbol" src="./assets/runes/sowelu.svg" alt="Sowelu symbol"> <strong>Sowelu:</strong> discards random rune(s) from opponent bag for the round.</p>
+        <p class="rules-rune-line"><img class="rules-rune-symbol" src="./assets/runes/teiwaz.svg" alt="Teiwaz symbol"> <strong>Teiwaz:</strong> move top rune (adjacent at L1, any column at L2).</p>
+        <p class="rules-rune-line"><img class="rules-rune-symbol" src="./assets/runes/thurisa.svg" alt="Thurisa symbol"> <strong>Thurisa:</strong> place extra neutral rune(s) from supply.</p>
+        <p class="rules-rune-line"><img class="rules-rune-symbol" src="./assets/runes/uruz.svg" alt="Uruz symbol"> <strong>Uruz:</strong> opponent hand cannot be hidden while active.</p>
+
+        <h3>9. Ethereal and Visual Cues</h3>
+        <p>Ethereal runes use dashed styling and return to shop supply instead of player bag at round settlement.</p>
+        <p>Winning lines and forced columns are highlighted on board.</p>
+      </div>
+      <div class="menu-actions compact">
+        <button id="rules-back-btn" class="menu-btn secondary" type="button">Back</button>
+      </div>
+    </section>
+
+    <section id="game-screen" hidden>
+      <header class="top-bar">
+        <h1>RuneBags</h1>
+        <div class="status-wrap">
+          <p id="game-status">Loading match...</p>
+          <p id="online-connection" class="bag-meta" hidden>Online: connecting...</p>
+          <button id="menu-btn" type="button">Main Menu</button>
+          <button id="phase-btn" type="button">Phase Action</button>
+          <button id="new-game-btn" type="button">New Game</button>
+        </div>
+      </header>
+
+      <section class="game-layout">
+        <aside class="panel player-panel" id="player-1-panel">
+          <h2>Black</h2>
+          <p class="bag-meta"><span id="p1-points">Points: 0</span></p>
+          <p class="bag-meta"><span id="p1-bag">Bag: 0</span> | <span id="p1-discard">Discard: 0</span></p>
+          <button id="p1-hand-toggle" class="hand-toggle" type="button">Reveal Hand</button>
+          <div id="p1-hand" class="hand hidden-hand" aria-live="polite"></div>
+        </aside>
+
+        <section class="board-panel panel">
+          <div id="turn-pill" class="turn-pill">Turn: White</div>
+          <p class="bag-meta"><span id="point-pool">Point Supply: 10</span> | <span id="neutral-supply">Neutral Supply: 0</span></p>
+          <p class="bag-meta" id="round-discards">Away this round: none</p>
+          <div id="round-away-list" class="round-away-list" aria-live="polite"></div>
+          <div class="shop-toolbar">
+            <button id="shop-switch-player" type="button">Pass Device</button>
+          </div>
+          <div id="shop-panel" class="shop-panel" hidden>
+            <h3 id="shop-player-title">Shop - White</h3>
+            <p id="shop-mode-label" class="bag-meta">Mode: none</p>
+            <div id="shop-offer" class="shop-offer"></div>
+            <div class="shop-actions-row">
+              <button id="shop-remove-btn" type="button">Remove 1 Rune</button>
+              <button id="shop-combine-btn" type="button">Combine 2 Runes</button>
+              <button id="shop-cancel-btn" type="button">Cancel</button>
+            </div>
+            <div id="shop-bag" class="shop-bag"></div>
+          </div>
+          <div id="board" class="board" role="grid" aria-label="RuneBags board"></div>
+          <p class="hint">Pick a rune from your hand, then click a column.</p>
+        </section>
+
+        <aside class="panel player-panel" id="player-2-panel">
+          <h2>White</h2>
+          <p class="bag-meta"><span id="p2-points">Points: 0</span></p>
+          <p class="bag-meta"><span id="p2-bag">Bag: 0</span> | <span id="p2-discard">Discard: 0</span></p>
+          <button id="p2-hand-toggle" class="hand-toggle" type="button">Reveal Hand</button>
+          <div id="p2-hand" class="hand hidden-hand" aria-live="polite"></div>
+        </aside>
+      </section>
+
+      <section class="panel log-panel">
+        <h2>Turn Log</h2>
+        <div id="turn-log" class="turn-log" aria-live="polite"></div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    // Optional override for online backend when frontend is hosted elsewhere.
+    // Example: window.RUNEBAGS_ONLINE_SERVER = "https://your-service.onrender.com";
+    window.RUNEBAGS_ONLINE_SERVER = window.RUNEBAGS_ONLINE_SERVER || "";
+  </script>
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
