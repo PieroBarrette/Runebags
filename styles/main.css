@@ -135,6 +135,17 @@ h2 {
   text-align: center;
 }
 
+.menu-logo {
+  justify-self: center;
+  width: min(240px, 60vw);
+  height: auto;
+  filter: drop-shadow(0 10px 20px rgba(22, 33, 50, 0.24));
+}
+
+body[data-theme="dark"] .menu-logo {
+  filter: brightness(1.28) contrast(1.06) drop-shadow(0 12px 24px rgba(0, 0, 0, 0.6));
+}
+
 .menu-subtitle {
   margin: 0;
   color: var(--text-soft);
