@@ -282,7 +282,8 @@ function resolveSocketUrl() {
 
 function loadToken(roomCode) {
   try {
-    return window.localStorage.getItem(`${STORAGE_PREFIX}${roomCode}`);
+    const key = `${STORAGE_PREFIX}${roomCode}`;
+    return window.sessionStorage.getItem(key) || window.localStorage.getItem(key);
   } catch {
     return null;
   }
@@ -290,8 +291,13 @@ function loadToken(roomCode) {
 
 function saveToken(roomCode, token) {
   try {
-    window.localStorage.setItem(`${STORAGE_PREFIX}${roomCode}`, token);
+    const key = `${STORAGE_PREFIX}${roomCode}`;
+    window.sessionStorage.setItem(key, token);
   } catch {
-    // Ignore storage failures.
+    try {
+      window.localStorage.setItem(`${STORAGE_PREFIX}${roomCode}`, token);
+    } catch {
+      // Ignore storage failures.
+    }
   }
 }
