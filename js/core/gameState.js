@@ -960,7 +960,10 @@ function applyRuneEffect(state, rune, move, playerId) {
         };
       }
     } else {
-      const removed = removeRuneAt(state, move.row + 1, move.col, "gebo", "round");
+      const targetRow = findFirstOccupiedBelow(state, move.row, move.col);
+      const removed = targetRow === null
+        ? null
+        : removeRuneAt(state, targetRow, move.col, "gebo", "round");
       if (removed) {
         notes.push("Gebo removed the rune below for this round.");
       }
@@ -1189,6 +1192,16 @@ function findTopOccupiedRow(state, column) {
   for (let row = 0; row < state.rows; row += 1) {
     if (state.board[row][column] !== EMPTY) {
       return row;
+    }
+  }
+
+  return null;
+}
+
+function findFirstOccupiedBelow(state, row, column) {
+  for (let nextRow = row + 1; nextRow < state.rows; nextRow += 1) {
+    if (state.board[nextRow][column] !== EMPTY) {
+      return nextRow;
     }
   }
 
