@@ -176,7 +176,7 @@ function onQueueJoin(ws, message) {
 
   const displayName = normalizeDisplayName(message.displayName, `Guest-${guestId.slice(-4).toUpperCase()}`);
 
-  const existing = quickQueue.find((entry) => entry.ws === ws || entry.guestId === guestId);
+  const existing = quickQueue.find((entry) => entry.ws === ws);
   if (!existing) {
     quickQueue.push({ ws, guestId, displayName, joinedAt: Date.now() });
   } else {

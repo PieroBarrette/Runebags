@@ -423,6 +423,10 @@ export function startRoundFromShop(state) {
   returnUnpickedOfferRunes(state, BLACK);
   returnUnpickedOfferRunes(state, WHITE);
 
+  // Shuffle bag contents after shop edits so round draws are randomized.
+  state.players[BLACK].bag = shuffle([...state.players[BLACK].bag]);
+  state.players[WHITE].bag = shuffle([...state.players[WHITE].bag]);
+
   state.shop = createShopState(playerFromPointPool(state.pointPoolRemaining));
   state.phase = "round";
   state.roundNumber += 1;
