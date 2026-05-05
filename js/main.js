@@ -28,13 +28,16 @@ import {
 import { renderBoard } from "./ui/boardView.js";
 import { renderHands } from "./ui/handView.js";
 import { renderLog } from "./ui/logView.js";
-import { clearSave, loadGame, saveGame } from "./persistence/localStore.js";
+import { clearModeSave, loadModeSave, saveModeSave } from "./persistence/localStore.js";
 import { createOnlineController } from "./online/onlineController.js";
 import { getRuneById } from "./runes/runeCatalog.js";
 
 const THEME_STORAGE_KEY = "runebags-theme-v1";
 const ANIMATION_STORAGE_KEY = "runebags-animations-v1";
 const ONLINE_NAME_MAX = 14;
+const MODE_PASSPLAY = "passplay";
+const MODE_AI = "ai";
+const MODE_ONLINE = "online";
 
 const elements = {
   mainMenu: document.getElementById("main-menu"),
@@ -113,7 +116,8 @@ const elements = {
   shopCancelBtn: document.getElementById("shop-cancel-btn"),
 };
 
-let state = restoreState(loadGame() || createInitialState());
+let state = restoreState(getSavedStateForMode(MODE_PASSPLAY) || createInitialState());
+let currentLocalMode = MODE_PASSPLAY;
 let handVisibility = {
   1: state.currentPlayer === 1,
   2: state.currentPlayer === 2,
@@ -183,6 +187,12 @@ function wireOnlineEvents() {
 
       applyOnlinePlayerNames();
       updateOnlineRoomUI(activeRoomCode);
+      saveModeSave(MODE_ONLINE, {
+        roomCode: activeRoomCode,
+        playerId: snapshot.playerId,
+        playerNames: snapshot.playerNames || null,
+        updatedAt: Date.now(),
+      });
       if (!elements.onlinePanel.hidden) {
         setStatus(`Room ${activeRoomCode}: ${getDisplayPlayerName(snapshot.playerId)} connected.`);
       }
@@ -195,6 +205,7 @@ function wireOnlineEvents() {
     },
     state: (snapshot) => {
       state = restoreState(snapshot.state);
+      currentLocalMode = MODE_ONLINE;
       waitingRoomState = {
         ...waitingRoomState,
         playerNames: snapshot.playerNames || waitingRoomState.playerNames,
@@ -207,6 +218,13 @@ function wireOnlineEvents() {
       if (elements.gameScreen.hidden) {
         enterGameScreen("online", snapshot.roomCode);
       }
+      saveModeSave(MODE_ONLINE, {
+        roomCode: snapshot.roomCode,
+        playerId: snapshot.playerId,
+        playerNames: snapshot.playerNames || null,
+        state: snapshot.state,
+        updatedAt: Date.now(),
+      });
       updateOnlineConnectionStatus();
       render();
     },
@@ -243,30 +261,50 @@ function bindEvents() {
   });
 
   elements.menuPassplayBtn.addEventListener("click", () => {
+    persistState();
     if (online.isOnlineActive()) {
       online.leaveRoom();
     }
+
+    currentLocalMode = MODE_PASSPLAY;
+    state = restoreState(getSavedStateForMode(MODE_PASSPLAY) || createInitialState());
     setAiSettings(aiConfig, false, aiConfig.playerId, aiConfig.depth);
+    handVisibility = {
+      1: state.currentPlayer === 1,
+      2: state.currentPlayer === 2,
+    };
+    persistState();
     enterGameScreen("passplay");
+    setStatus("Pass & Play resumed.");
+    render();
   });
 
   elements.aiStartBtn.addEventListener("click", () => {
+    persistState();
     if (online.isOnlineActive()) {
       online.leaveRoom();
     }
 
-    state = createInitialState();
+    const savedAi = loadModeSave(MODE_AI);
     const aiSide = Number(elements.aiSideSelect.value);
     const aiDepth = Number(elements.aiDepthSelect.value);
+    const canResumeAi = Boolean(
+      savedAi?.state
+      && Number(savedAi?.ai?.playerId) === aiSide
+      && Number(savedAi?.ai?.depth) === aiDepth
+    );
+    state = restoreState(canResumeAi ? savedAi.state : createInitialState());
     setAiSettings(aiConfig, true, aiSide, aiDepth);
+    currentLocalMode = MODE_AI;
     if (state.phase === "shop" && state.shop.currentPlayer !== aiConfig.playerId) {
       switchShopPlayer(state);
     }
     handVisibility = { 1: aiSide !== 1, 2: aiSide !== 2 };
-    setStatus(`AI mode started. ${getPlayerName(aiConfig.playerId)} is AI (depth ${aiConfig.depth}).`);
+    setStatus(canResumeAi
+      ? `AI game resumed. ${getPlayerName(aiConfig.playerId)} is AI (depth ${aiConfig.depth}).`
+      : `AI mode started. ${getPlayerName(aiConfig.playerId)} is AI (depth ${aiConfig.depth}).`);
 
-    clearSave();
-    saveGame(state);
+    persistState();
     enterGameScreen("passplay");
     render();
   });
@@ -276,6 +314,7 @@ function bindEvents() {
   });
 
   elements.menuOnlineBtn.addEventListener("click", async () => {
+    persistState();
     setAiSettings(aiConfig, false, aiConfig.playerId, aiConfig.depth);
     const session = online.getSession();
     if (online.isOnlineActive() && session.roomCode) {
@@ -287,9 +326,16 @@ function bindEvents() {
       activeRoomCode = session.roomCode;
       updateOnlineRoomUI(activeRoomCode);
     } else {
+      const savedOnline = loadModeSave(MODE_ONLINE);
+      const savedRoomCode = String(savedOnline?.roomCode || "").toUpperCase();
       activeRoomCode = null;
       waitingRoomState = createWaitingRoomState();
-      updateOnlineRoomUI("-");
+      if (/^[A-Z2-9]{6}$/.test(savedRoomCode)) {
+        activeRoomCode = savedRoomCode;
+        waitingRoomState.mode = "friend";
+        elements.onlineJoinCode.value = savedRoomCode;
+      }
+      updateOnlineRoomUI(activeRoomCode || "-");
     }
 
     elements.onlinePseudo.value = normalizePseudo(elements.onlinePseudo.value || online.getSession().displayName || "");
@@ -392,8 +438,14 @@ function bindEvents() {
   });
 
   elements.onlineBackBtn.addEventListener("click", () => {
+    saveModeSave(MODE_ONLINE, {
+      roomCode: activeRoomCode || online.getSession().roomCode || null,
+      playerId: waitingRoomState.playerId || null,
+      playerNames: waitingRoomState.playerNames || null,
+      state,
+      updatedAt: Date.now(),
+    });
     online.leaveRoom();
-    online.clearRoomToken(activeRoomCode || online.getSession().roomCode);
     activeRoomCode = null;
     waitingRoomState = createWaitingRoomState();
     showMainMenu();
@@ -578,9 +630,14 @@ function bindEvents() {
 
   elements.newGameBtn.addEventListener("click", () => {
     if (online.isOnlineActive()) {
-      const roomToLeave = activeRoomCode || online.getSession().roomCode;
+      saveModeSave(MODE_ONLINE, {
+        roomCode: activeRoomCode || online.getSession().roomCode || null,
+        playerId: waitingRoomState.playerId || null,
+        playerNames: waitingRoomState.playerNames || null,
+        state,
+        updatedAt: Date.now(),
+      });
       online.leaveRoom();
-      online.clearRoomToken(roomToLeave);
       activeRoomCode = null;
       waitingRoomState = createWaitingRoomState();
       clearRoomQuery();
@@ -593,7 +650,11 @@ function bindEvents() {
       switchShopPlayer(state);
     }
     handVisibility = { 1: false, 2: true };
-    clearSave();
+    if (aiConfig.enabled || currentLocalMode === MODE_AI) {
+      clearModeSave(MODE_AI);
+    } else {
+      clearModeSave(MODE_PASSPLAY);
+    }
     persistState();
     setStatus("New game created.");
     render();
@@ -1161,6 +1222,14 @@ function initializeEntryMode() {
     return;
   }
 
+  const savedOnline = loadModeSave(MODE_ONLINE);
+  const savedRoomCode = String(savedOnline?.roomCode || "").toUpperCase();
+  if (/^[A-Z2-9]{6}$/.test(savedRoomCode)) {
+    activeRoomCode = savedRoomCode;
+    waitingRoomState.mode = "friend";
+    elements.onlineJoinCode.value = savedRoomCode;
+  }
+
   showMainMenu();
 }
 
@@ -1180,6 +1249,15 @@ function showAiPanel() {
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
+
+  const savedAi = loadModeSave(MODE_AI);
+  if (savedAi?.ai?.playerId) {
+    elements.aiSideSelect.value = String(savedAi.ai.playerId);
+  }
+  if (savedAi?.ai?.depth) {
+    elements.aiDepthSelect.value = String(savedAi.ai.depth);
+  }
+  elements.aiStartBtn.textContent = savedAi?.state ? "Continue Game" : "New Game";
 }
 
 function showOnlinePanel() {
@@ -1192,6 +1270,7 @@ function showOnlinePanel() {
   elements.onlinePseudo.value = normalizePseudo(elements.onlinePseudo.value || online.getSession().displayName || "");
   if (activeRoomCode && /^[A-Z2-9]{6}$/.test(activeRoomCode)) {
     elements.onlineJoinCode.value = activeRoomCode;
+    waitingRoomState.mode = "friend";
   }
   updateOnlineConnectionStatus();
 }
@@ -1458,9 +1537,41 @@ function createRoomCode() {
 }
 
 function persistState() {
-  if (!online.isOnlineActive()) {
-    saveGame(state);
+  if (online.isOnlineActive()) {
+    saveModeSave(MODE_ONLINE, {
+      roomCode: activeRoomCode || online.getSession().roomCode || null,
+      playerId: waitingRoomState.playerId || null,
+      playerNames: waitingRoomState.playerNames || null,
+      state,
+      updatedAt: Date.now(),
+    });
+    return;
   }
+
+  if (aiConfig.enabled || currentLocalMode === MODE_AI) {
+    saveModeSave(MODE_AI, {
+      state,
+      ai: {
+        playerId: aiConfig.playerId,
+        depth: aiConfig.depth,
+      },
+      updatedAt: Date.now(),
+    });
+    return;
+  }
+
+  saveModeSave(MODE_PASSPLAY, {
+    state,
+    updatedAt: Date.now(),
+  });
+}
+
+function getSavedStateForMode(mode) {
+  const saved = loadModeSave(mode);
+  if (!saved || typeof saved !== "object") {
+    return null;
+  }
+  return saved.state || null;
 }
 
 function initializeTheme() {

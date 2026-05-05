@@ -327,7 +327,39 @@ function onJoinRoom(ws, message) {
   }
 
   if (room.started && !message.token) {
-    send(ws, { type: "error", message: "Match already started. Reconnect with token." });
+    const reclaimPlayerId = [1, 2].find((id) => {
+      const player = room.players[id];
+      if (!player?.token || player.connected) {
+        return false;
+      }
+      return true;
+    });
+
+    if (!reclaimPlayerId) {
+      send(ws, { type: "error", message: "Match already started. Reconnect with token." });
+      return;
+    }
+
+    const newToken = createToken();
+    room.players[reclaimPlayerId].token = newToken;
+    room.players[reclaimPlayerId].name = normalizeDisplayName(
+      message.displayName,
+      room.players[reclaimPlayerId].name || `Player ${reclaimPlayerId}`,
+    );
+    attachSession(ws, room.code, reclaimPlayerId, newToken);
+    persistRooms().catch(() => {});
+
+    sendWaitingSnapshot(ws, room, reclaimPlayerId, newToken);
+    send(ws, {
+      type: "state_snapshot",
+      roomCode: room.code,
+      seq: room.seq,
+      state: room.state,
+      playerId: reclaimPlayerId,
+      playerNames: getRoomPlayerNames(room),
+      shopSync: getShopSyncPayload(room, reclaimPlayerId),
+    });
+    broadcastWaitingState(room);
     return;
   }
 
@@ -385,6 +417,8 @@ function onReconnect(ws, message) {
       seq: room.seq,
       state: room.state,
       playerId,
+      playerNames: getRoomPlayerNames(room),
+      shopSync: getShopSyncPayload(room, playerId),
     });
   }
 

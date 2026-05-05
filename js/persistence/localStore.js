@@ -1,12 +1,24 @@
-const STORAGE_KEY = "runebags-save-v1";
+const LEGACY_STORAGE_KEY = "runebags-save-v1";
+const STORAGE_KEYS = {
+  passplay: "runebags-save-passplay-v2",
+  ai: "runebags-save-ai-v2",
+  online: "runebags-save-online-v2",
+};
 
-export function saveGame(state) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+function getStorageKey(mode) {
+  return STORAGE_KEYS[mode] || STORAGE_KEYS.passplay;
 }
 
-export function loadGame() {
-  const raw = localStorage.getItem(STORAGE_KEY);
+export function saveModeSave(mode, payload) {
+  localStorage.setItem(getStorageKey(mode), JSON.stringify(payload));
+}
+
+export function loadModeSave(mode) {
+  const raw = localStorage.getItem(getStorageKey(mode));
   if (!raw) {
+    if (mode === "passplay") {
+      return loadLegacyPassPlaySave();
+    }
     return null;
   }
 
@@ -17,6 +29,34 @@ export function loadGame() {
   }
 }
 
+export function clearModeSave(mode) {
+  localStorage.removeItem(getStorageKey(mode));
+}
+
+function loadLegacyPassPlaySave() {
+  const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const state = JSON.parse(raw);
+    return { state };
+  } catch {
+    return null;
+  }
+}
+
+export function saveGame(state) {
+  saveModeSave("passplay", { state });
+}
+
+export function loadGame() {
+  const saved = loadModeSave("passplay");
+  return saved?.state || null;
+}
+
 export function clearSave() {
-  localStorage.removeItem(STORAGE_KEY);
+  clearModeSave("passplay");
+  localStorage.removeItem(LEGACY_STORAGE_KEY);
 }
