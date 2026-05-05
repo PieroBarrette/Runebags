@@ -51,11 +51,6 @@ function renderPlayerHand(state, playerId, elements, isVisible, isForcedVisible)
       symbol.alt = rune.name;
       symbol.className = "rune-chip-symbol";
       icon.appendChild(symbol);
-    } else {
-      const dot = document.createElement("span");
-      dot.className = "rune-chip-dot";
-      dot.textContent = "•";
-      icon.appendChild(dot);
     }
 
     const textWrap = document.createElement("div");

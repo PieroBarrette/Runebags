@@ -1048,11 +1048,6 @@ function renderRuneList(container, runes, playerId, highlightIds) {
       symbol.alt = rune.name;
       symbol.className = "rune-chip-symbol";
       icon.appendChild(symbol);
-    } else {
-      const dot = document.createElement("span");
-      dot.className = "rune-chip-dot";
-      dot.textContent = "•";
-      icon.appendChild(dot);
     }
 
     const textWrap = document.createElement("div");
@@ -1117,11 +1112,6 @@ function renderRoundAwayRunes(entries) {
       symbol.alt = rune.name;
       symbol.className = "rune-chip-symbol";
       icon.appendChild(symbol);
-    } else {
-      const dot = document.createElement("span");
-      dot.className = "rune-chip-dot";
-      dot.textContent = "•";
-      icon.appendChild(dot);
     }
 
     const textWrap = document.createElement("div");
