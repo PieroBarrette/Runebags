@@ -946,7 +946,7 @@ function updateTopStatus() {
 function renderShopPanel() {
   const inShop = state.phase === "shop";
   elements.shopPanel.hidden = !inShop;
-  elements.boardEl.hidden = false;
+  elements.boardEl.hidden = inShop;
   elements.shopInstruction.hidden = !inShop;
   elements.shopSwitchPlayer.hidden = !inShop || online.isOnlineActive() || aiConfig.enabled;
 
