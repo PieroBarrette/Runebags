@@ -127,6 +127,8 @@ let aiTimer = null;
 let animationsEnabled = true;
 let previousBoardSnapshot = null;
 
+registerServiceWorker();
+
 wireOnlineEvents();
 bindEvents();
 initializeTheme();
@@ -134,6 +136,18 @@ initializeAnimations();
 render();
 initializeEntryMode();
 window.setInterval(tickOnlineShopTimer, 1000);
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) {
+    return;
+  }
+
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./service-worker.js").catch(() => {
+      // Service worker support is optional; app works normally if registration fails.
+    });
+  });
+}
 
 function wireOnlineEvents() {
   online.setListeners({

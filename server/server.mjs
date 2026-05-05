@@ -31,6 +31,7 @@ const MIME = {
   ".js": "application/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8",
   ".json": "application/json; charset=utf-8",
+  ".webmanifest": "application/manifest+json; charset=utf-8",
   ".svg": "image/svg+xml",
   ".png": "image/png",
   ".jpg": "image/jpeg",
@@ -143,6 +144,8 @@ async function handleHttp(req, res) {
 function isAllowedPublicPath(target) {
   return target === "/index.html"
     || target === "/"
+    || target === "/manifest.webmanifest"
+    || target === "/service-worker.js"
     || target.startsWith("/js/")
     || target.startsWith("/styles/")
     || target.startsWith("/assets/");

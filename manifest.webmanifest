@@ -1,0 +1,18 @@
+{
+  "name": "RuneBags",
+  "short_name": "RuneBags",
+  "description": "Runic tactics, hidden hands, and evolving rounds.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0f131a",
+  "theme_color": "#131820",
+  "icons": [
+    {
+      "src": "./assets/RuneBags_Logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
