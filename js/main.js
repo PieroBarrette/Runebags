@@ -46,6 +46,7 @@ const elements = {
   aiSideSelect: document.getElementById("ai-side-select"),
   aiDepthSelect: document.getElementById("ai-depth-select"),
   aiPanel: document.getElementById("ai-panel"),
+  aiContinueBtn: document.getElementById("ai-continue-btn"),
   aiStartBtn: document.getElementById("ai-start-btn"),
   aiBackBtn: document.getElementById("ai-back-btn"),
   menuOnlineBtn: document.getElementById("menu-online-btn"),
@@ -279,30 +280,53 @@ function bindEvents() {
     render();
   });
 
-  elements.aiStartBtn.addEventListener("click", () => {
+  elements.aiContinueBtn.addEventListener("click", () => {
     persistState();
     if (online.isOnlineActive()) {
       online.leaveRoom();
     }
 
     const savedAi = loadModeSave(MODE_AI);
-    const aiSide = Number(elements.aiSideSelect.value);
-    const aiDepth = Number(elements.aiDepthSelect.value);
-    const canResumeAi = Boolean(
-      savedAi?.state
-      && Number(savedAi?.ai?.playerId) === aiSide
-      && Number(savedAi?.ai?.depth) === aiDepth
-    );
-    state = restoreState(canResumeAi ? savedAi.state : createInitialState());
+    const canResumeAi = Boolean(savedAi?.state);
+    if (!canResumeAi) {
+      setStatus("No saved AI game found. Start a new game instead.");
+      return;
+    }
+
+    const aiSide = Number(savedAi?.ai?.playerId || elements.aiSideSelect.value);
+    const aiDepth = Number(savedAi?.ai?.depth || elements.aiDepthSelect.value);
+    state = restoreState(savedAi.state);
     setAiSettings(aiConfig, true, aiSide, aiDepth);
     currentLocalMode = MODE_AI;
     if (state.phase === "shop" && state.shop.currentPlayer !== aiConfig.playerId) {
       switchShopPlayer(state);
     }
     handVisibility = { 1: aiSide !== 1, 2: aiSide !== 2 };
-    setStatus(canResumeAi
-      ? `AI game resumed. ${getPlayerName(aiConfig.playerId)} is AI (depth ${aiConfig.depth}).`
-      : `AI mode started. ${getPlayerName(aiConfig.playerId)} is AI (depth ${aiConfig.depth}).`);
+    elements.aiSideSelect.value = String(aiConfig.playerId);
+    elements.aiDepthSelect.value = String(aiConfig.depth);
+    setStatus(`AI game resumed. ${getPlayerName(aiConfig.playerId)} is AI (depth ${aiConfig.depth}).`);
+
+    persistState();
+    enterGameScreen("passplay");
+    render();
+  });
+
+  elements.aiStartBtn.addEventListener("click", () => {
+    persistState();
+    if (online.isOnlineActive()) {
+      online.leaveRoom();
+    }
+
+    const aiSide = Number(elements.aiSideSelect.value);
+    const aiDepth = Number(elements.aiDepthSelect.value);
+    state = restoreState(createInitialState());
+    setAiSettings(aiConfig, true, aiSide, aiDepth);
+    currentLocalMode = MODE_AI;
+    if (state.phase === "shop" && state.shop.currentPlayer !== aiConfig.playerId) {
+      switchShopPlayer(state);
+    }
+    handVisibility = { 1: aiSide !== 1, 2: aiSide !== 2 };
+    setStatus(`AI mode started. ${getPlayerName(aiConfig.playerId)} is AI (depth ${aiConfig.depth}).`);
 
     persistState();
     enterGameScreen("passplay");
@@ -1257,7 +1281,7 @@ function showAiPanel() {
   if (savedAi?.ai?.depth) {
     elements.aiDepthSelect.value = String(savedAi.ai.depth);
   }
-  elements.aiStartBtn.textContent = savedAi?.state ? "Continue Game" : "New Game";
+  elements.aiContinueBtn.disabled = !savedAi?.state;
 }
 
 function showOnlinePanel() {
