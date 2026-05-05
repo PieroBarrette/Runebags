@@ -114,7 +114,6 @@ const elements = {
   shopSwitchPlayer: document.getElementById("shop-switch-player"),
   shopRemoveBtn: document.getElementById("shop-remove-btn"),
   shopCombineBtn: document.getElementById("shop-combine-btn"),
-  shopCancelBtn: document.getElementById("shop-cancel-btn"),
 };
 
 let state = restoreState(getSavedStateForMode(MODE_PASSPLAY) || createInitialState());
@@ -748,27 +747,6 @@ function bindEvents() {
     scheduleAiTurnIfNeeded();
   });
 
-  elements.shopCancelBtn.addEventListener("click", () => {
-    if (online.isOnlineActive()) {
-      online.sendAction("shop_set_mode", { mode: null });
-      return;
-    }
-
-    if (isCurrentLocalShopPlayerReady()) {
-      setStatus("This player is marked ready. Click Cancel Ready to continue shopping.");
-      return;
-    }
-
-    const result = setShopMode(state, null);
-    state = result.state;
-    if (result.error) {
-      setStatus(result.error);
-    }
-    persistState();
-    render();
-    scheduleAiTurnIfNeeded();
-  });
-
   elements.shopBag.addEventListener("click", (event) => {
     const runeCard = event.target.closest(".rune-card");
     if (!runeCard) {
@@ -1027,7 +1005,6 @@ function renderShopPanel() {
   elements.shopCombineBtn.hidden = !actions.combineVisible;
   elements.shopRemoveBtn.disabled = playerReady && isPassPlayMode();
   elements.shopCombineBtn.disabled = playerReady && isPassPlayMode();
-  elements.shopCancelBtn.disabled = playerReady && isPassPlayMode();
 
   if (previousShopPlayer !== playerId) {
     state.shop.currentPlayer = previousShopPlayer;
