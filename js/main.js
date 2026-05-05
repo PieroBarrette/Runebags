@@ -1076,17 +1076,44 @@ function renderRuneList(container, runes, playerId, highlightIds) {
 }
 
 function updateMeta() {
-  elements.p1Points.textContent = `${getDisplayPlayerName(1)} points: ${state.players[1].points}`;
-  elements.p2Points.textContent = `${getDisplayPlayerName(2)} points: ${state.players[2].points}`;
+  renderPointRunes(elements.p1Points, `${getDisplayPlayerName(1)} runes`, state.players[1].points);
+  renderPointRunes(elements.p2Points, `${getDisplayPlayerName(2)} runes`, state.players[2].points);
   elements.p1Bag.textContent = `Bag: ${state.players[1].bag.length}`;
   elements.p1Discard.textContent = `Discard: ${state.players[1].discard.length}`;
   elements.p2Bag.textContent = `Bag: ${state.players[2].bag.length}`;
   elements.p2Discard.textContent = `Discard: ${state.players[2].discard.length}`;
-  elements.pointPool.textContent = `Point Supply: ${state.pointPoolRemaining}`;
+  renderPointRunes(elements.pointPool, "Rune Supply", state.pointPoolRemaining);
   elements.neutralSupply.textContent = `Neutral Supply: ${state.neutralSupply}`;
   const visibleAway = state.roundAwayRunes.filter((entry) => entry.owner === 1 || entry.owner === 2);
   elements.roundDiscards.textContent = visibleAway.length > 0 ? `Away this round: ${visibleAway.length}` : "Away this round: none";
   renderRoundAwayRunes(visibleAway);
+}
+
+function renderPointRunes(target, label, count) {
+  target.innerHTML = "";
+
+  const labelEl = document.createElement("span");
+  labelEl.className = "point-rune-label";
+  labelEl.textContent = `${label}:`;
+
+  const trackEl = document.createElement("span");
+  trackEl.className = "point-rune-track";
+  trackEl.setAttribute("aria-hidden", "true");
+
+  const safeCount = Math.max(0, Number(count) || 0);
+  for (let index = 0; index < safeCount; index += 1) {
+    const runeEl = document.createElement("span");
+    runeEl.className = "point-rune";
+    trackEl.appendChild(runeEl);
+  }
+
+  const srText = document.createElement("span");
+  srText.className = "sr-only";
+  srText.textContent = `${label}: ${safeCount}`;
+
+  target.appendChild(labelEl);
+  target.appendChild(trackEl);
+  target.appendChild(srText);
 }
 
 function renderRoundAwayRunes(entries) {
