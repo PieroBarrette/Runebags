@@ -130,6 +130,7 @@ let aiBusy = false;
 let aiTimer = null;
 let animationsEnabled = true;
 let previousBoardSnapshot = null;
+let previousPendingActionSnapshot = null;
 
 registerServiceWorker();
 
@@ -810,6 +811,7 @@ function render() {
 
   const forcedVisible = getForcedVisiblePlayers(state);
   const pendingTargets = getPendingBoardTargets(state);
+  const pendingSnapshot = snapshotPendingAction(state.pendingAction);
   const winningLine = getWinningLine(state);
   let forcedColumns = [];
 
@@ -881,9 +883,17 @@ function render() {
     elements.player2Toggle.hidden = false;
   }
 
-  const animationFrame = buildBoardAnimationFrame(state, animationsEnabled, previousBoardSnapshot);
+  const animationFrame = buildBoardAnimationFrame(
+    state,
+    animationsEnabled,
+    previousBoardSnapshot,
+    pendingTargets,
+    previousPendingActionSnapshot,
+    pendingSnapshot,
+  );
   renderBoard(state, elements, pendingTargets, winningLine, forcedColumns, animationFrame);
   previousBoardSnapshot = snapshotBoard(state.boardRunes);
+  previousPendingActionSnapshot = pendingSnapshot;
   renderHands(state, elements, handVisibility, forcedVisible);
   applyOnlinePlayerNames();
 
@@ -1620,6 +1630,7 @@ function applyAnimationsSetting(enabled) {
   if (!animationsEnabled) {
     previousBoardSnapshot = snapshotBoard(state.boardRunes);
   }
+  previousPendingActionSnapshot = snapshotPendingAction(state.pendingAction);
 }
 
 function saveAnimationsPreference(enabled) {
@@ -1638,13 +1649,68 @@ function snapshotBoard(boardRunes) {
   }));
 }
 
-function buildBoardAnimationFrame(currentState, enabled, previousSnapshot) {
+function snapshotPendingAction(action) {
+  if (!action) {
+    return null;
+  }
+
+  const serializeCells = (cells = []) => cells
+    .map((cell) => `${cell.row}:${cell.col}`)
+    .sort()
+    .join("|");
+  const serializeColumns = (columns = []) => [...columns].sort((a, b) => a - b).join("|");
+
+  return [
+    action.type || "",
+    serializeCells(action.validCells),
+    serializeColumns(action.validColumns),
+    serializeColumns(action.validSourceColumns),
+    serializeColumns(action.validTargetColumns),
+    action.sourceCol ?? "",
+    action.remainingDrops ?? "",
+  ].join(";");
+}
+
+function getPendingPulseCells(currentState, pendingTargets) {
+  const keys = new Set();
+  if (!currentState.pendingAction || !pendingTargets?.pending) {
+    return keys;
+  }
+
+  if (pendingTargets.mode === "cells") {
+    (pendingTargets.cells || []).forEach((cell) => {
+      keys.add(`${cell.row}:${cell.col}`);
+    });
+    return keys;
+  }
+
+  if (pendingTargets.mode === "columns") {
+    (pendingTargets.columns || []).forEach((col) => {
+      for (let row = 0; row < currentState.rows; row += 1) {
+        keys.add(`${row}:${col}`);
+      }
+    });
+  }
+
+  return keys;
+}
+
+function buildBoardAnimationFrame(
+  currentState,
+  enabled,
+  previousSnapshot,
+  pendingTargets,
+  previousPendingSnapshot,
+  currentPendingSnapshot,
+) {
   const none = {
     enabled: false,
     placed: new Set(),
     movedTo: new Set(),
     removedFrom: new Set(),
     effectPulse: new Set(),
+    pendingPulse: new Set(),
+    pendingType: null,
   };
 
   if (!enabled || currentState.phase !== "round" || !previousSnapshot) {
@@ -1682,6 +1748,7 @@ function buildBoardAnimationFrame(currentState, enabled, previousSnapshot) {
   const movedTo = new Set();
   const removedFrom = new Set();
   const effectPulse = new Set();
+  const pendingPulse = new Set();
 
   currCells.forEach((rune, key) => {
     const instanceId = rune.instanceId || null;
@@ -1733,16 +1800,28 @@ function buildBoardAnimationFrame(currentState, enabled, previousSnapshot) {
     }
   });
 
+  const pendingChanged = Boolean(
+    currentPendingSnapshot && currentPendingSnapshot !== previousPendingSnapshot,
+  );
+  if (pendingChanged) {
+    getPendingPulseCells(currentState, pendingTargets).forEach((key) => pendingPulse.add(key));
+  }
+
   const totalChanges = placed.size + movedTo.size + removedFrom.size;
-  if (totalChanges === 0 || totalChanges > 8) {
+  const hasBoardChanges = totalChanges > 0 && totalChanges <= 8;
+  const hasPendingPulse = pendingPulse.size > 0;
+
+  if (!hasBoardChanges && !hasPendingPulse) {
     return none;
   }
 
   return {
-    enabled: true,
-    placed,
-    movedTo,
-    removedFrom,
+    enabled: hasBoardChanges || hasPendingPulse,
+    placed: hasBoardChanges ? placed : new Set(),
+    movedTo: hasBoardChanges ? movedTo : new Set(),
+    removedFrom: hasBoardChanges ? removedFrom : new Set(),
     effectPulse,
+    pendingPulse,
+    pendingType: hasPendingPulse ? currentState.pendingAction?.type || null : null,
   };
 }

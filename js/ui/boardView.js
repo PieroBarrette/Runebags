@@ -92,6 +92,30 @@ export function renderBoard(
         if (animationFrame.effectPulse?.has(animationKey)) {
           button.classList.add("anim-effect");
         }
+
+        if (isInteractiveTarget && animationFrame.pendingPulse?.has(animationKey)) {
+          button.classList.add("anim-pending");
+
+          if (animationFrame.pendingType === "teiwaz-source") {
+            button.classList.add("anim-pending-teiwaz-source");
+          }
+
+          if (animationFrame.pendingType === "teiwaz-target") {
+            button.classList.add("anim-pending-teiwaz-target");
+          }
+
+          if (animationFrame.pendingType === "gebo-l2-target") {
+            button.classList.add("anim-pending-gebo");
+          }
+
+          if (animationFrame.pendingType === "thurisa-drop") {
+            button.classList.add("anim-pending-thurisa");
+          }
+
+          if (animationFrame.pendingType === "perth-l2-column") {
+            button.classList.add("anim-pending-perth");
+          }
+        }
       }
 
       if (isInteractiveTarget) {
