@@ -198,7 +198,7 @@
           <div id="p1-hand" class="hand hidden-hand" aria-live="polite"></div>
         </aside>
 
-        <section class="board-panel panel">
+        <section id="board-panel" class="board-panel panel">
           <div id="turn-pill" class="turn-pill">Turn: White</div>
           <p class="bag-meta"><span id="point-pool">Points:</span> | <span id="neutral-supply">Neutral Supply: 0</span></p>
           <p class="bag-meta" id="round-discards" hidden>Away this round: none</p>
@@ -219,6 +219,10 @@
             <div id="shop-bag" class="shop-bag"></div>
           </div>
           <div id="board" class="board" role="grid" aria-label="RuneBags board"></div>
+          <div id="board-rune-info" class="board-rune-info" role="status" aria-live="polite" hidden>
+            <p id="board-rune-info-title" class="board-rune-info-title"></p>
+            <p id="board-rune-info-description" class="board-rune-info-description"></p>
+          </div>
         </section>
 
         <aside class="panel player-panel" id="player-2-panel">

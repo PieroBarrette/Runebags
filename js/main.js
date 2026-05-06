@@ -38,6 +38,8 @@ const ONLINE_NAME_MAX = 14;
 const MODE_PASSPLAY = "passplay";
 const MODE_AI = "ai";
 const MODE_ONLINE = "online";
+const BOARD_LONG_TOUCH_MS = 420;
+const BOARD_TOUCH_INFO_FADE_MS = 1200;
 
 const elements = {
   mainMenu: document.getElementById("main-menu"),
@@ -83,7 +85,11 @@ const elements = {
   gameScreen: document.getElementById("game-screen"),
   status: document.getElementById("game-status"),
   turnPill: document.getElementById("turn-pill"),
+  boardPanel: document.getElementById("board-panel"),
   boardEl: document.getElementById("board"),
+  boardRuneInfo: document.getElementById("board-rune-info"),
+  boardRuneInfoTitle: document.getElementById("board-rune-info-title"),
+  boardRuneInfoDescription: document.getElementById("board-rune-info-description"),
   menuBtn: document.getElementById("menu-btn"),
   phaseBtn: document.getElementById("phase-btn"),
   newGameBtn: document.getElementById("new-game-btn"),
@@ -134,6 +140,9 @@ let aiTimer = null;
 let animationsEnabled = true;
 let previousBoardSnapshot = null;
 let previousPendingActionSnapshot = null;
+let boardLongTouchTimer = null;
+let boardTouchInfoHideTimer = null;
+let boardInfoShownFromTouch = false;
 
 registerServiceWorker();
 
@@ -509,6 +518,7 @@ function bindEvents() {
   });
 
   elements.boardEl.addEventListener("click", (event) => {
+    hideBoardRuneInfo();
     const cell = event.target.closest(".cell");
     if (!cell) {
       return;
@@ -535,6 +545,8 @@ function bindEvents() {
     render();
     scheduleAiTurnIfNeeded();
   });
+
+  bindBoardRuneInfoEvents();
 
   [elements.player1Hand, elements.player2Hand].forEach((handEl) => {
     handEl.addEventListener("click", (event) => {
@@ -807,10 +819,151 @@ function bindEvents() {
   });
 }
 
+function bindBoardRuneInfoEvents() {
+  elements.boardEl.addEventListener("pointerover", (event) => {
+    if (event.pointerType !== "mouse") {
+      return;
+    }
+
+    const cell = event.target.closest(".cell");
+    if (!cell) {
+      return;
+    }
+
+    showBoardRuneInfoForCell(cell, false);
+  });
+
+  elements.boardEl.addEventListener("pointerout", (event) => {
+    if (event.pointerType !== "mouse") {
+      return;
+    }
+
+    if (event.relatedTarget && event.relatedTarget.closest(".cell")) {
+      return;
+    }
+
+    hideBoardRuneInfo();
+  });
+
+  elements.boardEl.addEventListener("mouseleave", () => {
+    hideBoardRuneInfo();
+  });
+
+  elements.boardEl.addEventListener("pointerdown", (event) => {
+    if (event.pointerType !== "touch") {
+      return;
+    }
+
+    const cell = event.target.closest(".cell");
+    clearBoardLongTouchTimer();
+    clearBoardTouchInfoHideTimer();
+    boardInfoShownFromTouch = false;
+
+    if (!cell) {
+      hideBoardRuneInfo();
+      return;
+    }
+
+    boardLongTouchTimer = window.setTimeout(() => {
+      boardInfoShownFromTouch = showBoardRuneInfoForCell(cell, true);
+    }, BOARD_LONG_TOUCH_MS);
+  });
+
+  elements.boardEl.addEventListener("pointerup", (event) => {
+    if (event.pointerType !== "touch") {
+      return;
+    }
+
+    clearBoardLongTouchTimer();
+    if (!boardInfoShownFromTouch) {
+      hideBoardRuneInfo();
+      return;
+    }
+
+    boardTouchInfoHideTimer = window.setTimeout(() => {
+      hideBoardRuneInfo();
+    }, BOARD_TOUCH_INFO_FADE_MS);
+  });
+
+  elements.boardEl.addEventListener("pointercancel", (event) => {
+    if (event.pointerType !== "touch") {
+      return;
+    }
+
+    clearBoardLongTouchTimer();
+    hideBoardRuneInfo();
+  });
+}
+
+function showBoardRuneInfoForCell(cell, fromTouch) {
+  const row = Number(cell.dataset.row);
+  const col = Number(cell.dataset.column);
+  const value = state.board[row]?.[col] || 0;
+  const rune = state.boardRunes[row]?.[col] || null;
+
+  if (!rune || value === 0) {
+    hideBoardRuneInfo();
+    return false;
+  }
+
+  const runeMeta = getRuneById(rune.id) || rune;
+  if (!runeMeta?.name || !runeMeta?.description) {
+    hideBoardRuneInfo();
+    return false;
+  }
+
+  const levelLabel = runeMeta.supportsLevels && rune.level >= 2 ? ` Lv${rune.level}` : "";
+  const etherealLabel = rune.ethereal ? " (Ethereal)" : "";
+  elements.boardRuneInfoTitle.textContent = `${runeMeta.name}${levelLabel}${etherealLabel}`;
+  elements.boardRuneInfoDescription.textContent = runeMeta.description;
+
+  const panelRect = elements.boardPanel.getBoundingClientRect();
+  const cellRect = cell.getBoundingClientRect();
+  const cellCenterX = cellRect.left - panelRect.left + cellRect.width / 2;
+  const tooltipMargin = 10;
+  const maxX = Math.max(tooltipMargin, panelRect.width - tooltipMargin);
+  const clampedX = Math.min(maxX, Math.max(tooltipMargin, cellCenterX));
+  const top = Math.max(tooltipMargin, cellRect.top - panelRect.top - tooltipMargin);
+
+  elements.boardRuneInfo.style.left = `${clampedX}px`;
+  elements.boardRuneInfo.style.top = `${top}px`;
+  elements.boardRuneInfo.hidden = false;
+  elements.boardRuneInfo.dataset.touch = fromTouch ? "yes" : "no";
+  return true;
+}
+
+function hideBoardRuneInfo() {
+  clearBoardLongTouchTimer();
+  clearBoardTouchInfoHideTimer();
+  boardInfoShownFromTouch = false;
+  elements.boardRuneInfo.hidden = true;
+  delete elements.boardRuneInfo.dataset.touch;
+}
+
+function clearBoardLongTouchTimer() {
+  if (!boardLongTouchTimer) {
+    return;
+  }
+
+  window.clearTimeout(boardLongTouchTimer);
+  boardLongTouchTimer = null;
+}
+
+function clearBoardTouchInfoHideTimer() {
+  if (!boardTouchInfoHideTimer) {
+    return;
+  }
+
+  window.clearTimeout(boardTouchInfoHideTimer);
+  boardTouchInfoHideTimer = null;
+}
+
 function render() {
   if (elements.gameScreen.hidden) {
     return;
   }
+
+  hideBoardRuneInfo();
 
   const forcedVisible = getForcedVisiblePlayers(state);
   const pendingTargets = getPendingBoardTargets(state);
