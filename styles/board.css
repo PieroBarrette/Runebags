@@ -111,17 +111,41 @@
 }
 
 .board-rune-info {
+  --info-bg: rgba(247, 250, 255, 0.98);
+  --info-border: rgba(36, 51, 71, 0.28);
   position: absolute;
   z-index: 5;
   width: min(240px, calc(100% - 16px));
   padding: 0.4rem 0.55rem;
   border-radius: 9px;
-  border: 1px solid rgba(36, 51, 71, 0.28);
-  background: rgba(247, 250, 255, 0.98);
+  border: 1px solid var(--info-border);
+  background: var(--info-bg);
   box-shadow: 0 8px 18px rgba(20, 32, 48, 0.22);
   color: #182537;
-  transform: translate(-50%, -100%);
   pointer-events: none;
+}
+
+.board-rune-info::after {
+  content: "";
+  position: absolute;
+  left: var(--arrow-x, 18px);
+  width: 10px;
+  height: 10px;
+  background: var(--info-bg);
+  border: 1px solid var(--info-border);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.board-rune-info[data-side="top"]::after {
+  top: -6px;
+  border-right: none;
+  border-bottom: none;
+}
+
+.board-rune-info[data-side="bottom"]::after {
+  bottom: -6px;
+  border-left: none;
+  border-top: none;
 }
 
 .board-rune-info-title {
@@ -138,8 +162,8 @@
 }
 
 .board-rune-info[data-touch="yes"] {
-  background: rgba(255, 250, 233, 0.99);
-  border-color: rgba(190, 149, 38, 0.48);
+  --info-bg: rgba(255, 250, 233, 0.99);
+  --info-border: rgba(190, 149, 38, 0.48);
 }
 
 body[data-animations="on"] .cell.anim-place.has-piece::before {
@@ -195,15 +219,15 @@ body[data-theme="dark"] .cell.winning-cell {
 }
 
 body[data-theme="dark"] .board-rune-info {
-  border-color: rgba(230, 238, 248, 0.24);
-  background: rgba(17, 24, 32, 0.97);
+  --info-bg: rgba(17, 24, 32, 0.97);
+  --info-border: rgba(230, 238, 248, 0.24);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
   color: #edf2fa;
 }
 
 body[data-theme="dark"] .board-rune-info[data-touch="yes"] {
-  background: rgba(48, 40, 18, 0.97);
-  border-color: rgba(224, 189, 95, 0.52);
+  --info-bg: rgba(48, 40, 18, 0.97);
+  --info-border: rgba(224, 189, 95, 0.52);
 }
 
 

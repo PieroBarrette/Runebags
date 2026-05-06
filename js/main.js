@@ -38,8 +38,6 @@ const ONLINE_NAME_MAX = 14;
 const MODE_PASSPLAY = "passplay";
 const MODE_AI = "ai";
 const MODE_ONLINE = "online";
-const BOARD_LONG_TOUCH_MS = 420;
-const BOARD_TOUCH_INFO_FADE_MS = 1200;
 
 const elements = {
   mainMenu: document.getElementById("main-menu"),
@@ -140,9 +138,7 @@ let aiTimer = null;
 let animationsEnabled = true;
 let previousBoardSnapshot = null;
 let previousPendingActionSnapshot = null;
-let boardLongTouchTimer = null;
-let boardTouchInfoHideTimer = null;
-let boardInfoShownFromTouch = false;
+let suppressBoardClickOnce = false;
 
 registerServiceWorker();
 
@@ -518,6 +514,11 @@ function bindEvents() {
   });
 
   elements.boardEl.addEventListener("click", (event) => {
+    if (suppressBoardClickOnce) {
+      suppressBoardClickOnce = false;
+      return;
+    }
+
     hideBoardRuneInfo();
     const cell = event.target.closest(".cell");
     if (!cell) {
@@ -849,40 +850,24 @@ function bindBoardRuneInfoEvents() {
     hideBoardRuneInfo();
   });
 
-  elements.boardEl.addEventListener("pointerdown", (event) => {
-    if (event.pointerType !== "touch") {
-      return;
-    }
-
-    const cell = event.target.closest(".cell");
-    clearBoardLongTouchTimer();
-    clearBoardTouchInfoHideTimer();
-    boardInfoShownFromTouch = false;
-
-    if (!cell) {
-      hideBoardRuneInfo();
-      return;
-    }
-
-    boardLongTouchTimer = window.setTimeout(() => {
-      boardInfoShownFromTouch = showBoardRuneInfoForCell(cell, true);
-    }, BOARD_LONG_TOUCH_MS);
-  });
-
   elements.boardEl.addEventListener("pointerup", (event) => {
     if (event.pointerType !== "touch") {
       return;
     }
 
-    clearBoardLongTouchTimer();
-    if (!boardInfoShownFromTouch) {
+    const cell = event.target.closest(".cell");
+    if (!cell) {
       hideBoardRuneInfo();
       return;
     }
 
-    boardTouchInfoHideTimer = window.setTimeout(() => {
+    if (cell.classList.contains("target-cell")) {
       hideBoardRuneInfo();
-    }, BOARD_TOUCH_INFO_FADE_MS);
+      return;
+    }
+
+    const shown = showBoardRuneInfoForCell(cell, true);
+    suppressBoardClickOnce = shown;
   });
 
   elements.boardEl.addEventListener("pointercancel", (event) => {
@@ -890,7 +875,7 @@ function bindBoardRuneInfoEvents() {
       return;
     }
 
-    clearBoardLongTouchTimer();
+    suppressBoardClickOnce = false;
     hideBoardRuneInfo();
   });
 }
@@ -919,43 +904,46 @@ function showBoardRuneInfoForCell(cell, fromTouch) {
 
   const panelRect = elements.boardPanel.getBoundingClientRect();
   const cellRect = cell.getBoundingClientRect();
-  const cellCenterX = cellRect.left - panelRect.left + cellRect.width / 2;
-  const tooltipMargin = 10;
-  const maxX = Math.max(tooltipMargin, panelRect.width - tooltipMargin);
-  const clampedX = Math.min(maxX, Math.max(tooltipMargin, cellCenterX));
-  const top = Math.max(tooltipMargin, cellRect.top - panelRect.top - tooltipMargin);
-
-  elements.boardRuneInfo.style.left = `${clampedX}px`;
-  elements.boardRuneInfo.style.top = `${top}px`;
+  const tooltipMargin = 8;
   elements.boardRuneInfo.hidden = false;
+  elements.boardRuneInfo.style.visibility = "hidden";
+
+  const tooltipRect = elements.boardRuneInfo.getBoundingClientRect();
+  const tooltipWidth = Math.max(tooltipRect.width, 120);
+  const tooltipHeight = Math.max(tooltipRect.height, 42);
+  const cellCenterX = cellRect.left - panelRect.left + cellRect.width / 2;
+
+  const minLeft = tooltipMargin;
+  const maxLeft = Math.max(minLeft, panelRect.width - tooltipWidth - tooltipMargin);
+  const left = Math.min(maxLeft, Math.max(minLeft, cellCenterX - tooltipWidth / 2));
+
+  const preferredTop = cellRect.top - panelRect.top - tooltipHeight - tooltipMargin;
+  const fallbackTop = cellRect.bottom - panelRect.top + tooltipMargin;
+  const minTop = tooltipMargin;
+  const maxTop = Math.max(minTop, panelRect.height - tooltipHeight - tooltipMargin);
+  const useTopPlacement = preferredTop < minTop;
+  const top = !useTopPlacement
+    ? preferredTop
+    : Math.min(maxTop, Math.max(minTop, fallbackTop));
+  const arrowInset = 12;
+  const arrowX = Math.min(tooltipWidth - arrowInset, Math.max(arrowInset, cellCenterX - left));
+
+  elements.boardRuneInfo.style.left = `${left}px`;
+  elements.boardRuneInfo.style.top = `${top}px`;
+  elements.boardRuneInfo.style.setProperty("--arrow-x", `${arrowX}px`);
+  elements.boardRuneInfo.style.visibility = "";
+  elements.boardRuneInfo.hidden = false;
+  elements.boardRuneInfo.dataset.side = useTopPlacement ? "top" : "bottom";
   elements.boardRuneInfo.dataset.touch = fromTouch ? "yes" : "no";
   return true;
 }
 
 function hideBoardRuneInfo() {
-  clearBoardLongTouchTimer();
-  clearBoardTouchInfoHideTimer();
-  boardInfoShownFromTouch = false;
+  suppressBoardClickOnce = false;
   elements.boardRuneInfo.hidden = true;
+  elements.boardRuneInfo.style.removeProperty("--arrow-x");
+  delete elements.boardRuneInfo.dataset.side;
   delete elements.boardRuneInfo.dataset.touch;
-}
-
-function clearBoardLongTouchTimer() {
-  if (!boardLongTouchTimer) {
-    return;
-  }
-
-  window.clearTimeout(boardLongTouchTimer);
-  boardLongTouchTimer = null;
-}
-
-function clearBoardTouchInfoHideTimer() {
-  if (!boardTouchInfoHideTimer) {
-    return;
-  }
-
-  window.clearTimeout(boardTouchInfoHideTimer);
-  boardTouchInfoHideTimer = null;
 }
 
 function render() {
