@@ -1694,30 +1694,6 @@ function snapshotPendingAction(action) {
   ].join(";");
 }
 
-function getPendingPulseCells(currentState, pendingTargets) {
-  const keys = new Set();
-  if (!currentState.pendingAction || !pendingTargets?.pending) {
-    return keys;
-  }
-
-  if (pendingTargets.mode === "cells") {
-    (pendingTargets.cells || []).forEach((cell) => {
-      keys.add(`${cell.row}:${cell.col}`);
-    });
-    return keys;
-  }
-
-  if (pendingTargets.mode === "columns") {
-    (pendingTargets.columns || []).forEach((col) => {
-      for (let row = 0; row < currentState.rows; row += 1) {
-        keys.add(`${row}:${col}`);
-      }
-    });
-  }
-
-  return keys;
-}
-
 function buildBoardAnimationFrame(
   currentState,
   enabled,
@@ -1729,11 +1705,6 @@ function buildBoardAnimationFrame(
   const none = {
     enabled: false,
     placed: new Set(),
-    movedTo: new Set(),
-    removedFrom: new Set(),
-    effectPulse: new Set(),
-    pendingPulse: new Set(),
-    pendingType: null,
   };
 
   if (!enabled || currentState.phase !== "round" || !previousSnapshot) {
@@ -1741,7 +1712,6 @@ function buildBoardAnimationFrame(
   }
 
   const prevByInstance = new Map();
-  const currByInstance = new Map();
   const prevCells = new Map();
   const currCells = new Map();
 
@@ -1760,18 +1730,11 @@ function buildBoardAnimationFrame(
 
       if (currRune) {
         currCells.set(key, currRune);
-        if (currRune.instanceId) {
-          currByInstance.set(currRune.instanceId, key);
-        }
       }
     }
   }
 
   const placed = new Set();
-  const movedTo = new Set();
-  const removedFrom = new Set();
-  const effectPulse = new Set();
-  const pendingPulse = new Set();
 
   currCells.forEach((rune, key) => {
     const instanceId = rune.instanceId || null;
@@ -1779,72 +1742,23 @@ function buildBoardAnimationFrame(
       if (!prevCells.has(key)) {
         placed.add(key);
       }
-      if (rune.id !== "basic" && rune.id !== "neutral") {
-        effectPulse.add(key);
-      }
       return;
     }
 
     const previousCell = prevByInstance.get(instanceId);
     if (!previousCell) {
       placed.add(key);
-      if (rune.id !== "basic" && rune.id !== "neutral") {
-        effectPulse.add(key);
-      }
-      return;
-    }
-
-    if (previousCell !== key) {
-      movedTo.add(key);
-      removedFrom.add(previousCell);
-      if (rune.id !== "basic" && rune.id !== "neutral") {
-        effectPulse.add(key);
-      }
-      return;
-    }
-
-    const previousRune = prevCells.get(key);
-    if (previousRune && previousRune.id !== rune.id && rune.id !== "basic" && rune.id !== "neutral") {
-      effectPulse.add(key);
     }
   });
 
-  prevCells.forEach((prevRune, key) => {
-    const instanceId = prevRune.instanceId || null;
-    if (!instanceId) {
-      if (!currCells.has(key)) {
-        removedFrom.add(key);
-      }
-      return;
-    }
+  const hasBoardChanges = placed.size > 0 && placed.size <= 8;
 
-    if (!currByInstance.has(instanceId)) {
-      removedFrom.add(key);
-    }
-  });
-
-  const pendingChanged = Boolean(
-    currentPendingSnapshot && currentPendingSnapshot !== previousPendingSnapshot,
-  );
-  if (pendingChanged) {
-    getPendingPulseCells(currentState, pendingTargets).forEach((key) => pendingPulse.add(key));
-  }
-
-  const totalChanges = placed.size + movedTo.size + removedFrom.size;
-  const hasBoardChanges = totalChanges > 0 && totalChanges <= 8;
-  const hasPendingPulse = pendingPulse.size > 0;
-
-  if (!hasBoardChanges && !hasPendingPulse) {
+  if (!hasBoardChanges) {
     return none;
   }
 
   return {
-    enabled: hasBoardChanges || hasPendingPulse,
-    placed: hasBoardChanges ? placed : new Set(),
-    movedTo: hasBoardChanges ? movedTo : new Set(),
-    removedFrom: hasBoardChanges ? removedFrom : new Set(),
-    effectPulse,
-    pendingPulse,
-    pendingType: hasPendingPulse ? currentState.pendingAction?.type || null : null,
+    enabled: true,
+    placed,
   };
 }

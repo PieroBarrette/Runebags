@@ -117,46 +117,6 @@ body[data-animations="on"] .cell.anim-place .rune-symbol {
   animation: rune-symbol-drop-in var(--board-anim-duration) cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-body[data-animations="on"] .cell.anim-move.has-piece::before {
-  animation: rune-move-cue var(--board-anim-duration) cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-body[data-animations="on"] .cell.anim-remove {
-  animation: rune-remove-cue var(--board-anim-duration) cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-body[data-animations="on"] .cell.anim-effect.has-piece::before {
-  animation: rune-effect-cue var(--board-anim-duration) cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-body[data-animations="on"] .cell.anim-effect .rune-symbol {
-  animation: rune-effect-symbol var(--board-anim-duration) cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-body[data-animations="on"] .cell.anim-pending {
-  animation: pending-pulse 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-body[data-animations="on"] .cell.anim-pending-teiwaz-source {
-  animation-name: pending-teiwaz-source;
-}
-
-body[data-animations="on"] .cell.anim-pending-teiwaz-target {
-  animation-name: pending-teiwaz-target;
-}
-
-body[data-animations="on"] .cell.anim-pending-gebo {
-  animation-name: pending-gebo;
-}
-
-body[data-animations="on"] .cell.anim-pending-thurisa {
-  animation-name: pending-thurisa;
-}
-
-body[data-animations="on"] .cell.anim-pending-perth {
-  animation-name: pending-perth;
-}
-
 @keyframes rune-drop-in {
   from {
     transform: translateY(-300%) scale(0.88);
@@ -179,131 +139,6 @@ body[data-animations="on"] .cell.anim-pending-perth {
   }
 }
 
-@keyframes rune-move-cue {
-  0% {
-    transform: translateX(-14%) scale(0.95);
-    opacity: 0.72;
-  }
-  65% {
-    transform: translateX(8%) scale(1.02);
-    opacity: 1;
-  }
-  100% {
-    transform: translateX(0) scale(1);
-    opacity: 1;
-  }
-}
-
-@keyframes rune-remove-cue {
-  0% {
-    transform: translateY(0);
-    opacity: 1;
-  }
-  45% {
-    transform: translateY(9%);
-    opacity: 0.72;
-  }
-  100% {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-@keyframes rune-effect-cue {
-  0% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-8%);
-  }
-  100% {
-    transform: translateY(0);
-  }
-}
-
-@keyframes rune-effect-symbol {
-  0% {
-    transform: translateY(0) rotate(0deg);
-  }
-  40% {
-    transform: translateY(-10%) rotate(-6deg);
-  }
-  100% {
-    transform: translateY(0) rotate(0deg);
-  }
-}
-
-@keyframes pending-pulse {
-  0% {
-    transform: translateY(0);
-  }
-  45% {
-    transform: translateY(-6%);
-  }
-  100% {
-    transform: translateY(0);
-  }
-}
-
-@keyframes pending-teiwaz-source {
-  0% {
-    transform: translateX(0);
-  }
-  45% {
-    transform: translateX(-9%);
-  }
-  100% {
-    transform: translateX(0);
-  }
-}
-
-@keyframes pending-teiwaz-target {
-  0% {
-    transform: translateX(0);
-  }
-  45% {
-    transform: translateX(9%);
-  }
-  100% {
-    transform: translateX(0);
-  }
-}
-
-@keyframes pending-gebo {
-  0% {
-    transform: translateY(0);
-  }
-  45% {
-    transform: translateY(-8%);
-  }
-  100% {
-    transform: translateY(0);
-  }
-}
-
-@keyframes pending-thurisa {
-  0% {
-    transform: translateY(0);
-  }
-  45% {
-    transform: translateY(10%);
-  }
-  100% {
-    transform: translateY(0);
-  }
-}
-
-@keyframes pending-perth {
-  0% {
-    transform: translateY(0);
-  }
-  45% {
-    transform: translateY(8%);
-  }
-  100% {
-    transform: translateY(0);
-  }
-}
 
 body[data-theme="dark"] .board {
   border-color: rgba(220, 230, 241, 0.24);
@@ -326,7 +161,4 @@ body[data-theme="dark"] .cell.winning-cell {
   background: rgba(255, 214, 102, 0.24);
 }
 
-body[data-theme="dark"][data-animations="on"] .cell.anim-remove {
-  animation: rune-remove-cue var(--board-anim-duration) cubic-bezier(0.2, 0.8, 0.2, 1);
-}
 
