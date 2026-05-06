@@ -231,6 +231,42 @@ body[data-theme="dark"] .menu-logo {
   padding: 0.35rem;
 }
 
+.online-room-link-code {
+  margin: 0;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid rgba(36, 51, 71, 0.25);
+  border-radius: 8px;
+  background: rgba(252, 253, 255, 0.9);
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+
+.online-queue-status {
+  margin: 0.35rem 0 0.6rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-soft);
+}
+
+.online-queue-spinner {
+  width: 0.85rem;
+  height: 0.85rem;
+  border: 2px solid rgba(36, 51, 71, 0.2);
+  border-top-color: var(--accent);
+  border-radius: 999px;
+  animation: online-spin 0.9s linear infinite;
+}
+
+@keyframes online-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 #online-join-code {
   width: 150px;
   text-transform: uppercase;
@@ -268,6 +304,16 @@ body[data-theme="dark"] .settings-checkbox {
 body[data-theme="dark"] .online-room-qr {
   border-color: rgba(220, 230, 241, 0.28);
   background: rgba(243, 248, 255, 0.96);
+}
+
+body[data-theme="dark"] .online-room-link-code {
+  border-color: rgba(220, 230, 241, 0.28);
+  background: rgba(16, 22, 29, 0.82);
+}
+
+body[data-theme="dark"] .online-queue-spinner {
+  border-color: rgba(220, 230, 241, 0.3);
+  border-top-color: var(--accent);
 }
 
 body[data-theme="dark"] .ai-config select,

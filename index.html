@@ -71,7 +71,6 @@
 
     <section id="online-panel" class="panel menu-panel" hidden>
       <h2>Play Online</h2>
-      <p>Choose Quick Play or create a friend room.</p>
       <p class="online-server-status">
         <span id="online-server-dot" class="online-dot" aria-hidden="true"></span>
         <span id="online-server-text">Server: Disconnected</span>
@@ -91,16 +90,20 @@
           <button id="online-join-btn" class="menu-btn" type="button">Join</button>
         </div>
       </div>
-      <p id="online-room-code" class="bag-meta">Room: -</p>
+        <div id="online-queue-status" class="online-queue-status" hidden>
+          <span class="online-queue-spinner" aria-hidden="true"></span>
+          <span id="online-queue-text">Searching for opponent...</span>
+        </div>
+        <p id="online-room-code" class="bag-meta" hidden>Room: -</p>
       <div id="online-room-link-wrap" hidden>
-        <label for="online-room-link">Room Link</label>
-        <input id="online-room-link" type="text" readonly>
+          <label for="online-room-link">Invite Code</label>
+          <p id="online-room-link" class="bag-meta online-room-link-code">-</p>
         <img id="online-room-qr" class="online-room-qr" alt="QR code for room link" loading="lazy" referrerpolicy="no-referrer">
       </div>
-      <div class="waiting-room">
+        <div id="online-waiting-room" class="waiting-room" hidden>
         <h3>Waiting Room</h3>
         <p id="waiting-role" class="bag-meta">You are: -</p>
-        <p id="waiting-summary" class="bag-meta">Share your link, then set Ready.</p>
+          <p id="waiting-summary" class="bag-meta">Share your invite code and wait for your opponent.</p>
         <p id="waiting-you-status" class="bag-meta">You: Not ready</p>
         <p id="waiting-opponent-status" class="bag-meta">Opponent: Waiting to join...</p>
       </div>

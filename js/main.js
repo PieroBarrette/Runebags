@@ -59,10 +59,13 @@ const elements = {
   onlinePanel: document.getElementById("online-panel"),
   onlineServerDot: document.getElementById("online-server-dot"),
   onlineServerText: document.getElementById("online-server-text"),
+  onlineQueueStatus: document.getElementById("online-queue-status"),
+  onlineQueueText: document.getElementById("online-queue-text"),
   onlineRoomCode: document.getElementById("online-room-code"),
   onlineRoomLinkWrap: document.getElementById("online-room-link-wrap"),
   onlineRoomLink: document.getElementById("online-room-link"),
   onlineRoomQr: document.getElementById("online-room-qr"),
+  onlineWaitingRoom: document.getElementById("online-waiting-room"),
   waitingRole: document.getElementById("waiting-role"),
   waitingSummary: document.getElementById("waiting-summary"),
   waitingYouStatus: document.getElementById("waiting-you-status"),
@@ -1342,15 +1345,27 @@ function enterGameScreen(mode, roomCode = null) {
 function updateOnlineRoomUI(roomCode) {
   const isFriendMode = waitingRoomState.mode === "friend";
   const isQueueMode = waitingRoomState.mode === "queue";
+  const showQueueStatus = isQueueMode && waitingRoomState.queued;
   const hasRoomCode = isFriendMode && typeof roomCode === "string" && /^[A-Z2-9]{6}$/.test(roomCode);
   const roomLink = hasRoomCode ? buildRoomLink(roomCode) : "";
 
-  elements.onlineRoomCode.textContent = isFriendMode ? `Room: ${roomCode}` : "Room: Auto-match";
+  elements.onlineRoomCode.hidden = !hasRoomCode;
+  elements.onlineRoomCode.textContent = hasRoomCode ? `Room: ${roomCode}` : "Room: -";
+  if (elements.onlineQueueStatus) {
+    elements.onlineQueueStatus.hidden = !showQueueStatus;
+  }
+  if (elements.onlineQueueText) {
+    elements.onlineQueueText.textContent = showQueueStatus
+      ? waitingRoomState.queuePosition > 1
+        ? `Searching for opponent (queue #${waitingRoomState.queuePosition})...`
+        : "Searching for opponent..."
+      : "";
+  }
   if (elements.onlineRoomLinkWrap) {
     elements.onlineRoomLinkWrap.hidden = !hasRoomCode;
   }
   if (elements.onlineRoomLink) {
-    elements.onlineRoomLink.value = roomLink;
+    elements.onlineRoomLink.textContent = hasRoomCode ? roomCode : "-";
   }
   if (elements.onlineRoomQr) {
     if (hasRoomCode) {
@@ -1361,13 +1376,17 @@ function updateOnlineRoomUI(roomCode) {
       elements.onlineRoomQr.hidden = true;
     }
   }
-  elements.waitingRole.textContent = waitingRoomState.playerId
-    ? `You are: ${waitingRoomState.yourName || getDisplayPlayerName(waitingRoomState.playerId)}`
-    : "You are: -";
+  if (elements.onlineWaitingRoom) {
+    elements.onlineWaitingRoom.hidden = !isFriendMode;
+  }
+  elements.waitingRole.hidden = !isFriendMode || !waitingRoomState.playerId;
+  if (waitingRoomState.playerId) {
+    elements.waitingRole.textContent = `You are: ${waitingRoomState.yourName || getDisplayPlayerName(waitingRoomState.playerId)}`;
+  }
 
-  elements.onlineReadyBtn.hidden = !isFriendMode;
+  elements.onlineReadyBtn.hidden = !isFriendMode || !waitingRoomState.opponentJoined;
   elements.onlineCopyLinkBtn.hidden = !isFriendMode;
-  elements.onlineReadyBtn.disabled = !isFriendMode;
+  elements.onlineReadyBtn.disabled = !isFriendMode || !waitingRoomState.opponentJoined;
 
   elements.waitingYouStatus.textContent = isFriendMode
     ? `${waitingRoomState.yourName || "You"}: ${waitingRoomState.youReady ? "Ready" : "Not ready"}`
@@ -1393,7 +1412,7 @@ function updateOnlineRoomUI(roomCode) {
   if (isQueueMode) {
     elements.waitingSummary.textContent = waitingRoomState.queued
       ? "Searching for opponent..."
-      : "Click Quick Play to enter matchmaking.";
+      : "";
     return;
   }
 
@@ -1402,13 +1421,17 @@ function updateOnlineRoomUI(roomCode) {
       elements.waitingSummary.textContent = "Both players are ready. Starting match...";
       return;
     }
+    if (!waitingRoomState.opponentJoined) {
+      elements.waitingSummary.textContent = "Share your invite code. Waiting for opponent to join.";
+      return;
+    }
     elements.waitingSummary.textContent = waitingRoomState.youReady
       ? "You are ready. Waiting for opponent to be ready."
-      : "Share your link, then set Ready.";
+      : "Opponent joined. Set Ready when you are ready to start.";
     return;
   }
 
-  elements.waitingSummary.textContent = "Choose Quick Play or create/join a friend room.";
+  elements.waitingSummary.textContent = "";
 }
 
 function createWaitingRoomState() {
