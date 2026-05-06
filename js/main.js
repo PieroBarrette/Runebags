@@ -857,7 +857,10 @@ function render() {
     handVisibility[aiConfig.playerId] = false;
   }
 
-  if (online.isOnlineActive()) {
+  if (state.phase === "shop") {
+    elements.player1Toggle.hidden = true;
+    elements.player2Toggle.hidden = true;
+  } else if (online.isOnlineActive()) {
     elements.player1Toggle.hidden = true;
     elements.player2Toggle.hidden = true;
     const yourId = waitingRoomState.playerId;
@@ -1089,17 +1092,24 @@ function renderRuneList(container, runes, playerId, highlightIds) {
 }
 
 function updateMeta() {
-  renderPointRunes(elements.p1Points, `${getDisplayPlayerName(1)} runes`, state.players[1].points);
-  renderPointRunes(elements.p2Points, `${getDisplayPlayerName(2)} runes`, state.players[2].points);
+  renderPointRunes(elements.p1Points, "Points", state.players[1].points);
+  renderPointRunes(elements.p2Points, "Points", state.players[2].points);
   elements.p1Bag.textContent = `Bag: ${state.players[1].bag.length}`;
   elements.p1Discard.textContent = `Discard: ${state.players[1].discard.length}`;
   elements.p2Bag.textContent = `Bag: ${state.players[2].bag.length}`;
   elements.p2Discard.textContent = `Discard: ${state.players[2].discard.length}`;
-  renderPointRunes(elements.pointPool, "Rune Supply", state.pointPoolRemaining);
+  renderPointRunes(elements.pointPool, "Points", state.pointPoolRemaining);
   elements.neutralSupply.textContent = `Neutral Supply: ${state.neutralSupply}`;
   const visibleAway = state.roundAwayRunes.filter((entry) => entry.owner === 1 || entry.owner === 2);
-  elements.roundDiscards.textContent = visibleAway.length > 0 ? `Away this round: ${visibleAway.length}` : "Away this round: none";
-  renderRoundAwayRunes(visibleAway);
+  const shouldShowAway = state.phase !== "shop" && visibleAway.length > 0;
+  elements.roundDiscards.hidden = !shouldShowAway;
+  elements.roundAwayList.hidden = !shouldShowAway;
+  if (shouldShowAway) {
+    elements.roundDiscards.textContent = `Away this round: ${visibleAway.length}`;
+    renderRoundAwayRunes(visibleAway);
+  } else {
+    renderRoundAwayRunes([]);
+  }
 }
 
 function renderPointRunes(target, label, count) {
