@@ -196,112 +196,112 @@ body[data-animations="on"] .cell.anim-pending-perth {
 
 @keyframes rune-remove-cue {
   0% {
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
     opacity: 1;
   }
   45% {
-    transform: translateY(8%) scale(0.88);
+    transform: translateY(9%);
     opacity: 0.72;
   }
   100% {
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
     opacity: 1;
   }
 }
 
 @keyframes rune-effect-cue {
   0% {
-    transform: scale(1);
+    transform: translateY(0);
   }
   50% {
-    transform: scale(1.09);
+    transform: translateY(-8%);
   }
   100% {
-    transform: scale(1);
+    transform: translateY(0);
   }
 }
 
 @keyframes rune-effect-symbol {
   0% {
-    transform: translateY(0) scale(1);
+    transform: translateY(0) rotate(0deg);
   }
   40% {
-    transform: translateY(-8%) scale(1.06);
+    transform: translateY(-10%) rotate(-6deg);
   }
   100% {
-    transform: translateY(0) scale(1);
+    transform: translateY(0) rotate(0deg);
   }
 }
 
 @keyframes pending-pulse {
   0% {
-    transform: scale(1);
+    transform: translateY(0);
   }
   45% {
-    transform: scale(1.05);
+    transform: translateY(-6%);
   }
   100% {
-    transform: scale(1);
+    transform: translateY(0);
   }
 }
 
 @keyframes pending-teiwaz-source {
   0% {
-    transform: translateX(0) scale(1);
+    transform: translateX(0);
   }
   45% {
-    transform: translateX(-8%) scale(1.04);
+    transform: translateX(-9%);
   }
   100% {
-    transform: translateX(0) scale(1);
+    transform: translateX(0);
   }
 }
 
 @keyframes pending-teiwaz-target {
   0% {
-    transform: translateX(0) scale(1);
+    transform: translateX(0);
   }
   45% {
-    transform: translateX(8%) scale(1.04);
+    transform: translateX(9%);
   }
   100% {
-    transform: translateX(0) scale(1);
+    transform: translateX(0);
   }
 }
 
 @keyframes pending-gebo {
   0% {
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
   45% {
-    transform: translateY(-7%) scale(1.06);
+    transform: translateY(-8%);
   }
   100% {
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
 @keyframes pending-thurisa {
   0% {
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
   45% {
-    transform: translateY(9%) scale(1.04);
+    transform: translateY(10%);
   }
   100% {
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
 @keyframes pending-perth {
   0% {
-    transform: scale(1);
+    transform: translateY(0);
   }
   45% {
-    transform: scale(0.94);
+    transform: translateY(8%);
   }
   100% {
-    transform: scale(1);
+    transform: translateY(0);
   }
 }
 
