@@ -111,7 +111,13 @@ const elements = {
   neutralSupply: document.getElementById("neutral-supply"),
   roundDiscards: document.getElementById("round-discards"),
   roundAwayList: document.getElementById("round-away-list"),
+  logTabTurn: document.getElementById("log-tab-turn"),
+  logTabChat: document.getElementById("log-tab-chat"),
   turnLog: document.getElementById("turn-log"),
+  chatPanel: document.getElementById("chat-panel"),
+  chatLog: document.getElementById("chat-log"),
+  chatForm: document.getElementById("chat-form"),
+  chatInput: document.getElementById("chat-input"),
   shopPanel: document.getElementById("shop-panel"),
   shopPlayerTitle: document.getElementById("shop-player-title"),
   shopModeLabel: document.getElementById("shop-mode-label"),
@@ -139,6 +145,8 @@ let animationsEnabled = true;
 let previousBoardSnapshot = null;
 let previousPendingActionSnapshot = null;
 let suppressBoardClickOnce = false;
+let activeFeedTab = "turn";
+let onlineChatMessages = [];
 
 registerServiceWorker();
 
@@ -165,6 +173,9 @@ function registerServiceWorker() {
 function wireOnlineEvents() {
   online.setListeners({
     waiting: (snapshot) => {
+      if (snapshot.roomCode !== activeRoomCode) {
+        onlineChatMessages = [];
+      }
       const shouldAutoStart = Boolean(
         snapshot.canStart &&
         snapshot.youReady &&
@@ -215,6 +226,7 @@ function wireOnlineEvents() {
     state: (snapshot) => {
       state = restoreState(snapshot.state);
       currentLocalMode = MODE_ONLINE;
+      onlineChatMessages = Array.isArray(snapshot.chat) ? snapshot.chat.slice(-100) : [];
       waitingRoomState = {
         ...waitingRoomState,
         playerNames: snapshot.playerNames || waitingRoomState.playerNames,
@@ -248,6 +260,18 @@ function wireOnlineEvents() {
       updateOnlineRoomUI(activeRoomCode || "-");
       if (snapshot.message) {
         setStatus(snapshot.message);
+      }
+    },
+    chat: (message) => {
+      if (!message || typeof message.text !== "string") {
+        return;
+      }
+      onlineChatMessages.push(message);
+      if (onlineChatMessages.length > 100) {
+        onlineChatMessages = onlineChatMessages.slice(-100);
+      }
+      if (!elements.gameScreen.hidden) {
+        renderChatPanel();
       }
     },
     error: (message) => {
@@ -481,6 +505,7 @@ function bindEvents() {
     online.leaveRoom();
     activeRoomCode = null;
     waitingRoomState = createWaitingRoomState();
+    onlineChatMessages = [];
     showMainMenu();
   });
 
@@ -504,6 +529,34 @@ function bindEvents() {
 
   elements.onlineReadyBtn.addEventListener("click", () => {
     online.setReady(!waitingRoomState.youReady);
+  });
+
+  elements.logTabTurn.addEventListener("click", () => {
+    activeFeedTab = "turn";
+    renderChatPanel();
+  });
+
+  elements.logTabChat.addEventListener("click", () => {
+    activeFeedTab = "chat";
+    renderChatPanel();
+    elements.chatInput.focus();
+  });
+
+  elements.chatForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (!online.isOnlineActive()) {
+      setStatus("Chat is available during online matches.");
+      return;
+    }
+
+    const text = String(elements.chatInput.value || "").trim();
+    if (!text) {
+      return;
+    }
+
+    online.sendChat(text);
+    elements.chatInput.value = "";
+    elements.chatInput.focus();
   });
 
   elements.menuBtn.addEventListener("click", () => {
@@ -681,6 +734,7 @@ function bindEvents() {
       online.leaveRoom();
       activeRoomCode = null;
       waitingRoomState = createWaitingRoomState();
+      onlineChatMessages = [];
       clearRoomQuery();
       showMainMenu();
       return;
@@ -1046,6 +1100,7 @@ function render() {
   applyOnlinePlayerNames();
 
   renderLog(state, elements);
+  renderChatPanel();
   renderShopPanel();
   updateMeta();
   updateTopStatus();
@@ -1318,6 +1373,64 @@ function renderRoundAwayRunes(entries) {
     card.appendChild(textWrap);
     elements.roundAwayList.appendChild(card);
   });
+}
+
+function renderChatPanel() {
+  const isOnline = online.isOnlineActive();
+  const showChat = activeFeedTab === "chat";
+
+  elements.logTabTurn.classList.toggle("active", !showChat);
+  elements.logTabChat.classList.toggle("active", showChat);
+  elements.logTabTurn.setAttribute("aria-selected", String(!showChat));
+  elements.logTabChat.setAttribute("aria-selected", String(showChat));
+
+  elements.turnLog.hidden = showChat;
+  elements.chatPanel.hidden = !showChat;
+  elements.logTabChat.disabled = !isOnline;
+  elements.chatInput.disabled = !isOnline;
+
+  if (!showChat) {
+    return;
+  }
+
+  elements.chatLog.innerHTML = "";
+  if (!isOnline) {
+    const row = document.createElement("div");
+    row.className = "chat-row";
+    row.textContent = "Chat is available only in online matches.";
+    elements.chatLog.appendChild(row);
+    return;
+  }
+
+  if (!onlineChatMessages.length) {
+    const row = document.createElement("div");
+    row.className = "chat-row";
+    row.textContent = "No messages yet.";
+    elements.chatLog.appendChild(row);
+    return;
+  }
+
+  const yourId = waitingRoomState.playerId;
+  onlineChatMessages.slice(-80).forEach((entry) => {
+    const row = document.createElement("div");
+    row.className = "chat-row";
+    if (yourId && entry.playerId === yourId) {
+      row.classList.add("you");
+    }
+
+    const author = document.createElement("span");
+    author.className = "chat-author";
+    author.textContent = `${entry.name || "Player"}:`;
+
+    const text = document.createElement("span");
+    text.textContent = ` ${entry.text || ""}`;
+
+    row.appendChild(author);
+    row.appendChild(text);
+    elements.chatLog.appendChild(row);
+  });
+
+  elements.chatLog.scrollTop = elements.chatLog.scrollHeight;
 }
 
 function getCurrentShopMode() {

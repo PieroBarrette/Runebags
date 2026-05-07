@@ -235,8 +235,18 @@
       </section>
 
       <section class="panel log-panel">
-        <h2>Turn Log</h2>
+        <div class="log-tabs" role="tablist" aria-label="Game feed tabs">
+          <button id="log-tab-turn" class="log-tab active" type="button" role="tab" aria-selected="true" aria-controls="turn-log">Turn Log</button>
+          <button id="log-tab-chat" class="log-tab" type="button" role="tab" aria-selected="false" aria-controls="chat-panel">Chat</button>
+        </div>
         <div id="turn-log" class="turn-log" aria-live="polite"></div>
+        <section id="chat-panel" class="chat-panel" hidden>
+          <div id="chat-log" class="chat-log" aria-live="polite"></div>
+          <form id="chat-form" class="chat-form" autocomplete="off">
+            <input id="chat-input" type="text" maxlength="180" placeholder="Type a message..." aria-label="Chat message">
+            <button id="chat-send" type="submit">Send</button>
+          </form>
+        </section>
       </section>
     </section>
   </main>

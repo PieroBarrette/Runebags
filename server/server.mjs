@@ -172,6 +172,8 @@ function handleMessage(ws, message) {
       return onStartMatch(ws);
     case "action":
       return onAction(ws, message);
+    case "chat_send":
+      return onChatSend(ws, message);
     case "reconnect":
       return onReconnect(ws, message);
     case "leave_room":
@@ -266,6 +268,7 @@ function createInstantMatch(firstEntry, secondEntry) {
     started: true,
     seq: 1,
     state: restoreState(createInitialState()),
+    chat: [],
     shopSync: createShopSyncState(),
     players: {
       1: createPlayerRecord(token1, normalizeDisplayName(firstEntry?.displayName, "Player 1")),
@@ -304,6 +307,7 @@ function onCreateRoom(ws, message) {
     started: false,
     seq: 0,
     state: null,
+    chat: [],
     shopSync: null,
     players: {
       1: createPlayerRecord(token, displayName),
@@ -355,6 +359,7 @@ function onJoinRoom(ws, message) {
       roomCode: room.code,
       seq: room.seq,
       state: room.state,
+      chat: Array.isArray(room.chat) ? room.chat : [],
       playerId: reclaimPlayerId,
       playerNames: getRoomPlayerNames(room),
       shopSync: getShopSyncPayload(room, reclaimPlayerId),
@@ -416,6 +421,7 @@ function onReconnect(ws, message) {
       roomCode: room.code,
       seq: room.seq,
       state: room.state,
+      chat: Array.isArray(room.chat) ? room.chat : [],
       playerId,
       playerNames: getRoomPlayerNames(room),
       shopSync: getShopSyncPayload(room, playerId),
@@ -472,6 +478,7 @@ function onStartMatch(ws) {
   }
 
   room.state = restoreState(createInitialState());
+  room.chat = [];
   room.shopSync = createShopSyncState();
   room.started = true;
   room.seq += 1;
@@ -565,6 +572,53 @@ function onAction(ws, message) {
   room.seq += 1;
   persistRooms().catch(() => {});
   broadcastState(room);
+}
+
+function onChatSend(ws, message) {
+  const session = wsToSession.get(ws);
+  if (!session) {
+    send(ws, { type: "error", message: "Join a room first." });
+    return;
+  }
+
+  const room = rooms.get(session.roomCode);
+  if (!room || !room.started) {
+    send(ws, { type: "error", message: "Match is not active." });
+    return;
+  }
+
+  const text = normalizeChatText(message.text);
+  if (!text) {
+    return;
+  }
+
+  if (!Array.isArray(room.chat)) {
+    room.chat = [];
+  }
+
+  const name = room.players?.[session.playerId]?.name || `Player ${session.playerId}`;
+  const chatMessage = {
+    id: createToken().slice(0, 12),
+    playerId: session.playerId,
+    name,
+    text,
+    at: Date.now(),
+  };
+
+  room.chat.push(chatMessage);
+  if (room.chat.length > 100) {
+    room.chat = room.chat.slice(-100);
+  }
+
+  forEachPlayerConnection(room, (peerWs) => {
+    send(peerWs, {
+      type: "chat_message",
+      roomCode: room.code,
+      message: chatMessage,
+    });
+  });
+
+  persistRooms().catch(() => {});
 }
 
 function onLeaveRoom(ws) {
@@ -698,6 +752,7 @@ function broadcastState(room) {
       roomCode: room.code,
       seq: room.seq,
       state: room.state,
+      chat: Array.isArray(room.chat) ? room.chat : [],
       playerId,
       playerNames: getRoomPlayerNames(room),
       shopSync: getShopSyncPayload(room, playerId),
@@ -900,6 +955,14 @@ function normalizeDisplayName(value, fallback = "Guest") {
   return clipped || fallback;
 }
 
+function normalizeChatText(value) {
+  if (typeof value !== "string") {
+    return "";
+  }
+  const collapsed = value.replace(/\s+/g, " ").trim();
+  return collapsed.slice(0, 180);
+}
+
 function removeFromQueueBySocket(ws) {
   const index = quickQueue.findIndex((entry) => entry.ws === ws);
   if (index < 0) {
@@ -975,6 +1038,7 @@ async function loadRooms() {
         started: Boolean(entry.started),
         seq: Number(entry.seq || 0),
         state: entry.state ? restoreState(entry.state) : null,
+        chat: Array.isArray(entry.chat) ? entry.chat.slice(-100) : [],
         shopSync: entry.shopSync || null,
         players: {
           1: {
@@ -1014,6 +1078,7 @@ function persistRooms() {
             started: room.started,
             seq: room.seq,
             state: room.state,
+            chat: Array.isArray(room.chat) ? room.chat.slice(-100) : [],
             shopSync: room.shopSync,
             players: {
               1: {

@@ -7,6 +7,7 @@ export function createOnlineController() {
     waiting: () => {},
     queue: () => {},
     state: () => {},
+    chat: () => {},
     error: () => {},
     status: () => {},
   };
@@ -172,6 +173,14 @@ export function createOnlineController() {
     send({ type: "action", actionType, payload, clientSeq: session.clientSeq });
   }
 
+  function sendChat(text) {
+    const message = String(text || "").trim();
+    if (!message) {
+      return;
+    }
+    send({ type: "chat_send", text: message.slice(0, 180) });
+  }
+
   function isOnlineActive() {
     return session.started;
   }
@@ -250,7 +259,13 @@ export function createOnlineController() {
         roomCode: msg.roomCode,
         playerNames: msg.playerNames || null,
         shopSync: msg.shopSync || null,
+        chat: Array.isArray(msg.chat) ? msg.chat : [],
       });
+      return;
+    }
+
+    if (msg.type === "chat_message") {
+      listeners.chat(msg.message || null);
       return;
     }
 
@@ -281,6 +296,7 @@ export function createOnlineController() {
     joinQueue,
     cancelQueue,
     sendAction,
+    sendChat,
     isOnlineActive,
     getSession,
     setDisplayName,

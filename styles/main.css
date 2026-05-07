@@ -357,8 +357,23 @@ body[data-theme="dark"] .waiting-room,
 body[data-theme="dark"] .shop-panel,
 body[data-theme="dark"] .shop-instruction,
 body[data-theme="dark"] .log-row,
+body[data-theme="dark"] .chat-row,
 body[data-theme="dark"] .turn-pill {
   background: rgba(35, 45, 57, 0.8);
+}
+
+body[data-theme="dark"] .log-tab,
+body[data-theme="dark"] .chat-form button {
+  background: linear-gradient(180deg, #313d4a, #212a35);
+}
+
+body[data-theme="dark"] .chat-form input {
+  border-color: rgba(220, 230, 241, 0.28);
+  background: rgba(16, 22, 29, 0.82);
+}
+
+body[data-theme="dark"] .chat-row.you {
+  background: rgba(33, 62, 89, 0.82);
 }
 
 .menu-btn {
@@ -596,11 +611,87 @@ body[data-theme="dark"] .turn-pill {
   margin-top: 1rem;
 }
 
+.log-tabs {
+  display: inline-flex;
+  gap: 0.35rem;
+  margin-bottom: 0.6rem;
+}
+
+.log-tab {
+  border: 1px solid var(--panel-border);
+  background: linear-gradient(180deg, #f7f9fc, #e5ebf2);
+  color: var(--text-soft);
+  padding: 0.35rem 0.62rem;
+  border-radius: 9px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.log-tab.active {
+  color: var(--text-main);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px rgba(32, 51, 74, 0.18);
+}
+
 .turn-log {
   max-height: 170px;
   overflow: auto;
   display: grid;
   gap: 0.4rem;
+}
+
+.chat-panel {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.chat-log {
+  max-height: 170px;
+  overflow: auto;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.chat-row {
+  padding: 0.4rem 0.52rem;
+  border-radius: 10px;
+  background: rgba(238, 244, 251, 0.9);
+  font-size: 0.92rem;
+  line-height: 1.28;
+}
+
+.chat-row.you {
+  background: rgba(214, 238, 255, 0.92);
+}
+
+.chat-author {
+  font-weight: 600;
+  margin-right: 0.35rem;
+}
+
+.chat-form {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.chat-form input {
+  flex: 1;
+  border: 1px solid rgba(36, 51, 71, 0.25);
+  border-radius: 9px;
+  padding: 0.45rem 0.55rem;
+  background: rgba(252, 253, 255, 0.92);
+  color: var(--text-main);
+  font: inherit;
+}
+
+.chat-form button {
+  border: 1px solid var(--panel-border);
+  background: linear-gradient(180deg, #f7f9fc, #e5ebf2);
+  color: var(--text-main);
+  padding: 0.42rem 0.72rem;
+  border-radius: 9px;
+  font: inherit;
+  cursor: pointer;
 }
 
 .log-row {
