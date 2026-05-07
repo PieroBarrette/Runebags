@@ -696,6 +696,27 @@ body[data-theme="dark"] .chat-row.you {
   color: var(--text-main);
   font: inherit;
 }
+.endgame-bags {
+  margin-bottom: 0.75rem;
+  padding: 0.55rem;
+  border: 1px solid rgba(36, 51, 71, 0.22);
+  border-radius: 10px;
+  background: rgba(241, 246, 252, 0.8);
+}
+
+.endgame-bags h3 {
+  margin: 0 0 0.45rem;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 1rem;
+}
+
+.endgame-bag-list {
+  margin: 0.25rem 0 0.6rem;
+}
+
+.endgame-bags .bag-meta {
+  margin-bottom: 0.2rem;
+}
 
 .chat-form button {
   border: 1px solid var(--panel-border);
@@ -705,6 +726,9 @@ body[data-theme="dark"] .chat-row.you {
   border-radius: 9px;
   font: inherit;
   cursor: pointer;
+body[data-theme="dark"] .endgame-bags {
+  background: rgba(24, 31, 40, 0.9);
+}
 }
 
 .log-row {

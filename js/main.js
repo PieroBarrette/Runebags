@@ -123,6 +123,9 @@ const elements = {
   shopModeLabel: document.getElementById("shop-mode-label"),
   shopOffer: document.getElementById("shop-offer"),
   shopBag: document.getElementById("shop-bag"),
+  endgameBagsPanel: document.getElementById("endgame-bags-panel"),
+  endgameBagBlack: document.getElementById("endgame-bag-black"),
+  endgameBagWhite: document.getElementById("endgame-bag-white"),
   shopInstruction: document.getElementById("shop-instruction"),
   shopSwitchPlayer: document.getElementById("shop-switch-player"),
   shopRemoveBtn: document.getElementById("shop-remove-btn"),
@@ -1102,6 +1105,7 @@ function render() {
   renderLog(state, elements);
   renderChatPanel();
   renderShopPanel();
+  renderEndgameBags();
   updateMeta();
   updateTopStatus();
   updateTopButtons();
@@ -1224,9 +1228,30 @@ function renderShopPanel() {
   }
 }
 
-function renderRuneList(container, runes, playerId, highlightIds) {
+function renderEndgameBags() {
+  const inGameOver = state.phase === "game-over";
+  elements.endgameBagsPanel.hidden = !inGameOver;
+
+  if (!inGameOver) {
+    return;
+  }
+
+  renderRuneList(elements.endgameBagBlack, state.players[1].bag, 1, [], { readOnly: true });
+  renderRuneList(elements.endgameBagWhite, state.players[2].bag, 2, [], { readOnly: true });
+}
+
+function renderRuneList(container, runes, playerId, highlightIds, options = {}) {
+  const readOnly = Boolean(options.readOnly);
   container.innerHTML = "";
   const highlightSet = new Set(highlightIds || []);
+
+  if (!runes.length) {
+    const empty = document.createElement("p");
+    empty.className = "bag-meta";
+    empty.textContent = "No runes in bag.";
+    container.appendChild(empty);
+    return;
+  }
 
   runes.forEach((rune) => {
     const card = document.createElement("button");
@@ -1234,6 +1259,11 @@ function renderRuneList(container, runes, playerId, highlightIds) {
     card.className = "rune-card";
     card.dataset.runeInstanceId = rune.instanceId;
     card.classList.add(playerId === 1 ? "player-1" : "player-2");
+
+    if (readOnly) {
+      card.classList.add("read-only");
+      card.tabIndex = -1;
+    }
 
     if (highlightSet.has(rune.instanceId)) {
       card.classList.add("shop-highlight");

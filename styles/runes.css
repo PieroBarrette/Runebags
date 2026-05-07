@@ -91,6 +91,10 @@
   box-shadow: 0 0 0 2px rgba(123, 215, 137, 0.85);
 }
 
+.rune-card.read-only {
+  cursor: default;
+}
+
 .shop-effect {
   color: #ffd38b;
 }
