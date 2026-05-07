@@ -1235,15 +1235,18 @@ function getAdjacentColumns(column, columnCount) {
 }
 
 function finalizeTurn(state, activePlayerId, extraTurn) {
-  const winners = getWinningPlayers(state);
+  const winningLinesByPlayer = getWinningLinesByPlayer(state);
+  const winners = Object.keys(winningLinesByPlayer).map((playerId) => Number(playerId));
 
   if (winners.length === 1) {
-    finishRoundWithWinner(state, winners[0]);
+    const winnerId = winners[0];
+    finishRoundWithWinner(state, winnerId, winningLinesByPlayer[winnerId]);
     return { state, error: null };
   }
 
   if (winners.length > 1) {
-    finishRoundAsDraw(state, "Both Black and White formed winning lines. Round is a draw.");
+    const highlightedLines = winners.flatMap((winnerId) => winningLinesByPlayer[winnerId]);
+    finishRoundAsDraw(state, "Both Black and White formed winning lines. Round is a draw.", highlightedLines);
     return { state, error: null };
   }
 
@@ -1270,20 +1273,21 @@ function finalizeTurn(state, activePlayerId, extraTurn) {
   return { state, error: null };
 }
 
-function getWinningPlayers(state) {
-  const winners = [];
+function getWinningLinesByPlayer(state) {
+  const linesByPlayer = {};
 
   for (const playerId of [BLACK, WHITE]) {
-    if (findWinningLines(state, playerId).length > 0) {
-      winners.push(playerId);
+    const lines = findWinningLines(state, playerId);
+    if (lines.length > 0) {
+      linesByPlayer[playerId] = lines;
     }
   }
 
-  return winners;
+  return linesByPlayer;
 }
 
 function findWinningLines(state, playerId) {
-  const lines = [];
+  const windows = [];
   const directions = [
     [0, 1],
     [1, 0],
@@ -1306,13 +1310,95 @@ function findWinningLines(state, playerId) {
         }
 
         if (cellsFormWinningLineForPlayer(state, cells, playerId)) {
-          lines.push(cells);
+          windows.push({ cells, dr, dc });
         }
       }
     }
   }
 
-  return lines;
+  return mergeWinningWindows(windows);
+}
+
+function mergeWinningWindows(windows) {
+  const groups = new Map();
+
+  for (const window of windows) {
+    const [startRow, startCol] = window.cells[0];
+    const lineId = getWinningLineId(window.dr, window.dc, startRow, startCol);
+    const group = groups.get(lineId) || {
+      dr: window.dr,
+      dc: window.dc,
+      cellsByKey: new Map(),
+    };
+
+    for (const [row, col] of window.cells) {
+      group.cellsByKey.set(cellKey(row, col), [row, col]);
+    }
+
+    groups.set(lineId, group);
+  }
+
+  const merged = [];
+  const seenSegments = new Set();
+
+  for (const group of groups.values()) {
+    const orderedCells = [...group.cellsByKey.values()].sort((a, b) => {
+      const aProjection = a[0] * group.dr + a[1] * group.dc;
+      const bProjection = b[0] * group.dr + b[1] * group.dc;
+      return aProjection - bProjection;
+    });
+
+    let segment = [];
+    for (const cell of orderedCells) {
+      if (segment.length === 0) {
+        segment.push(cell);
+        continue;
+      }
+
+      const [prevRow, prevCol] = segment[segment.length - 1];
+      if (cell[0] - prevRow === group.dr && cell[1] - prevCol === group.dc) {
+        segment.push(cell);
+        continue;
+      }
+
+      addWinningSegmentIfNeeded(segment, merged, seenSegments);
+      segment = [cell];
+    }
+
+    addWinningSegmentIfNeeded(segment, merged, seenSegments);
+  }
+
+  return merged;
+}
+
+function addWinningSegmentIfNeeded(segment, merged, seenSegments) {
+  if (segment.length < 4) {
+    return;
+  }
+
+  const segmentKey = segment.map(([row, col]) => `${row}:${col}`).join("|");
+  if (seenSegments.has(segmentKey)) {
+    return;
+  }
+
+  seenSegments.add(segmentKey);
+  merged.push(segment);
+}
+
+function getWinningLineId(dr, dc, row, col) {
+  if (dr === 0 && dc === 1) {
+    return `h:${row}`;
+  }
+
+  if (dr === 1 && dc === 0) {
+    return `v:${col}`;
+  }
+
+  if (dr === 1 && dc === 1) {
+    return `d1:${row - col}`;
+  }
+
+  return `d2:${row + col}`;
 }
 
 function cellsFormWinningLineForPlayer(state, cells, playerId) {
@@ -1394,12 +1480,10 @@ function canAssignDistinctHagalz(neutralCandidates, index, usedHagalz) {
   return false;
 }
 
-function finishRoundWithWinner(state, winnerId) {
+function finishRoundWithWinner(state, winnerId, winningLines) {
   state.winner = winnerId;
   state.phase = "round-end";
-
-  const winningLines = findWinningLines(state, winnerId);
-  state.winningLine = winningLines[0] || null;
+  state.winningLine = getUniqueWinningCells(winningLines);
 
   awardPointIfAvailable(state, winnerId, "Round win");
 
@@ -1418,9 +1502,9 @@ function finishRoundWithWinner(state, winnerId) {
   evaluateMajorityWinner(state);
 }
 
-function finishRoundAsDraw(state, message) {
+function finishRoundAsDraw(state, message, highlightedLines = []) {
   state.winner = null;
-  state.winningLine = null;
+  state.winningLine = highlightedLines.length > 0 ? getUniqueWinningCells(highlightedLines) : null;
   state.isDraw = true;
   state.phase = "round-end";
 
@@ -1441,6 +1525,18 @@ function awardPointIfAvailable(state, playerId, reason) {
   state.players[playerId].points += 1;
   state.pointPoolRemaining -= 1;
   state.log.unshift(`${reason}: ${playerName(playerId)} gains 1 point.`);
+}
+
+function getUniqueWinningCells(lines) {
+  const cellsByKey = new Map();
+
+  for (const line of lines || []) {
+    for (const [row, col] of line) {
+      cellsByKey.set(cellKey(row, col), [row, col]);
+    }
+  }
+
+  return [...cellsByKey.values()];
 }
 
 function evaluateMajorityWinner(state) {

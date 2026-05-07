@@ -65,7 +65,7 @@ const RUNE_CATALOG = [
     id: "berkana",
     name: "Berkana",
     type: "special",
-    description: "If inside a winning line, grants +1 bonus point.",
+    description: "If inside an owner winning line (4+), grants +1 bonus point once per round.",
     icon: "./assets/runes/berkana.svg",
     columnRule: "any",
     supportsLevels: true,

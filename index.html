@@ -121,10 +121,11 @@
       </div>
       <div class="rules-content">
         <h3>1. Goal</h3>
-        <p>Win points by creating winning lines of 4. The game revolves around a shared 10-point supply.</p>
+        <p>Win points by creating winning lines of 4 or more contiguous runes. The game revolves around a shared 10-point supply.</p>
 
         <h3>2. Core Win and Points</h3>
-        <p>A round ends immediately when a player forms a winning line of 4. That player takes 1 point from supply.</p>
+        <p>A round ends immediately when a player forms a winning line of at least 4. That player takes 1 point from supply.</p>
+        <p>If both players form a winning line from the same resolved action, the round is a draw.</p>
         <p>If a round is tied, 1 point is removed from supply instead of awarded.</p>
         <p>A player wins the game by majority of remaining obtainable points. If supply reaches 0, highest score wins. If scores are tied, fewer runes in bag wins.</p>
 
@@ -157,7 +158,7 @@
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/jera.svg" alt="Jera symbol"></span> <strong>Jera:</strong> edge columns only.</p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/algiz.svg" alt="Algiz symbol"></span> <strong>Algiz:</strong> inserts from column bottom and pushes upward.</p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/ansuz.svg" alt="Ansuz symbol"></span> <strong>Ansuz:</strong> returns rune directly beneath to owner bag (not neutral).</p>
-        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/berkana.svg" alt="Berkana symbol"></span> <strong>Berkana:</strong> if in winning line for owner, grants +1 bonus point.</p>
+        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/berkana.svg" alt="Berkana symbol"></span> <strong>Berkana:</strong> if in owner winning line (4+), grants +1 bonus point once for that round, even with multiple Berkanas.</p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/ehwaz.svg" alt="Ehwaz symbol"></span> <strong>Ehwaz:</strong> increases owner max hand size while on board.</p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/gebo.svg" alt="Gebo symbol"></span> <strong>Gebo:</strong> removes rune for the round (L2 chooses adjacent target).</p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/hagalz.svg" alt="Hagalz symbol"></span> <strong>Hagalz:</strong> adjacent neutral runes can count for owner wins, one Hagalz per converted neutral in a line.</p>
@@ -172,7 +173,7 @@
 
         <h3>9. Ethereal and Visual Cues</h3>
         <p>Ethereal runes use dashed styling and return to shop supply instead of player bag at round settlement.</p>
-        <p>Winning lines and forced columns are highlighted on board.</p>
+        <p>Winning lines and forced columns are highlighted on board, including full 4+ combo lines and both sides in simultaneous-win draws.</p>
       </div>
     </section>
 
