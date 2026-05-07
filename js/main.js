@@ -1035,11 +1035,11 @@ function render() {
     animationsEnabled,
     previousBoardSnapshot,
     pendingTargets,
-    previousPendingActionSnapshot,
+      previousBoardSnapshot = snapshotBoard(state);
     pendingSnapshot,
   );
   renderBoard(state, elements, pendingTargets, winningLine, forcedColumns, animationFrame);
-  previousBoardSnapshot = snapshotBoard(state.boardRunes);
+  previousBoardSnapshot = snapshotBoard(state);
   previousPendingActionSnapshot = pendingSnapshot;
   renderHands(state, elements, handVisibility, forcedVisible);
   applyOnlinePlayerNames();
@@ -1802,7 +1802,7 @@ function applyAnimationsSetting(enabled) {
   document.body.setAttribute("data-animations", animationsEnabled ? "on" : "off");
   elements.animationToggle.checked = animationsEnabled;
   if (!animationsEnabled) {
-    previousBoardSnapshot = snapshotBoard(state.boardRunes);
+    previousBoardSnapshot = snapshotBoard(state);
   }
   previousPendingActionSnapshot = snapshotPendingAction(state.pendingAction);
 }
@@ -1811,14 +1811,15 @@ function saveAnimationsPreference(enabled) {
   localStorage.setItem(ANIMATION_STORAGE_KEY, enabled ? "on" : "off");
 }
 
-function snapshotBoard(boardRunes) {
-  return boardRunes.map((row) => row.map((rune) => {
+function snapshotBoard(currentState) {
+  return currentState.boardRunes.map((row, rowIndex) => row.map((rune, colIndex) => {
     if (!rune) {
       return null;
     }
     return {
       instanceId: rune.instanceId || null,
       id: rune.id,
+      owner: currentState.board[rowIndex][colIndex],
     };
   }));
 }
@@ -1856,6 +1857,15 @@ function buildBoardAnimationFrame(
   const none = {
     enabled: false,
     placed: new Set(),
+    placedFromBottom: new Set(),
+    shiftedUp: new Set(),
+    ansuzAfterFadeDrop: new Set(),
+    ansuzGhostByCell: new Map(),
+    geboAfterFadeDrop: new Set(),
+    geboGhostByCell: new Map(),
+    teiwazAfterLiftDrop: new Set(),
+    teiwazLiftGhostByCell: new Map(),
+    thurisaDrops: new Set(),
   };
 
   if (!enabled || currentState.phase !== "round" || !previousSnapshot) {
@@ -1863,6 +1873,7 @@ function buildBoardAnimationFrame(
   }
 
   const prevByInstance = new Map();
+  const currByInstance = new Map();
   const prevCells = new Map();
   const currCells = new Map();
 
@@ -1881,11 +1892,23 @@ function buildBoardAnimationFrame(
 
       if (currRune) {
         currCells.set(key, currRune);
+        if (currRune.instanceId) {
+          currByInstance.set(currRune.instanceId, key);
+        }
       }
     }
   }
 
   const placed = new Set();
+  const placedFromBottom = new Set();
+  const shiftedUp = new Set();
+  const ansuzAfterFadeDrop = new Set();
+  const ansuzGhostByCell = new Map();
+  const geboAfterFadeDrop = new Set();
+  const geboGhostByCell = new Map();
+  const teiwazAfterLiftDrop = new Set();
+  const teiwazLiftGhostByCell = new Map();
+  const thurisaDrops = new Set();
 
   currCells.forEach((rune, key) => {
     const instanceId = rune.instanceId || null;
@@ -1902,7 +1925,178 @@ function buildBoardAnimationFrame(
     }
   });
 
-  const hasBoardChanges = placed.size > 0 && placed.size <= 8;
+  const isThurisaResolution = (previousPendingSnapshot || "").startsWith("thurisa-drop;");
+  if (isThurisaResolution) {
+    placed.forEach((key) => {
+      const rune = currCells.get(key);
+      if (rune?.id === "neutral") {
+        thurisaDrops.add(key);
+      }
+    });
+  }
+
+  const algizPlacements = [];
+  placed.forEach((key) => {
+    const rune = currCells.get(key);
+    const previousCell = prevCells.get(key);
+
+    if (rune?.id !== "algiz") {
+      if (
+        rune?.id === "ansuz" &&
+        previousCell &&
+        typeof previousCell.owner === "number" &&
+        previousCell.owner !== 3
+      ) {
+        ansuzAfterFadeDrop.add(key);
+        ansuzGhostByCell.set(key, previousCell);
+      }
+      return;
+    }
+
+    const [rowText, colText] = key.split(":");
+    const row = Number(rowText);
+    const col = Number(colText);
+    if (Number.isNaN(row) || Number.isNaN(col)) {
+      return;
+    }
+
+    if (row === currentState.rows - 1) {
+      algizPlacements.push({ row, col, key });
+      placedFromBottom.add(key);
+    }
+  });
+
+  if (algizPlacements.length > 0) {
+    currByInstance.forEach((currentKey, instanceId) => {
+      const previousKey = prevByInstance.get(instanceId);
+      if (!previousKey || previousKey === currentKey) {
+        return;
+      }
+
+      const [prevRowText, prevColText] = previousKey.split(":");
+      const [currRowText, currColText] = currentKey.split(":");
+      const prevRow = Number(prevRowText);
+      const prevCol = Number(prevColText);
+      const currRow = Number(currRowText);
+      const currCol = Number(currColText);
+
+      if (
+        Number.isNaN(prevRow) ||
+        Number.isNaN(prevCol) ||
+        Number.isNaN(currRow) ||
+        Number.isNaN(currCol)
+      ) {
+        return;
+      }
+
+      const isAlgizColumnShift = algizPlacements.some(
+        (entry) => entry.col === currCol && prevCol === currCol && prevRow === currRow + 1,
+      );
+
+      if (isAlgizColumnShift) {
+        shiftedUp.add(currentKey);
+      }
+    });
+  }
+
+  const removedCellsByColumn = new Map();
+  prevByInstance.forEach((previousKey, instanceId) => {
+    if (currByInstance.has(instanceId)) {
+      return;
+    }
+
+    const [rowText, colText] = previousKey.split(":");
+    const row = Number(rowText);
+    const col = Number(colText);
+    if (Number.isNaN(row) || Number.isNaN(col)) {
+      return;
+    }
+
+    if (!removedCellsByColumn.has(col)) {
+      removedCellsByColumn.set(col, []);
+    }
+    removedCellsByColumn.get(col).push({ row, key: previousKey });
+
+    const previousCell = prevCells.get(previousKey);
+    if (previousCell && typeof previousCell.owner === "number") {
+      geboGhostByCell.set(previousKey, previousCell);
+    }
+  });
+
+  if (removedCellsByColumn.size > 0) {
+    currByInstance.forEach((currentKey, instanceId) => {
+      const previousKey = prevByInstance.get(instanceId);
+      if (!previousKey || previousKey === currentKey) {
+        return;
+      }
+
+      const [prevRowText, prevColText] = previousKey.split(":");
+      const [currRowText, currColText] = currentKey.split(":");
+      const prevRow = Number(prevRowText);
+      const prevCol = Number(prevColText);
+      const currRow = Number(currRowText);
+      const currCol = Number(currColText);
+
+      if (
+        Number.isNaN(prevRow) ||
+        Number.isNaN(prevCol) ||
+        Number.isNaN(currRow) ||
+        Number.isNaN(currCol)
+      ) {
+        return;
+      }
+
+      const hasRemovalInColumn = removedCellsByColumn.has(currCol);
+      const movedDownOneCell = prevCol === currCol && currRow === prevRow + 1;
+
+      if (hasRemovalInColumn && movedDownOneCell) {
+        geboAfterFadeDrop.add(currentKey);
+      }
+    });
+  }
+
+  currByInstance.forEach((currentKey, instanceId) => {
+    const previousKey = prevByInstance.get(instanceId);
+    if (!previousKey || previousKey === currentKey) {
+      return;
+    }
+
+    const [prevRowText, prevColText] = previousKey.split(":");
+    const [currRowText, currColText] = currentKey.split(":");
+    const prevRow = Number(prevRowText);
+    const prevCol = Number(prevColText);
+    const currRow = Number(currRowText);
+    const currCol = Number(currColText);
+
+    if (
+      Number.isNaN(prevRow) ||
+      Number.isNaN(prevCol) ||
+      Number.isNaN(currRow) ||
+      Number.isNaN(currCol)
+    ) {
+      return;
+    }
+
+    // Teiwaz moves the same top rune instance across columns.
+    if (prevCol !== currCol) {
+      const previousCell = prevCells.get(previousKey);
+      if (previousCell && typeof previousCell.owner === "number") {
+        teiwazLiftGhostByCell.set(previousKey, previousCell);
+        teiwazAfterLiftDrop.add(currentKey);
+      }
+    }
+  });
+
+  const hasBoardChanges =
+    (placed.size > 0 ||
+      shiftedUp.size > 0 ||
+      ansuzGhostByCell.size > 0 ||
+      geboGhostByCell.size > 0 ||
+      geboAfterFadeDrop.size > 0 ||
+      teiwazLiftGhostByCell.size > 0 ||
+      teiwazAfterLiftDrop.size > 0 ||
+      thurisaDrops.size > 0) &&
+    placed.size <= 8;
 
   if (!hasBoardChanges) {
     return none;
@@ -1911,5 +2105,14 @@ function buildBoardAnimationFrame(
   return {
     enabled: true,
     placed,
+    placedFromBottom,
+    shiftedUp,
+    ansuzAfterFadeDrop,
+    ansuzGhostByCell,
+    geboAfterFadeDrop,
+    geboGhostByCell,
+    teiwazAfterLiftDrop,
+    teiwazLiftGhostByCell,
+    thurisaDrops,
   };
 }

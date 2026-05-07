@@ -54,6 +54,59 @@ export function renderBoard(
         button.classList.add("ethereal-piece");
       }
 
+      const animationKey = `${row}:${col}`;
+      const fadeGhost = animationFrame.enabled
+        ? animationFrame.ansuzGhostByCell?.get(animationKey) ||
+          animationFrame.geboGhostByCell?.get(animationKey)
+        : null;
+      const teiwazLiftGhost = animationFrame.enabled
+        ? animationFrame.teiwazLiftGhostByCell?.get(animationKey)
+        : null;
+
+      if (fadeGhost) {
+        const ghost = document.createElement("span");
+        ghost.className = "effect-fade-ghost";
+        if (fadeGhost.owner === 1) {
+          ghost.classList.add("p1");
+        } else if (fadeGhost.owner === 2) {
+          ghost.classList.add("p2");
+        } else if (fadeGhost.owner === 3) {
+          ghost.classList.add("neutral");
+        }
+
+        if (fadeGhost.id && fadeGhost.id !== "basic" && fadeGhost.id !== "neutral") {
+          const ghostSymbol = document.createElement("img");
+          ghostSymbol.src = `./assets/runes/${fadeGhost.id}.svg`;
+          ghostSymbol.alt = fadeGhost.id;
+          ghostSymbol.className = "effect-fade-ghost-symbol";
+          ghost.appendChild(ghostSymbol);
+        }
+
+        button.appendChild(ghost);
+      }
+
+      if (teiwazLiftGhost) {
+        const ghost = document.createElement("span");
+        ghost.className = "effect-lift-ghost";
+        if (teiwazLiftGhost.owner === 1) {
+          ghost.classList.add("p1");
+        } else if (teiwazLiftGhost.owner === 2) {
+          ghost.classList.add("p2");
+        } else if (teiwazLiftGhost.owner === 3) {
+          ghost.classList.add("neutral");
+        }
+
+        if (teiwazLiftGhost.id && teiwazLiftGhost.id !== "basic" && teiwazLiftGhost.id !== "neutral") {
+          const ghostSymbol = document.createElement("img");
+          ghostSymbol.src = `./assets/runes/${teiwazLiftGhost.id}.svg`;
+          ghostSymbol.alt = teiwazLiftGhost.id;
+          ghostSymbol.className = "effect-lift-ghost-symbol";
+          ghost.appendChild(ghostSymbol);
+        }
+
+        button.appendChild(ghost);
+      }
+
       if (value !== 0 && rune && rune.id !== "basic" && rune.id !== "neutral") {
         const runeSymbol = document.createElement("img");
         runeSymbol.src = `./assets/runes/${rune.id}.svg`;
@@ -74,11 +127,34 @@ export function renderBoard(
         pendingTargets.pending &&
         ((pendingTargets.mode === "columns" && isTargetColumn) ||
           (pendingTargets.mode === "cells" && isTargetCell));
-      const animationKey = `${row}:${col}`;
 
       if (animationFrame.enabled) {
+        const isAnsuzStaged = animationFrame.ansuzAfterFadeDrop?.has(animationKey);
+        const isGeboStagedDrop = animationFrame.geboAfterFadeDrop?.has(animationKey);
+        const isTeiwazStagedDrop = animationFrame.teiwazAfterLiftDrop?.has(animationKey);
+        const isThurisaDrop = animationFrame.thurisaDrops?.has(animationKey);
         if (animationFrame.placed?.has(animationKey)) {
-          button.classList.add("anim-place");
+          if (isAnsuzStaged) {
+            button.classList.add("anim-ansuz-drop");
+          } else if (isThurisaDrop) {
+            button.classList.add("anim-thurisa-drop");
+          } else if (animationFrame.placedFromBottom?.has(animationKey)) {
+            button.classList.add("anim-place-bottom");
+          } else {
+            button.classList.add("anim-place");
+          }
+        }
+
+        if (isGeboStagedDrop) {
+          button.classList.add("anim-gebo-drop");
+        }
+
+        if (isTeiwazStagedDrop) {
+          button.classList.add("anim-teiwaz-drop");
+        }
+
+        if (animationFrame.shiftedUp?.has(animationKey)) {
+          button.classList.add("anim-shift-up");
         }
       }
 

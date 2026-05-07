@@ -110,6 +110,76 @@
   opacity: 0.74;
 }
 
+.effect-fade-ghost {
+  position: absolute;
+  inset: 15%;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.effect-fade-ghost.p1 {
+  background: radial-gradient(circle at 30% 25%, #6f6f6f, #111111 60%);
+}
+
+.effect-fade-ghost.p2 {
+  background: radial-gradient(circle at 30% 25%, #ffffff, #e8e8e8 60%);
+}
+
+.effect-fade-ghost.neutral {
+  background: radial-gradient(circle at 30% 25%, #cdcdcd, #7f7f7f 60%);
+  border: 2px dashed #5c6772;
+}
+
+.effect-fade-ghost-symbol {
+  position: absolute;
+  inset: 28%;
+  width: 44%;
+  height: 44%;
+  object-fit: contain;
+  filter: grayscale(1) brightness(0.24) drop-shadow(0 1px 2px rgba(255, 255, 255, 0.55));
+  pointer-events: none;
+}
+
+.effect-fade-ghost.p1 .effect-fade-ghost-symbol {
+  filter: invert(1) brightness(1.25) contrast(1.2) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+}
+
+.effect-lift-ghost {
+  position: absolute;
+  inset: 15%;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.effect-lift-ghost.p1 {
+  background: radial-gradient(circle at 30% 25%, #6f6f6f, #111111 60%);
+}
+
+.effect-lift-ghost.p2 {
+  background: radial-gradient(circle at 30% 25%, #ffffff, #e8e8e8 60%);
+}
+
+.effect-lift-ghost.neutral {
+  background: radial-gradient(circle at 30% 25%, #cdcdcd, #7f7f7f 60%);
+  border: 2px dashed #5c6772;
+}
+
+.effect-lift-ghost-symbol {
+  position: absolute;
+  inset: 28%;
+  width: 44%;
+  height: 44%;
+  object-fit: contain;
+  filter: grayscale(1) brightness(0.24) drop-shadow(0 1px 2px rgba(255, 255, 255, 0.55));
+  pointer-events: none;
+}
+
+.effect-lift-ghost.p1 .effect-lift-ghost-symbol {
+  filter: invert(1) brightness(1.25) contrast(1.2) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+}
+
 .board-rune-info {
   --info-bg: rgba(247, 250, 255, 0.98);
   --info-border: rgba(36, 51, 71, 0.28);
@@ -174,6 +244,74 @@ body[data-animations="on"] .cell.anim-place .rune-symbol {
   animation: rune-symbol-drop-in var(--board-anim-duration) cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
+body[data-animations="on"] .cell.anim-thurisa-drop.has-piece::before {
+  animation: thurisa-neutral-drop 520ms cubic-bezier(0.2, 0.82, 0.24, 1);
+}
+
+body[data-animations="on"] .cell.anim-ansuz-drop .effect-fade-ghost {
+  animation: ansuz-target-fade 190ms ease-out forwards;
+}
+
+body[data-animations="on"] .cell.anim-ansuz-drop .effect-fade-ghost-symbol {
+  animation: ansuz-target-fade 190ms ease-out forwards;
+}
+
+body[data-animations="on"] .cell.anim-gebo-drop .effect-fade-ghost {
+  animation: gebo-target-fade 190ms ease-out forwards;
+}
+
+body[data-animations="on"] .cell.anim-gebo-drop .effect-fade-ghost-symbol {
+  animation: gebo-target-fade 190ms ease-out forwards;
+}
+
+body[data-animations="on"] .cell .effect-lift-ghost {
+  animation: teiwaz-source-lift 220ms cubic-bezier(0.25, 0.85, 0.3, 1) forwards;
+}
+
+body[data-animations="on"] .cell .effect-lift-ghost-symbol {
+  animation: teiwaz-source-symbol-lift 220ms cubic-bezier(0.25, 0.85, 0.3, 1) forwards;
+}
+
+body[data-animations="on"] .cell.anim-ansuz-drop.has-piece::before {
+  animation: ansuz-drop-after-fade 480ms cubic-bezier(0.22, 0.83, 0.28, 1);
+}
+
+body[data-animations="on"] .cell.anim-ansuz-drop .rune-symbol {
+  animation: ansuz-symbol-drop-after-fade 480ms cubic-bezier(0.22, 0.83, 0.28, 1);
+}
+
+body[data-animations="on"] .cell.anim-gebo-drop.has-piece::before {
+  animation: gebo-drop-after-fade 470ms cubic-bezier(0.24, 0.84, 0.28, 1);
+}
+
+body[data-animations="on"] .cell.anim-gebo-drop .rune-symbol {
+  animation: gebo-symbol-drop-after-fade 470ms cubic-bezier(0.24, 0.84, 0.28, 1);
+}
+
+body[data-animations="on"] .cell.anim-teiwaz-drop.has-piece::before {
+  animation: teiwaz-drop-after-lift 500ms cubic-bezier(0.2, 0.82, 0.28, 1);
+}
+
+body[data-animations="on"] .cell.anim-teiwaz-drop .rune-symbol {
+  animation: teiwaz-symbol-drop-after-lift 500ms cubic-bezier(0.2, 0.82, 0.28, 1);
+}
+
+body[data-animations="on"] .cell.anim-place-bottom.has-piece::before {
+  animation: rune-rise-in var(--board-anim-duration) cubic-bezier(0.18, 0.82, 0.28, 1);
+}
+
+body[data-animations="on"] .cell.anim-place-bottom .rune-symbol {
+  animation: rune-symbol-rise-in var(--board-anim-duration) cubic-bezier(0.18, 0.82, 0.28, 1);
+}
+
+body[data-animations="on"] .cell.anim-shift-up.has-piece::before {
+  animation: rune-push-up var(--board-anim-duration) cubic-bezier(0.24, 0.84, 0.28, 1);
+}
+
+body[data-animations="on"] .cell.anim-shift-up .rune-symbol {
+  animation: rune-symbol-push-up var(--board-anim-duration) cubic-bezier(0.24, 0.84, 0.28, 1);
+}
+
 @keyframes rune-drop-in {
   from {
     transform: translateY(-300%) scale(0.88);
@@ -193,6 +331,189 @@ body[data-animations="on"] .cell.anim-place .rune-symbol {
   to {
     transform: translateY(0);
     opacity: 1;
+  }
+}
+
+@keyframes thurisa-neutral-drop {
+  0% {
+    transform: translateY(-320%) scale(0.86);
+    opacity: 0.74;
+  }
+  72% {
+    transform: translateY(0) scale(1.03);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes ansuz-target-fade {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+@keyframes gebo-target-fade {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+}
+
+@keyframes ansuz-drop-after-fade {
+  0% {
+    transform: translateY(-108%);
+    opacity: 0;
+  }
+  40% {
+    transform: translateY(-108%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes ansuz-symbol-drop-after-fade {
+  0% {
+    transform: translateY(-122%);
+    opacity: 0;
+  }
+  40% {
+    transform: translateY(-122%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes gebo-drop-after-fade {
+  0% {
+    transform: translateY(-106%);
+  }
+  38% {
+    transform: translateY(-106%);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes gebo-symbol-drop-after-fade {
+  0% {
+    transform: translateY(-118%);
+  }
+  38% {
+    transform: translateY(-118%);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes teiwaz-source-lift {
+  from {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-120%) scale(0.95);
+    opacity: 0;
+  }
+}
+
+@keyframes teiwaz-source-symbol-lift {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-140%);
+    opacity: 0;
+  }
+}
+
+@keyframes teiwaz-drop-after-lift {
+  0% {
+    transform: translateY(-112%);
+    opacity: 0;
+  }
+  42% {
+    transform: translateY(-112%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes teiwaz-symbol-drop-after-lift {
+  0% {
+    transform: translateY(-126%);
+    opacity: 0;
+  }
+  42% {
+    transform: translateY(-126%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes rune-rise-in {
+  from {
+    transform: translateY(240%) scale(0.88);
+    opacity: 0.78;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes rune-symbol-rise-in {
+  from {
+    transform: translateY(300%) scale(0.82);
+    opacity: 0.7;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes rune-push-up {
+  from {
+    transform: translateY(108%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes rune-symbol-push-up {
+  from {
+    transform: translateY(122%);
+  }
+  to {
+    transform: translateY(0);
   }
 }
 
