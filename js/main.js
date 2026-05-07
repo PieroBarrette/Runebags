@@ -147,6 +147,7 @@ let previousPendingActionSnapshot = null;
 let suppressBoardClickOnce = false;
 let activeFeedTab = "turn";
 let onlineChatMessages = [];
+let hasUnreadChat = false;
 
 registerServiceWorker();
 
@@ -269,6 +270,9 @@ function wireOnlineEvents() {
       onlineChatMessages.push(message);
       if (onlineChatMessages.length > 100) {
         onlineChatMessages = onlineChatMessages.slice(-100);
+      }
+      if (activeFeedTab === "turn") {
+        hasUnreadChat = true;
       }
       if (!elements.gameScreen.hidden) {
         renderChatPanel();
@@ -538,6 +542,7 @@ function bindEvents() {
 
   elements.logTabChat.addEventListener("click", () => {
     activeFeedTab = "chat";
+    hasUnreadChat = false;
     renderChatPanel();
     elements.chatInput.focus();
   });
@@ -1379,8 +1384,17 @@ function renderChatPanel() {
   const isOnline = online.isOnlineActive();
   const showChat = activeFeedTab === "chat";
 
+  if (!isOnline) {
+    hasUnreadChat = false;
+  }
+
+  if (showChat) {
+    hasUnreadChat = false;
+  }
+
   elements.logTabTurn.classList.toggle("active", !showChat);
   elements.logTabChat.classList.toggle("active", showChat);
+  elements.logTabChat.classList.toggle("has-notification", isOnline && hasUnreadChat && !showChat);
   elements.logTabTurn.setAttribute("aria-selected", String(!showChat));
   elements.logTabChat.setAttribute("aria-selected", String(showChat));
 

@@ -618,6 +618,7 @@ body[data-theme="dark"] .chat-row.you {
 }
 
 .log-tab {
+  position: relative;
   border: 1px solid var(--panel-border);
   background: linear-gradient(180deg, #f7f9fc, #e5ebf2);
   color: var(--text-soft);
@@ -625,6 +626,18 @@ body[data-theme="dark"] .chat-row.you {
   border-radius: 9px;
   font: inherit;
   cursor: pointer;
+}
+
+.log-tab.has-notification::after {
+  content: "";
+  position: absolute;
+  top: 0.18rem;
+  right: 0.2rem;
+  width: 0.46rem;
+  height: 0.46rem;
+  border-radius: 50%;
+  background: #e23b3b;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.95);
 }
 
 .log-tab.active {
