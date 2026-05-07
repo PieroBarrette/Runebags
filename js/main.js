@@ -157,7 +157,6 @@ initializeTheme();
 initializeAnimations();
 render();
 initializeEntryMode();
-window.setInterval(tickOnlineShopTimer, 1000);
 
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) {
@@ -201,8 +200,6 @@ function wireOnlineEvents() {
         opponentConnected: snapshot.opponentConnected,
         shopReadyYou: false,
         shopReadyOpponent: false,
-        shopDeadlineAt: null,
-        shopSecondsRemaining: 0,
         autoStartRequested: shouldAutoStart ? previousAutoStartRequested : false,
       };
 
@@ -233,8 +230,6 @@ function wireOnlineEvents() {
         playerNames: snapshot.playerNames || waitingRoomState.playerNames,
         shopReadyYou: Boolean(snapshot.shopSync?.youReady),
         shopReadyOpponent: Boolean(snapshot.shopSync?.opponentReady),
-        shopDeadlineAt: snapshot.shopSync?.deadlineAt || null,
-        shopSecondsRemaining: Number(snapshot.shopSync?.secondsRemaining || 0),
       };
       applyOnlinePlayerNames();
       if (elements.gameScreen.hidden) {
@@ -1183,12 +1178,12 @@ function renderShopPanel() {
   }
 
   if (online.isOnlineActive()) {
-    const timerText = waitingRoomState.shopSecondsRemaining > 0
-      ? ` Timer: ${waitingRoomState.shopSecondsRemaining}s.`
-      : "";
+    const opponentId = waitingRoomState.playerId === 1 ? 2 : 1;
+    const opponentPseudo = opponentId ? getDisplayPlayerName(opponentId) : (waitingRoomState.opponentName || "Opponent");
+    const opponentStatus = waitingRoomState.shopReadyOpponent ? "ready" : "not ready";
     elements.shopInstruction.textContent = waitingRoomState.shopReadyYou
-      ? `You are ready. Waiting for opponent.${timerText}`
-      : `Shop your own bag and offer, then click Shop Ready.${timerText}`;
+      ? `You are ready. ${opponentPseudo} is ${opponentStatus}.`
+      : `Shop your own bag and offer, then click Shop Ready. ${opponentPseudo} is ${opponentStatus}.`;
   } else if (isPassPlayMode()) {
     const blackReady = state.shop.players[1]?.ready ? "ready" : "not ready";
     const whiteReady = state.shop.players[2]?.ready ? "ready" : "not ready";
@@ -1730,26 +1725,8 @@ function createWaitingRoomState() {
     opponentConnected: false,
     shopReadyYou: false,
     shopReadyOpponent: false,
-    shopDeadlineAt: null,
-    shopSecondsRemaining: 0,
     autoStartRequested: false,
   };
-}
-
-function tickOnlineShopTimer() {
-  if (!online.isOnlineActive() || state.phase !== "shop" || !waitingRoomState.shopDeadlineAt) {
-    return;
-  }
-
-  const seconds = Math.max(0, Math.ceil((waitingRoomState.shopDeadlineAt - Date.now()) / 1000));
-  if (seconds === waitingRoomState.shopSecondsRemaining) {
-    return;
-  }
-
-  waitingRoomState.shopSecondsRemaining = seconds;
-  if (!elements.gameScreen.hidden) {
-    updateTopStatus();
-  }
 }
 
 function updateOnlineConnectionStatus() {

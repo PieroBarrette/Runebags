@@ -24,7 +24,6 @@ const ROOT = path.resolve(__dirname, "..");
 const PUBLIC_ROOT = ROOT;
 const PERSIST_PATH = path.join(__dirname, "rooms.json");
 const PORT = Number(process.env.PORT || 8080);
-const SHOP_READY_TIMEOUT_MS = 180000;
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -101,10 +100,6 @@ wss.on("connection", (ws) => {
 server.listen(PORT, () => {
   console.log(`RuneBags online server listening on http://127.0.0.1:${PORT}`);
 });
-
-setInterval(() => {
-  processShopDeadlines();
-}, 1000);
 
 async function handleHttp(req, res) {
   const reqPath = decodeURIComponent((req.url || "/").split("?")[0]);
@@ -834,7 +829,6 @@ function createShopSyncState() {
   return {
     ready: { 1: false, 2: false },
     firstReadyPlayerId: null,
-    deadlineAt: null,
   };
 }
 
@@ -854,15 +848,9 @@ function setShopReady(room, playerId, ready) {
     return startRoundAfterShopReady(room);
   }
 
-  if (room.shopSync.ready[playerId] && !room.shopSync.ready[opponentId]) {
-    room.shopSync.firstReadyPlayerId = playerId;
-    room.shopSync.deadlineAt = Date.now() + SHOP_READY_TIMEOUT_MS;
-  }
-
-  if (!room.shopSync.ready[playerId]) {
-    room.shopSync.firstReadyPlayerId = room.shopSync.ready[opponentId] ? opponentId : null;
-    room.shopSync.deadlineAt = room.shopSync.ready[opponentId] ? Date.now() + SHOP_READY_TIMEOUT_MS : null;
-  }
+  room.shopSync.firstReadyPlayerId = room.shopSync.ready[playerId]
+    ? playerId
+    : (room.shopSync.ready[opponentId] ? opponentId : null);
 
   return { error: null, startedRound: false };
 }
@@ -882,47 +870,6 @@ function startRoundAfterShopReady(room) {
   return { error: null, startedRound: true };
 }
 
-function processShopDeadlines() {
-  const now = Date.now();
-  let changed = false;
-
-  rooms.forEach((room) => {
-    if (!room.started || !room.state || room.state.phase !== "shop" || !room.shopSync?.deadlineAt) {
-      return;
-    }
-
-    if (now < room.shopSync.deadlineAt) {
-      return;
-    }
-
-    const sync = room.shopSync;
-    if (sync.ready[1] && sync.ready[2]) {
-      return;
-    }
-
-    const starter = sync.firstReadyPlayerId || (sync.ready[1] ? 1 : sync.ready[2] ? 2 : null);
-    if (starter) {
-      const starterName = room.players[starter]?.name || `Player ${starter}`;
-      room.state.log.unshift(`Shop timer expired. ${starterName} was ready, so round starts automatically.`);
-    } else {
-      room.state.log.unshift("Shop timer expired. Round starts automatically.");
-    }
-
-    const started = startRoundAfterShopReady(room);
-    if (started.error) {
-      return;
-    }
-
-    room.seq += 1;
-    broadcastState(room);
-    changed = true;
-  });
-
-  if (changed) {
-    persistRooms().catch(() => {});
-  }
-}
-
 function getRoomPlayerNames(room) {
   return {
     1: room.players[1]?.name || "Player 1",
@@ -936,14 +883,10 @@ function getShopSyncPayload(room, playerId) {
   }
 
   const opponentId = playerId === 1 ? 2 : 1;
-  const deadlineAt = room.shopSync.deadlineAt || null;
-  const secondsRemaining = deadlineAt ? Math.max(0, Math.ceil((deadlineAt - Date.now()) / 1000)) : 0;
 
   return {
     youReady: Boolean(room.shopSync.ready[playerId]),
     opponentReady: Boolean(room.shopSync.ready[opponentId]),
-    deadlineAt,
-    secondsRemaining,
     firstReadyPlayerId: room.shopSync.firstReadyPlayerId,
   };
 }
