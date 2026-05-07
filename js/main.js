@@ -226,6 +226,8 @@ function wireOnlineEvents() {
       applyOnlinePlayerNames();
       if (elements.gameScreen.hidden) {
         enterGameScreen("online", snapshot.roomCode);
+      } else {
+        render();
       }
       saveModeSave(MODE_ONLINE, {
         roomCode: snapshot.roomCode,
@@ -235,7 +237,6 @@ function wireOnlineEvents() {
         updatedAt: Date.now(),
       });
       updateOnlineConnectionStatus();
-      render();
     },
     queue: (snapshot) => {
       waitingRoomState = {
@@ -1035,7 +1036,7 @@ function render() {
     animationsEnabled,
     previousBoardSnapshot,
     pendingTargets,
-      previousBoardSnapshot = snapshotBoard(state);
+    previousPendingActionSnapshot,
     pendingSnapshot,
   );
   renderBoard(state, elements, pendingTargets, winningLine, forcedColumns, animationFrame);
