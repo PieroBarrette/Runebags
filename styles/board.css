@@ -5,6 +5,9 @@
 
 .board {
   --board-anim-duration: 500ms;
+  --algiz-anim-duration: 780ms;
+  --ansuz-anim-duration: 860ms;
+  --gebo-anim-duration: 860ms;
   --columns: 7;
   --rows: 6;
   display: grid;
@@ -249,19 +252,19 @@ body[data-animations="on"] .cell.anim-thurisa-drop.has-piece::before {
 }
 
 body[data-animations="on"] .cell.anim-ansuz-drop .effect-fade-ghost {
-  animation: ansuz-target-fade 190ms ease-out forwards;
+  animation: ansuz-target-fade 280ms ease-out forwards;
 }
 
 body[data-animations="on"] .cell.anim-ansuz-drop .effect-fade-ghost-symbol {
-  animation: ansuz-target-fade 190ms ease-out forwards;
+  animation: ansuz-target-fade 280ms ease-out forwards;
 }
 
 body[data-animations="on"] .cell.anim-gebo-drop .effect-fade-ghost {
-  animation: gebo-target-fade 190ms ease-out forwards;
+  animation: gebo-target-fade 280ms ease-out forwards;
 }
 
 body[data-animations="on"] .cell.anim-gebo-drop .effect-fade-ghost-symbol {
-  animation: gebo-target-fade 190ms ease-out forwards;
+  animation: gebo-target-fade 280ms ease-out forwards;
 }
 
 body[data-animations="on"] .cell .effect-lift-ghost {
@@ -273,19 +276,19 @@ body[data-animations="on"] .cell .effect-lift-ghost-symbol {
 }
 
 body[data-animations="on"] .cell.anim-ansuz-drop.has-piece::before {
-  animation: ansuz-drop-after-fade 480ms cubic-bezier(0.22, 0.83, 0.28, 1);
+  animation: ansuz-drop-after-fade var(--ansuz-anim-duration) cubic-bezier(0.18, 0.84, 0.24, 1);
 }
 
 body[data-animations="on"] .cell.anim-ansuz-drop .rune-symbol {
-  animation: ansuz-symbol-drop-after-fade 480ms cubic-bezier(0.22, 0.83, 0.28, 1);
+  animation: ansuz-symbol-drop-after-fade var(--ansuz-anim-duration) cubic-bezier(0.18, 0.84, 0.24, 1);
 }
 
 body[data-animations="on"] .cell.anim-gebo-drop.has-piece::before {
-  animation: gebo-drop-after-fade 470ms cubic-bezier(0.24, 0.84, 0.28, 1);
+  animation: gebo-drop-after-fade var(--gebo-anim-duration) cubic-bezier(0.2, 0.84, 0.24, 1);
 }
 
 body[data-animations="on"] .cell.anim-gebo-drop .rune-symbol {
-  animation: gebo-symbol-drop-after-fade 470ms cubic-bezier(0.24, 0.84, 0.28, 1);
+  animation: gebo-symbol-drop-after-fade var(--gebo-anim-duration) cubic-bezier(0.2, 0.84, 0.24, 1);
 }
 
 body[data-animations="on"] .cell.anim-teiwaz-drop.has-piece::before {
@@ -297,19 +300,19 @@ body[data-animations="on"] .cell.anim-teiwaz-drop .rune-symbol {
 }
 
 body[data-animations="on"] .cell.anim-place-bottom.has-piece::before {
-  animation: rune-rise-in var(--board-anim-duration) cubic-bezier(0.18, 0.82, 0.28, 1);
+  animation: rune-rise-in var(--algiz-anim-duration) cubic-bezier(0.16, 0.86, 0.24, 1);
 }
 
 body[data-animations="on"] .cell.anim-place-bottom .rune-symbol {
-  animation: rune-symbol-rise-in var(--board-anim-duration) cubic-bezier(0.18, 0.82, 0.28, 1);
+  animation: rune-symbol-rise-in var(--algiz-anim-duration) cubic-bezier(0.16, 0.86, 0.24, 1);
 }
 
 body[data-animations="on"] .cell.anim-shift-up.has-piece::before {
-  animation: rune-push-up var(--board-anim-duration) cubic-bezier(0.24, 0.84, 0.28, 1);
+  animation: rune-push-up var(--algiz-anim-duration) cubic-bezier(0.2, 0.86, 0.24, 1);
 }
 
 body[data-animations="on"] .cell.anim-shift-up .rune-symbol {
-  animation: rune-symbol-push-up var(--board-anim-duration) cubic-bezier(0.24, 0.84, 0.28, 1);
+  animation: rune-symbol-push-up var(--algiz-anim-duration) cubic-bezier(0.2, 0.86, 0.24, 1);
 }
 
 @keyframes rune-drop-in {
@@ -376,7 +379,7 @@ body[data-animations="on"] .cell.anim-shift-up .rune-symbol {
     transform: translateY(-108%);
     opacity: 0;
   }
-  40% {
+  54% {
     transform: translateY(-108%);
     opacity: 0;
   }
@@ -391,7 +394,7 @@ body[data-animations="on"] .cell.anim-shift-up .rune-symbol {
     transform: translateY(-122%);
     opacity: 0;
   }
-  40% {
+  54% {
     transform: translateY(-122%);
     opacity: 0;
   }
@@ -405,7 +408,7 @@ body[data-animations="on"] .cell.anim-shift-up .rune-symbol {
   0% {
     transform: translateY(-106%);
   }
-  38% {
+  52% {
     transform: translateY(-106%);
   }
   100% {
@@ -417,7 +420,7 @@ body[data-animations="on"] .cell.anim-shift-up .rune-symbol {
   0% {
     transform: translateY(-118%);
   }
-  38% {
+  52% {
     transform: translateY(-118%);
   }
   100% {
