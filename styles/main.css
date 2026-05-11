@@ -309,6 +309,17 @@ body[data-theme="dark"] .menu-logo {
   accent-color: #20334a;
 }
 
+.settings-range {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.settings-note {
+  margin: 0.4rem 0 0;
+  font-size: 0.9rem;
+  opacity: 0.85;
+}
+
 body[data-theme="dark"] .settings-select {
   border-color: rgba(220, 230, 241, 0.28);
   background: rgba(16, 22, 29, 0.82);

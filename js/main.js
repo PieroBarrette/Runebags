@@ -31,13 +31,17 @@ import { renderLog } from "./ui/logView.js";
 import { clearModeSave, loadModeSave, saveModeSave } from "./persistence/localStore.js";
 import { createOnlineController } from "./online/onlineController.js";
 import { getRuneById } from "./runes/runeCatalog.js";
+import { createSfxEngine } from "./audio/sfxEngine.js";
 
 const THEME_STORAGE_KEY = "runebags-theme-v1";
 const ANIMATION_STORAGE_KEY = "runebags-animations-v1";
+const SOUND_STORAGE_KEY = "runebags-sound-v1";
+const SOUND_VOLUME_STORAGE_KEY = "runebags-sound-volume-v1";
 const ONLINE_NAME_MAX = 14;
 const MODE_PASSPLAY = "passplay";
 const MODE_AI = "ai";
 const MODE_ONLINE = "online";
+const DEFAULT_SFX_VOLUME = 0.18;
 
 const elements = {
   mainMenu: document.getElementById("main-menu"),
@@ -55,6 +59,8 @@ const elements = {
   settingsPanel: document.getElementById("settings-panel"),
   themeSelect: document.getElementById("theme-select"),
   animationToggle: document.getElementById("animation-toggle"),
+  soundToggle: document.getElementById("sound-toggle"),
+  soundVolume: document.getElementById("sound-volume"),
   settingsBackBtn: document.getElementById("settings-back-btn"),
   onlinePanel: document.getElementById("online-panel"),
   onlineServerDot: document.getElementById("online-server-dot"),
@@ -142,11 +148,15 @@ let activeRoomCode = null;
 let waitingRoomState = createWaitingRoomState();
 const aiConfig = createAiConfig();
 const online = createOnlineController();
+const sfx = createSfxEngine();
 let aiBusy = false;
 let aiTimer = null;
 let animationsEnabled = true;
+let soundEnabled = true;
+let sfxVolume = DEFAULT_SFX_VOLUME;
 let previousBoardSnapshot = null;
 let previousPendingActionSnapshot = null;
+let previousAudioSnapshot = null;
 let suppressBoardClickOnce = false;
 let activeFeedTab = "turn";
 let onlineChatMessages = [];
@@ -158,6 +168,8 @@ wireOnlineEvents();
 bindEvents();
 initializeTheme();
 initializeAnimations();
+initializeSound();
+bindSoundUnlockHandlers();
 render();
 initializeEntryMode();
 
@@ -292,6 +304,8 @@ function wireOnlineEvents() {
 }
 
 function bindEvents() {
+  bindButtonSoundEvents();
+
   elements.menuAiBtn.addEventListener("click", () => {
     showAiPanel();
   });
@@ -494,6 +508,24 @@ function bindEvents() {
     const enabled = Boolean(elements.animationToggle.checked);
     applyAnimationsSetting(enabled);
     saveAnimationsPreference(enabled);
+  });
+
+  elements.soundToggle.addEventListener("change", () => {
+    const enabled = Boolean(elements.soundToggle.checked);
+    applySoundSetting(enabled);
+    saveSoundPreference(enabled);
+  });
+
+  elements.soundVolume.addEventListener("input", () => {
+    const value = Number(elements.soundVolume.value);
+    applySoundVolumeSetting(value / 100);
+  });
+
+  elements.soundVolume.addEventListener("change", () => {
+    const value = Number(elements.soundVolume.value);
+    const nextVolume = value / 100;
+    applySoundVolumeSetting(nextVolume);
+    saveSoundVolumePreference(nextVolume);
   });
 
   elements.onlineBackBtn.addEventListener("click", () => {
@@ -1036,6 +1068,11 @@ function render() {
 
   hideBoardRuneInfo();
 
+  const boardSnapshot = snapshotBoard(state);
+  const audioSnapshot = snapshotAudioState(state, boardSnapshot);
+  playSoundTransitions(previousAudioSnapshot, audioSnapshot);
+  previousAudioSnapshot = audioSnapshot;
+
   const forcedVisible = getForcedVisiblePlayers(state);
   const pendingTargets = getPendingBoardTargets(state);
   const pendingSnapshot = snapshotPendingAction(state.pendingAction);
@@ -1122,7 +1159,7 @@ function render() {
     pendingSnapshot,
   );
   renderBoard(state, elements, pendingTargets, winningLine, forcedColumns, animationFrame);
-  previousBoardSnapshot = snapshotBoard(state);
+  previousBoardSnapshot = boardSnapshot;
   previousPendingActionSnapshot = pendingSnapshot;
   renderHands(state, elements, handVisibility, forcedVisible);
   applyOnlinePlayerNames();
@@ -1949,6 +1986,18 @@ function initializeAnimations() {
   applyAnimationsSetting(enabled);
 }
 
+function initializeSound() {
+  const savedSound = localStorage.getItem(SOUND_STORAGE_KEY);
+  const enabled = savedSound !== "off";
+  const rawVolume = Number(localStorage.getItem(SOUND_VOLUME_STORAGE_KEY));
+  const initialVolume = Number.isFinite(rawVolume)
+    ? Math.max(0, Math.min(1, rawVolume))
+    : DEFAULT_SFX_VOLUME;
+
+  applySoundSetting(enabled);
+  applySoundVolumeSetting(initialVolume);
+}
+
 function applyTheme(theme) {
   document.body.setAttribute("data-theme", theme);
 }
@@ -1969,6 +2018,97 @@ function applyAnimationsSetting(enabled) {
 
 function saveAnimationsPreference(enabled) {
   localStorage.setItem(ANIMATION_STORAGE_KEY, enabled ? "on" : "off");
+}
+
+function applySoundSetting(enabled) {
+  soundEnabled = Boolean(enabled);
+  sfx.setEnabled(soundEnabled);
+  elements.soundToggle.checked = soundEnabled;
+  document.body.setAttribute("data-sound", soundEnabled ? "on" : "off");
+}
+
+function saveSoundPreference(enabled) {
+  localStorage.setItem(SOUND_STORAGE_KEY, enabled ? "on" : "off");
+}
+
+function applySoundVolumeSetting(volume) {
+  sfxVolume = Math.max(0, Math.min(1, Number(volume)));
+  sfx.setVolume(sfxVolume);
+  elements.soundVolume.value = String(Math.round(sfxVolume * 100));
+}
+
+function saveSoundVolumePreference(volume) {
+  const safe = Math.max(0, Math.min(1, Number(volume)));
+  localStorage.setItem(SOUND_VOLUME_STORAGE_KEY, String(safe));
+}
+
+function bindSoundUnlockHandlers() {
+  const unlock = () => {
+    sfx.unlockFromGesture();
+  };
+
+  window.addEventListener("pointerdown", unlock, { passive: true });
+  window.addEventListener("touchstart", unlock, { passive: true });
+  window.addEventListener("keydown", unlock);
+}
+
+function bindButtonSoundEvents() {
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("button");
+    if (!button || button.disabled) {
+      return;
+    }
+    sfx.play("ui-click");
+  });
+}
+
+function snapshotAudioState(currentState, boardSnapshot) {
+  const boardSignature = boardSnapshot
+    .flat()
+    .map((cell) => {
+      if (!cell) {
+        return "_";
+      }
+      return `${cell.instanceId || "x"}:${cell.owner}`;
+    })
+    .join("|");
+
+  return {
+    phase: currentState.phase,
+    winner: currentState.winner,
+    gameWinner: currentState.gameWinner,
+    boardSignature,
+  };
+}
+
+function playSoundTransitions(previousSnapshot, currentSnapshot) {
+  if (!previousSnapshot || !soundEnabled) {
+    return;
+  }
+
+  const moved = previousSnapshot.boardSignature !== currentSnapshot.boardSignature;
+  if (moved && currentSnapshot.phase !== "shop") {
+    sfx.play("move");
+  }
+
+  const enteredGameOver = previousSnapshot.phase !== "game-over" && currentSnapshot.phase === "game-over";
+  if (enteredGameOver) {
+    if (currentSnapshot.gameWinner) {
+      sfx.play("game-win");
+    } else {
+      sfx.play("round-draw");
+    }
+    return;
+  }
+
+  const enteredRoundEnd = previousSnapshot.phase !== "round-end" && currentSnapshot.phase === "round-end";
+  if (enteredRoundEnd) {
+    if (currentSnapshot.winner) {
+      sfx.play("round-win");
+    } else {
+      sfx.play("round-draw");
+    }
+  }
 }
 
 function snapshotBoard(currentState) {
