@@ -699,9 +699,9 @@ body[data-theme="dark"] .chat-row.you {
 .endgame-bags {
   margin-bottom: 0.75rem;
   padding: 0.55rem;
-  border: 1px solid rgba(36, 51, 71, 0.22);
+  border: 1px solid var(--panel-border);
   border-radius: 10px;
-  background: rgba(241, 246, 252, 0.8);
+  background: var(--panel);
 }
 
 .endgame-bags h3 {
@@ -726,8 +726,6 @@ body[data-theme="dark"] .chat-row.you {
   border-radius: 9px;
   font: inherit;
   cursor: pointer;
-body[data-theme="dark"] .endgame-bags {
-  background: rgba(24, 31, 40, 0.9);
 }
 }
 
