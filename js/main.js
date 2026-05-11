@@ -75,7 +75,7 @@ const elements = {
   onlinePseudo: document.getElementById("online-pseudo"),
   onlineJoinCode: document.getElementById("online-join-code"),
   onlineJoinBtn: document.getElementById("online-join-btn"),
-  onlineCopyLinkBtn: document.getElementById("online-copy-link-btn"),
+  onlineSendLinkBtn: document.getElementById("online-copy-link-btn"),
   onlineReadyBtn: document.getElementById("online-ready-btn"),
   onlineBackBtn: document.getElementById("online-back-btn"),
   rulesPanel: document.getElementById("rules-panel"),
@@ -515,17 +515,42 @@ function bindEvents() {
     showMainMenu();
   });
 
-  elements.onlineCopyLinkBtn.addEventListener("click", async () => {
+  elements.onlineSendLinkBtn.addEventListener("click", async () => {
     const link = activeRoomCode && activeRoomCode !== "-" ? buildRoomLink(activeRoomCode) : "";
     if (!link) {
       return;
     }
 
+    const sharePayload = {
+      title: "RuneBags Online Match",
+      text: `Join my RuneBags room (${activeRoomCode}).`,
+      url: link,
+    };
+
+    const canUseNativeShare = typeof navigator.share === "function"
+      && (typeof navigator.canShare !== "function" || navigator.canShare({ url: link }));
+
+    if (canUseNativeShare) {
+      try {
+        await navigator.share(sharePayload);
+        elements.waitingSummary.textContent = "Share sent.";
+        return;
+      } catch (error) {
+        if (error && error.name === "AbortError") {
+          return;
+        }
+      }
+    }
+
     try {
-      await navigator.clipboard.writeText(link);
-      window.alert("Room link copied.");
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+        await navigator.clipboard.writeText(link);
+        elements.waitingSummary.textContent = "Link copied. Paste it in your messaging app to send.";
+      } else {
+        elements.waitingSummary.textContent = "Share is not available on this device. Use the invite code above to send.";
+      }
     } catch {
-      window.alert("Could not copy automatically. Copy the link manually.");
+      elements.waitingSummary.textContent = "Could not copy automatically. Use the invite code above to send.";
     }
   });
 
@@ -1689,7 +1714,7 @@ function updateOnlineRoomUI(roomCode) {
   }
 
   elements.onlineReadyBtn.hidden = !isFriendMode || !waitingRoomState.opponentJoined;
-  elements.onlineCopyLinkBtn.hidden = !isFriendMode;
+  elements.onlineSendLinkBtn.hidden = !isFriendMode;
   elements.onlineReadyBtn.disabled = !isFriendMode || !waitingRoomState.opponentJoined;
 
   elements.waitingYouStatus.textContent = isFriendMode
