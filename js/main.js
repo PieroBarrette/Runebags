@@ -43,7 +43,9 @@ const MODE_PASSPLAY = "passplay";
 const MODE_AI = "ai";
 const MODE_ONLINE = "online";
 const DEFAULT_SFX_VOLUME = 0.18;
-const SELECTABLE_RUNES = RUNE_CATALOG.filter((rune) => rune.type === "special");
+const SELECTABLE_RUNES = RUNE_CATALOG.filter(
+  (rune) => rune.type === "special" && rune.id !== "inguz" && rune.id !== "jera",
+);
 const SELECTABLE_RUNE_IDS = SELECTABLE_RUNES.map((rune) => rune.id);
 
 const elements = {

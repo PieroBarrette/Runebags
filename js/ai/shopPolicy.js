@@ -26,7 +26,7 @@ const RUNE_WEIGHTS = {
   basic: 10,
 };
 
-const NON_COMBINABLE = new Set(["basic", "inguz", "jera", "neutral", "berkana", "hagalz", "isa"]);
+const NON_COMBINABLE = new Set(["basic", "inguz", "jera", "neutral", "berkana", "hagalz", "isa", "laguz"]);
 
 export function runAiShopTurn(state, aiPlayerId) {
   if (state.phase !== "shop" || state.shop.currentPlayer !== aiPlayerId) {

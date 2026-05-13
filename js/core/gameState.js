@@ -20,7 +20,7 @@ const BASE_HAND_SIZE = 2;
 const STARTING_NEUTRAL_SUPPLY = 20;
 const SHOP_OFFER_SIZE = 5;
 const SHOP_ADD_LIMIT = 2;
-const NON_COMBINABLE_RUNES = new Set(["basic", "inguz", "jera", "neutral", "berkana", "hagalz", "isa"]);
+const NON_COMBINABLE_RUNES = new Set(["basic", "inguz", "jera", "neutral", "berkana", "hagalz", "isa", "laguz"]);
 
 export function createInitialState(options = {}) {
   const black = createPlayer(BLACK, options);
@@ -881,9 +881,24 @@ function getLegalColumnsForRune(state, playerId, rune) {
   const availableColumns = getAvailableColumns(state.board);
   const allowedColumns = getAllowedColumns(rune, state.columns);
   const constrainedColumns = getConstrainedColumns(state, playerId, availableColumns);
+  const blockedForAlgiz = rune.id === "algiz"
+    ? new Set(availableColumns.filter((col) => columnContainsLaguz(state, col)))
+    : null;
   return availableColumns.filter(
-    (col) => allowedColumns.includes(col) && constrainedColumns.includes(col),
+    (col) => allowedColumns.includes(col)
+      && constrainedColumns.includes(col)
+      && (!blockedForAlgiz || !blockedForAlgiz.has(col)),
   );
+}
+
+function columnContainsLaguz(state, column) {
+  for (let row = 0; row < state.rows; row += 1) {
+    const rune = state.boardRunes[row][column];
+    if (rune?.id === "laguz") {
+      return true;
+    }
+  }
+  return false;
 }
 
 function canPlayerPlay(state, playerId) {
@@ -957,6 +972,15 @@ function applyRuneEffect(state, rune, move, playerId) {
   let extraTurn = false;
   let pendingAction = null;
 
+  if (rune.id === "odal" && move.row === 0) {
+    const gained = awardPointAndCheckGameEnd(state, playerId, "Odal (top row)");
+    if (gained) {
+      notes.push("Odal on top row granted 1 point from supply.");
+    } else {
+      notes.push("Odal on top row triggered, but no point could be gained (supply empty).");
+    }
+  }
+
   if (rune.id === "ansuz") {
     const targetRow = move.row + 1;
     const targetCol = move.col;
@@ -970,7 +994,8 @@ function applyRuneEffect(state, rune, move, playerId) {
 
   if (rune.id === "gebo") {
     if (rune.level >= 2) {
-      const validCells = getAdjacentOccupiedCells(state, move.row, move.col);
+      const validCells = getAdjacentOccupiedCells(state, move.row, move.col)
+        .filter((cell) => state.boardRunes[cell.row]?.[cell.col]?.id !== "laguz");
       if (validCells.length > 0) {
         pendingAction = {
           type: "gebo-l2-target",
@@ -1115,6 +1140,10 @@ function removeRuneAt(state, row, col, source, returnMode) {
     return null;
   }
 
+  if (rune.id === "laguz") {
+    return null;
+  }
+
   state.board[row][col] = EMPTY;
   state.boardRunes[row][col] = null;
   compactColumn(state, col);
@@ -1168,6 +1197,11 @@ function getTeiwazSourceColumns(state, mode) {
       continue;
     }
 
+    const topRune = state.boardRunes[sourceRow]?.[col];
+    if (topRune?.id === "laguz") {
+      continue;
+    }
+
     const targets = getTeiwazTargetColumns(state, col, mode);
     if (targets.length > 0) {
       columns.push(col);
@@ -1191,6 +1225,10 @@ function moveTopRuneFromColumnToColumn(state, sourceCol, targetCol) {
   const owner = state.board[sourceRow][sourceCol];
   const rune = state.boardRunes[sourceRow][sourceCol];
   if (owner === EMPTY || !rune || state.board[0][targetCol] !== EMPTY) {
+    return false;
+  }
+
+  if (rune.id === "laguz") {
     return false;
   }
 
@@ -1243,6 +1281,10 @@ function getAdjacentColumns(column, columnCount) {
 }
 
 function finalizeTurn(state, activePlayerId, extraTurn) {
+  if (state.phase === "game-over") {
+    return { state, error: null };
+  }
+
   const winningLinesByPlayer = getWinningLinesByPlayer(state);
   const winners = Object.keys(winningLinesByPlayer).map((playerId) => Number(playerId));
 
@@ -1533,6 +1575,25 @@ function awardPointIfAvailable(state, playerId, reason) {
   state.players[playerId].points += 1;
   state.pointPoolRemaining -= 1;
   state.log.unshift(`${reason}: ${playerName(playerId)} gains 1 point.`);
+}
+
+function awardPointAndCheckGameEnd(state, playerId, reason) {
+  if (state.pointPoolRemaining <= 0) {
+    evaluateMajorityWinner(state);
+    if (!state.gameWinner && state.pointPoolRemaining <= 0) {
+      finalizeGameAtZeroPoints(state);
+      state.phase = "game-over";
+    }
+    return false;
+  }
+
+  awardPointIfAvailable(state, playerId, reason);
+  evaluateMajorityWinner(state);
+  if (!state.gameWinner && state.pointPoolRemaining <= 0) {
+    finalizeGameAtZeroPoints(state);
+    state.phase = "game-over";
+  }
+  return true;
 }
 
 function getUniqueWinningCells(lines) {

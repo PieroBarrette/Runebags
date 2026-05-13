@@ -42,6 +42,16 @@ const RUNE_CATALOG = [
     maxLevel: 2,
   },
   {
+    id: "laguz",
+    name: "Laguz",
+    type: "special",
+    description: "Cannot be moved or removed. Algiz cannot be played in a column containing Laguz.",
+    icon: "./assets/runes/laguz.svg",
+    columnRule: "any",
+    supportsLevels: false,
+    maxLevel: 1,
+  },
+  {
     id: "algiz",
     name: "Algiz",
     type: "special",
@@ -124,6 +134,16 @@ const RUNE_CATALOG = [
     etherealAtLevels: [1],
   },
   {
+    id: "odal",
+    name: "Odal",
+    type: "special",
+    description: "If played on the top row (6th rank), gain 1 point from supply without ending the round.",
+    icon: "./assets/runes/odal.svg",
+    columnRule: "any",
+    supportsLevels: true,
+    maxLevel: 2,
+  },
+  {
     id: "perth",
     name: "Perth",
     type: "special",
@@ -200,7 +220,9 @@ export const INITIAL_SHOP_COUNTS = {
   gebo: 2,
   hagalz: 2,
   isa: 2,
+  laguz: 2,
   mannaz: 2,
+  odal: 1,
   perth: 2,
   raido: 2,
   sowelu: 2,
@@ -229,18 +251,10 @@ export function createRuneInstance(runeId, level = 1) {
 }
 
 export function createStarterBag(allowedSpecialRuneIds = null) {
-  const allowedSet = allowedSpecialRuneIds
-    ? new Set(allowedSpecialRuneIds)
-    : null;
-
   return [
     ...Array.from({ length: 6 }, () => createRuneInstance("basic", 1)),
-    ...(allowedSet === null || allowedSet.has("inguz")
-      ? Array.from({ length: 2 }, () => createRuneInstance("inguz", 1))
-      : []),
-    ...(allowedSet === null || allowedSet.has("jera")
-      ? Array.from({ length: 2 }, () => createRuneInstance("jera", 1))
-      : []),
+    ...Array.from({ length: 2 }, () => createRuneInstance("inguz", 1)),
+    ...Array.from({ length: 2 }, () => createRuneInstance("jera", 1)),
   ];
 }
 
