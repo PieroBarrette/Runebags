@@ -228,11 +228,19 @@ export function createRuneInstance(runeId, level = 1) {
   };
 }
 
-export function createStarterBag() {
+export function createStarterBag(allowedSpecialRuneIds = null) {
+  const allowedSet = allowedSpecialRuneIds
+    ? new Set(allowedSpecialRuneIds)
+    : null;
+
   return [
     ...Array.from({ length: 6 }, () => createRuneInstance("basic", 1)),
-    ...Array.from({ length: 2 }, () => createRuneInstance("inguz", 1)),
-    ...Array.from({ length: 2 }, () => createRuneInstance("jera", 1)),
+    ...(allowedSet === null || allowedSet.has("inguz")
+      ? Array.from({ length: 2 }, () => createRuneInstance("inguz", 1))
+      : []),
+    ...(allowedSet === null || allowedSet.has("jera")
+      ? Array.from({ length: 2 }, () => createRuneInstance("jera", 1))
+      : []),
   ];
 }
 

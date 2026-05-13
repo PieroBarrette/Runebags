@@ -70,6 +70,11 @@
         <label for="sound-volume">SFX Volume</label>
         <input id="sound-volume" class="settings-range" type="range" min="0" max="100" step="1" value="18" aria-label="Sound effects volume">
       </div>
+      <section class="settings-rune-picker" aria-labelledby="settings-rune-heading">
+        <h3 id="settings-rune-heading">Runes in Local Games</h3>
+        <p class="settings-rune-hint">Choose which rune symbols are included for AI and Pass &amp; Play. Online always uses all runes.</p>
+        <div id="settings-rune-list" class="settings-rune-list" role="group" aria-label="Runes to include in local games"></div>
+      </section>
       <p class="settings-note">Sound effects are generated live and should not pause your external music playback on iPhone.</p>
       <div class="menu-actions compact">
         <button id="settings-back-btn" class="menu-btn secondary" type="button">Back</button>

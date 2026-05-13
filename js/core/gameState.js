@@ -22,9 +22,9 @@ const SHOP_OFFER_SIZE = 5;
 const SHOP_ADD_LIMIT = 2;
 const NON_COMBINABLE_RUNES = new Set(["basic", "inguz", "jera", "neutral", "berkana", "hagalz", "isa"]);
 
-export function createInitialState() {
-  const black = createPlayer(BLACK);
-  const white = createPlayer(WHITE);
+export function createInitialState(options = {}) {
+  const black = createPlayer(BLACK, options);
+  const white = createPlayer(WHITE, options);
 
   const state = {
     schemaVersion: 5,
@@ -62,9 +62,9 @@ export function createInitialState() {
   return state;
 }
 
-export function restoreState(candidate) {
+export function restoreState(candidate, options = {}) {
   if (!candidate || candidate.schemaVersion !== 5 || !candidate.boardRunes) {
-    return createInitialState();
+    return createInitialState(options);
   }
 
   if (!candidate.shop) {
@@ -695,21 +695,29 @@ export function getPlayerName(playerId) {
   return playerName(playerId);
 }
 
-function createPlayer(id) {
+function createPlayer(id, options = {}) {
+  const allowedSpecialRuneIds = Array.isArray(options.allowedSpecialRuneIds)
+    ? options.allowedSpecialRuneIds
+    : null;
+
   return {
     id,
     points: 0,
-    bag: shuffle(createStarterBag()),
+    bag: shuffle(createStarterBag(allowedSpecialRuneIds)),
     hand: [],
     discard: [],
     selectedRuneInstanceId: null,
-    shopSupply: createInitialShopSupply(),
+    shopSupply: createInitialShopSupply(allowedSpecialRuneIds),
   };
 }
 
-function createInitialShopSupply() {
+function createInitialShopSupply(allowedSpecialRuneIds = null) {
+  const allowedSet = allowedSpecialRuneIds ? new Set(allowedSpecialRuneIds) : null;
   const supply = [];
   Object.entries(INITIAL_SHOP_COUNTS).forEach(([runeId, count]) => {
+    if (allowedSet && !allowedSet.has(runeId)) {
+      return;
+    }
     for (let i = 0; i < count; i += 1) {
       supply.push(createRuneInstance(runeId, 1));
     }

@@ -30,18 +30,21 @@ import { renderHands } from "./ui/handView.js";
 import { renderLog } from "./ui/logView.js";
 import { clearModeSave, loadModeSave, saveModeSave } from "./persistence/localStore.js";
 import { createOnlineController } from "./online/onlineController.js";
-import { getRuneById } from "./runes/runeCatalog.js";
+import { getRuneById, RUNE_CATALOG } from "./runes/runeCatalog.js";
 import { createSfxEngine } from "./audio/sfxEngine.js";
 
 const THEME_STORAGE_KEY = "runebags-theme-v1";
 const ANIMATION_STORAGE_KEY = "runebags-animations-v1";
 const SOUND_STORAGE_KEY = "runebags-sound-v1";
 const SOUND_VOLUME_STORAGE_KEY = "runebags-sound-volume-v1";
+const RUNE_SELECTION_STORAGE_KEY = "runebags-rune-selection-v1";
 const ONLINE_NAME_MAX = 14;
 const MODE_PASSPLAY = "passplay";
 const MODE_AI = "ai";
 const MODE_ONLINE = "online";
 const DEFAULT_SFX_VOLUME = 0.18;
+const SELECTABLE_RUNES = RUNE_CATALOG.filter((rune) => rune.type === "special");
+const SELECTABLE_RUNE_IDS = SELECTABLE_RUNES.map((rune) => rune.id);
 
 const elements = {
   mainMenu: document.getElementById("main-menu"),
@@ -61,6 +64,7 @@ const elements = {
   animationToggle: document.getElementById("animation-toggle"),
   soundToggle: document.getElementById("sound-toggle"),
   soundVolume: document.getElementById("sound-volume"),
+  runeList: document.getElementById("settings-rune-list"),
   settingsBackBtn: document.getElementById("settings-back-btn"),
   onlinePanel: document.getElementById("online-panel"),
   onlineServerDot: document.getElementById("online-server-dot"),
@@ -138,7 +142,11 @@ const elements = {
   shopCombineBtn: document.getElementById("shop-combine-btn"),
 };
 
-let state = restoreState(getSavedStateForMode(MODE_PASSPLAY) || createInitialState());
+let selectedLocalRuneIds = loadRuneSelectionPreference();
+let state = restoreState(
+  getSavedStateForMode(MODE_PASSPLAY) || createInitialState(getLocalGameOptions()),
+  getLocalGameOptions(),
+);
 let currentLocalMode = MODE_PASSPLAY;
 let handVisibility = {
   1: state.currentPlayer === 1,
@@ -169,6 +177,7 @@ bindEvents();
 initializeTheme();
 initializeAnimations();
 initializeSound();
+renderRuneSelectionSettings();
 bindSoundUnlockHandlers();
 render();
 initializeEntryMode();
@@ -317,7 +326,10 @@ function bindEvents() {
     }
 
     currentLocalMode = MODE_PASSPLAY;
-    state = restoreState(getSavedStateForMode(MODE_PASSPLAY) || createInitialState());
+    state = restoreState(
+      getSavedStateForMode(MODE_PASSPLAY) || createInitialState(getLocalGameOptions()),
+      getLocalGameOptions(),
+    );
     setAiSettings(aiConfig, false, aiConfig.playerId, aiConfig.depth);
     handVisibility = {
       1: state.currentPlayer === 1,
@@ -344,7 +356,7 @@ function bindEvents() {
 
     const aiSide = Number(savedAi?.ai?.playerId || elements.aiSideSelect.value);
     const aiDepth = Number(savedAi?.ai?.depth || elements.aiDepthSelect.value);
-    state = restoreState(savedAi.state);
+    state = restoreState(savedAi.state, getLocalGameOptions());
     setAiSettings(aiConfig, true, aiSide, aiDepth);
     currentLocalMode = MODE_AI;
     if (state.phase === "shop" && state.shop.currentPlayer !== aiConfig.playerId) {
@@ -368,7 +380,7 @@ function bindEvents() {
 
     const aiSide = Number(elements.aiSideSelect.value);
     const aiDepth = Number(elements.aiDepthSelect.value);
-    state = restoreState(createInitialState());
+    state = restoreState(createInitialState(getLocalGameOptions()), getLocalGameOptions());
     setAiSettings(aiConfig, true, aiSide, aiDepth);
     currentLocalMode = MODE_AI;
     if (state.phase === "shop" && state.shop.currentPlayer !== aiConfig.playerId) {
@@ -526,6 +538,29 @@ function bindEvents() {
     const nextVolume = value / 100;
     applySoundVolumeSetting(nextVolume);
     saveSoundVolumePreference(nextVolume);
+  });
+
+  elements.runeList.addEventListener("change", (event) => {
+    const checkbox = event.target.closest("input[type=checkbox][data-rune-id]");
+    if (!checkbox) {
+      return;
+    }
+
+    const runeId = String(checkbox.dataset.runeId || "");
+    if (!SELECTABLE_RUNE_IDS.includes(runeId)) {
+      return;
+    }
+
+    const selectedSet = new Set(selectedLocalRuneIds);
+    if (checkbox.checked) {
+      selectedSet.add(runeId);
+    } else {
+      selectedSet.delete(runeId);
+    }
+
+    selectedLocalRuneIds = normalizeRuneSelection([...selectedSet]);
+    saveRuneSelectionPreference(selectedLocalRuneIds);
+    setStatus("Local rune set updated. Starts from your next new AI or Pass & Play game.");
   });
 
   elements.onlineBackBtn.addEventListener("click", () => {
@@ -800,7 +835,7 @@ function bindEvents() {
       return;
     }
 
-    state = createInitialState();
+    state = createInitialState(getLocalGameOptions());
     if (aiConfig.enabled && state.phase === "shop" && state.shop.currentPlayer !== aiConfig.playerId) {
       switchShopPlayer(state);
     }
@@ -1971,6 +2006,86 @@ function getSavedStateForMode(mode) {
     return null;
   }
   return saved.state || null;
+}
+
+function getLocalGameOptions() {
+  return {
+    allowedSpecialRuneIds: selectedLocalRuneIds,
+  };
+}
+
+function normalizeRuneSelection(candidate) {
+  const requested = Array.isArray(candidate) ? candidate : [];
+  const requestedSet = new Set(requested.filter((id) => SELECTABLE_RUNE_IDS.includes(id)));
+  return SELECTABLE_RUNE_IDS.filter((id) => requestedSet.has(id));
+}
+
+function loadRuneSelectionPreference() {
+  const raw = localStorage.getItem(RUNE_SELECTION_STORAGE_KEY);
+  if (!raw) {
+    return [...SELECTABLE_RUNE_IDS];
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    const normalized = normalizeRuneSelection(parsed);
+    return normalized.length > 0 ? normalized : [];
+  } catch {
+    return [...SELECTABLE_RUNE_IDS];
+  }
+}
+
+function saveRuneSelectionPreference(runeIds) {
+  localStorage.setItem(RUNE_SELECTION_STORAGE_KEY, JSON.stringify(normalizeRuneSelection(runeIds)));
+}
+
+function renderRuneSelectionSettings() {
+  elements.runeList.innerHTML = "";
+  const selected = new Set(selectedLocalRuneIds);
+
+  SELECTABLE_RUNES.forEach((rune) => {
+    const row = document.createElement("label");
+    row.className = "settings-rune-item";
+
+    const main = document.createElement("span");
+    main.className = "settings-rune-main";
+
+    const chip = document.createElement("span");
+    chip.className = "rune-chip neutral";
+
+    if (rune.icon) {
+      const symbol = document.createElement("img");
+      symbol.src = rune.icon;
+      symbol.alt = `${rune.name} symbol`;
+      symbol.className = "rune-chip-symbol";
+      chip.appendChild(symbol);
+    }
+
+    const textWrap = document.createElement("span");
+    textWrap.className = "settings-rune-text";
+
+    const title = document.createElement("strong");
+    title.textContent = rune.name;
+
+    const effect = document.createElement("small");
+    effect.textContent = rune.description;
+
+    textWrap.appendChild(title);
+    textWrap.appendChild(effect);
+    main.appendChild(chip);
+    main.appendChild(textWrap);
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.className = "settings-rune-checkbox";
+    checkbox.dataset.runeId = rune.id;
+    checkbox.checked = selected.has(rune.id);
+    checkbox.setAttribute("aria-label", `Include ${rune.name}`);
+
+    row.appendChild(main);
+    row.appendChild(checkbox);
+    elements.runeList.appendChild(row);
+  });
 }
 
 function initializeTheme() {
