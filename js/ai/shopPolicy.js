@@ -11,9 +11,14 @@ const RUNE_WEIGHTS = {
   teiwaz: 88,
   gebo: 86,
   thurisa: 82,
+  dagaz: 81,
+  nauthiz: 80,
   algiz: 78,
   ansuz: 76,
   mannaz: 74,
+  eihwaz: 73,
+  fehu: 75,
+  kenaz: 71,
   sowelu: 72,
   uruz: 68,
   ehwaz: 66,
@@ -26,7 +31,7 @@ const RUNE_WEIGHTS = {
   basic: 10,
 };
 
-const NON_COMBINABLE = new Set(["basic", "inguz", "jera", "neutral", "berkana", "hagalz", "isa", "laguz"]);
+const NON_COMBINABLE = new Set(["basic", "inguz", "jera", "neutral", "berkana", "dagaz", "hagalz", "isa", "kenaz", "laguz", "wunjo", "nauthiz", "eihwaz"]);
 
 export function runAiShopTurn(state, aiPlayerId) {
   if (state.phase !== "shop" || state.shop.currentPlayer !== aiPlayerId) {
@@ -90,6 +95,7 @@ function findBestCombinePair(bag) {
 
 function chooseRemoveCandidate(bag) {
   return (
+    bag.find((rune) => (rune.capturedOwner === 1 || rune.capturedOwner === 2)) ||
     bag.find((rune) => rune.id === "inguz") ||
     bag.find((rune) => rune.id === "jera") ||
     bag.find((rune) => rune.id === "basic") ||

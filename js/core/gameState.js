@@ -20,7 +20,10 @@ const BASE_HAND_SIZE = 2;
 const STARTING_NEUTRAL_SUPPLY = 20;
 const SHOP_OFFER_SIZE = 5;
 const SHOP_ADD_LIMIT = 2;
-const NON_COMBINABLE_RUNES = new Set(["basic", "inguz", "jera", "neutral", "berkana", "hagalz", "isa", "laguz"]);
+const SHOP_REMOVE_LIMIT = 1;
+const NON_COMBINABLE_RUNES = new Set(["basic", "inguz", "jera", "neutral", "berkana", "dagaz", "hagalz", "isa", "kenaz", "laguz", "wunjo", "nauthiz", "eihwaz"]);
+const DAGAZ_ON_PLAY_COPYABLE = new Set(["raido", "sowelu", "teiwaz", "thurisa", "perth", "odal", "mannaz", "gebo", "ansuz", "fehu"]);
+const DAGAZ_PASSIVE_COPYABLE = new Set(["laguz", "berkana", "ehwaz", "hagalz", "isa", "uruz", "wunjo", "kenaz", "eihwaz"]);
 
 export function createInitialState(options = {}) {
   const black = createPlayer(BLACK, options);
@@ -50,11 +53,12 @@ export function createInitialState(options = {}) {
       1: null,
       2: null,
     },
+    nextShopBonuses: createEmptyShopBonuses(),
     players: {
       1: black,
       2: white,
     },
-    shop: createShopState(playerFromPointPool(POINT_POOL_TOTAL)),
+    shop: createShopState(playerFromPointPool(POINT_POOL_TOTAL), createEmptyShopBonuses()),
     log: ["New game started in Shop Phase. White starts because point supply is even."],
   };
 
@@ -68,16 +72,30 @@ export function restoreState(candidate, options = {}) {
   }
 
   if (!candidate.shop) {
-    candidate.shop = createShopState(candidate.currentPlayer || WHITE);
+    candidate.shop = createShopState(candidate.currentPlayer || WHITE, createEmptyShopBonuses());
     initializeShopOffers(candidate);
+  }
+
+  if (!candidate.nextShopBonuses) {
+    candidate.nextShopBonuses = createEmptyShopBonuses();
   }
 
   for (const playerId of [BLACK, WHITE]) {
     if (!candidate.shop.players?.[playerId]) {
       continue;
     }
-    if (typeof candidate.shop.players[playerId].ready !== "boolean") {
-      candidate.shop.players[playerId].ready = false;
+    const data = candidate.shop.players[playerId];
+    if (typeof data.ready !== "boolean") {
+      data.ready = false;
+    }
+    if (typeof data.addLimit !== "number") {
+      data.addLimit = SHOP_ADD_LIMIT;
+    }
+    if (typeof data.removeLimit !== "number") {
+      data.removeLimit = SHOP_REMOVE_LIMIT;
+    }
+    if (typeof data.removeCount !== "number") {
+      data.removeCount = data.removeUsed ? 1 : 0;
     }
   }
 
@@ -112,7 +130,7 @@ export function selectRune(state, playerId, runeInstanceId) {
   return { state, error: null };
 }
 
-export function playTurn(state, column) {
+export function playTurn(state, column, options = {}) {
   if (state.phase !== "round") {
     return { state, error: "Board play is only available during rounds." };
   }
@@ -136,18 +154,36 @@ export function playTurn(state, column) {
     return { state, error: "Select a rune before dropping a rune on the board." };
   }
 
-  const legalColumns = getLegalColumnsForRune(state, state.currentPlayer, selectedRune);
-  if (!legalColumns.includes(column)) {
-    return { state, error: `${selectedRune.name} cannot be played in column ${column + 1}.` };
-  }
-
   let move;
-  if (selectedRune.id === "algiz") {
+  if (selectedRune.id === "nauthiz") {
+    const targetRow = Number(options.row);
+    const targetCol = Number(options.col);
+    if (
+      !Number.isInteger(targetRow)
+      || !Number.isInteger(targetCol)
+      || !isInside(state, targetRow, targetCol)
+      || state.board[targetRow][targetCol] !== EMPTY
+    ) {
+      return { state, error: "Choose an empty target cell for Nauthiz." };
+    }
+
+    move = placeFloatingRune(state, targetRow, targetCol, state.currentPlayer, selectedRune);
+  } else if (selectedRune.id === "algiz") {
+    const legalColumns = getLegalColumnsForRune(state, state.currentPlayer, selectedRune);
+    if (!legalColumns.includes(column)) {
+      return { state, error: `${selectedRune.name} cannot be played in column ${column + 1}.` };
+    }
+
     move = insertRuneFromBottom(state, column, state.currentPlayer, selectedRune);
     if (!move) {
       return { state, error: "Algiz cannot be played in a full column." };
     }
   } else {
+    const legalColumns = getLegalColumnsForRune(state, state.currentPlayer, selectedRune);
+    if (!legalColumns.includes(column)) {
+      return { state, error: `${selectedRune.name} cannot be played in column ${column + 1}.` };
+    }
+
     move = dropToken(state.board, column, getOwnerForRune(selectedRune, state.currentPlayer));
     if (!move) {
       return { state, error: "That column is full." };
@@ -307,6 +343,18 @@ export function resolvePendingBoardChoice(state, choice) {
 }
 
 export function getPendingBoardTargets(state) {
+  if (!state.pendingAction && state.phase === "round" && !state.gameWinner) {
+    const selectedRune = getSelectedRuneForCurrentPlayer(state);
+    if (selectedRune?.id === "nauthiz") {
+      return {
+        pending: true,
+        mode: "cells",
+        columns: [],
+        cells: getFreeCells(state),
+      };
+    }
+  }
+
   if (!state.pendingAction || state.phase !== "round") {
     return { pending: false, mode: null, columns: [], cells: [] };
   }
@@ -369,6 +417,21 @@ export function getLegalMovesForPlayer(state, playerId) {
 
   const moves = [];
   player.hand.forEach((rune) => {
+    if (rune.id === "nauthiz") {
+      const cells = getFreeCells(state);
+      cells.forEach((cell) => {
+        moves.push({
+          runeInstanceId: rune.instanceId,
+          column: cell.col,
+          row: cell.row,
+          col: cell.col,
+          runeId: rune.id,
+          level: rune.level,
+        });
+      });
+      return;
+    }
+
     const legalColumns = getLegalColumnsForRune(state, playerId, rune);
     legalColumns.forEach((column) => {
       moves.push({ runeInstanceId: rune.instanceId, column, runeId: rune.id, level: rune.level });
@@ -418,7 +481,8 @@ export function enterShopPhase(state) {
 
   state.phase = "shop";
   state.pendingAction = null;
-  state.shop = createShopState(state.currentPlayer);
+  state.shop = createShopState(state.currentPlayer, state.nextShopBonuses);
+  state.nextShopBonuses = createEmptyShopBonuses();
   initializeShopOffers(state);
   state.log.unshift("Shop phase started.");
   return { state, error: null };
@@ -436,7 +500,7 @@ export function startRoundFromShop(state) {
   state.players[BLACK].bag = shuffle([...state.players[BLACK].bag]);
   state.players[WHITE].bag = shuffle([...state.players[WHITE].bag]);
 
-  state.shop = createShopState(playerFromPointPool(state.pointPoolRemaining));
+  state.shop = createShopState(playerFromPointPool(state.pointPoolRemaining), createEmptyShopBonuses());
   state.phase = "round";
   state.roundNumber += 1;
   state.turnNumber = 1;
@@ -496,8 +560,8 @@ export function setShopMode(state, mode) {
     return { state, error: null };
   }
 
-  if (mode === "remove" && data.removeUsed) {
-    return { state, error: "Remove has already been used this shop phase." };
+  if (mode === "remove" && data.removeCount >= data.removeLimit) {
+    return { state, error: "Remove limit already reached this shop phase." };
   }
 
   if (mode === "combine" && !hasCombinablePair(state, playerId)) {
@@ -524,13 +588,18 @@ export function shopSelectBagRune(state, runeInstanceId) {
   }
 
   if (data.mode === "remove") {
-    if (data.removeUsed) {
-      return { state, error: "Remove already used this shop phase." };
+    if (data.removeCount >= data.removeLimit) {
+      return { state, error: "Remove limit already reached this shop phase." };
     }
 
     removeRuneFromBag(state, playerId, rune.instanceId);
-    data.removeUsed = true;
+    data.removeCount += 1;
     data.mode = null;
+
+    if ((rune.capturedOwner === BLACK || rune.capturedOwner === WHITE) && rune.capturedOwner !== playerId) {
+      state.log.unshift(`${playerName(playerId)} permanently removed captured ${rune.name} from ${playerName(rune.capturedOwner)}.`);
+      return { state, error: null };
+    }
 
     if (rune.id === "neutral") {
       state.neutralSupply += 1;
@@ -595,8 +664,8 @@ export function shopSelectOfferRune(state, runeInstanceId) {
   const playerId = state.shop.currentPlayer;
   const data = state.shop.players[playerId];
 
-  if (data.addedCount >= SHOP_ADD_LIMIT) {
-    return { state, error: "You can only add up to 2 runes from shop offer." };
+  if (data.addedCount >= data.addLimit) {
+    return { state, error: `You can only add up to ${data.addLimit} runes from shop offer.` };
   }
 
   const offerIndex = data.offer.findIndex((rune) => rune.instanceId === runeInstanceId);
@@ -646,7 +715,7 @@ export function getShopHighlights(state) {
 
   return {
     bagHighlightIds: [],
-    offerHighlightIds: data.addedCount >= SHOP_ADD_LIMIT ? [] : data.offer.map((rune) => rune.instanceId),
+    offerHighlightIds: data.addedCount >= data.addLimit ? [] : data.offer.map((rune) => rune.instanceId),
   };
 }
 
@@ -662,7 +731,7 @@ export function getShopActionAvailability(state) {
   const data = state.shop.players[playerId];
 
   return {
-    removeVisible: !data.removeUsed,
+    removeVisible: data.removeCount < data.removeLimit,
     combineVisible: hasCombinablePair(state, playerId),
   };
 }
@@ -682,7 +751,7 @@ export function getForcedVisiblePlayers(state) {
         continue;
       }
 
-      if (rune.id === "uruz") {
+      if (cellHasPassiveRuneId(state, row, col, "uruz")) {
         forced[getOpponent(owner)] = true;
       }
     }
@@ -725,7 +794,11 @@ function createInitialShopSupply(allowedSpecialRuneIds = null) {
   return supply;
 }
 
-function createShopState(currentPlayer) {
+function createShopState(currentPlayer, nextShopBonuses) {
+  const bonuses = nextShopBonuses || createEmptyShopBonuses();
+  const p1Bonus = bonuses[1] || { extraAdds: 0, extraRemoves: 0 };
+  const p2Bonus = bonuses[2] || { extraAdds: 0, extraRemoves: 0 };
+
   return {
     currentPlayer,
     view: "bag",
@@ -733,7 +806,9 @@ function createShopState(currentPlayer) {
       1: {
         offer: [],
         addedCount: 0,
-        removeUsed: false,
+        addLimit: SHOP_ADD_LIMIT + Math.max(0, Number(p1Bonus.extraAdds) || 0),
+        removeCount: 0,
+        removeLimit: SHOP_REMOVE_LIMIT + Math.max(0, Number(p1Bonus.extraRemoves) || 0),
         ready: false,
         mode: null,
         combineSelection: [],
@@ -741,12 +816,21 @@ function createShopState(currentPlayer) {
       2: {
         offer: [],
         addedCount: 0,
-        removeUsed: false,
+        addLimit: SHOP_ADD_LIMIT + Math.max(0, Number(p2Bonus.extraAdds) || 0),
+        removeCount: 0,
+        removeLimit: SHOP_REMOVE_LIMIT + Math.max(0, Number(p2Bonus.extraRemoves) || 0),
         ready: false,
         mode: null,
         combineSelection: [],
       },
     },
+  };
+}
+
+function createEmptyShopBonuses() {
+  return {
+    1: { extraAdds: 0, extraRemoves: 0 },
+    2: { extraAdds: 0, extraRemoves: 0 },
   };
 }
 
@@ -799,7 +883,7 @@ function hasCombinablePair(state, playerId) {
 }
 
 function applyShopEffectIfAny(state, playerId, rune) {
-  if (!["gebo", "raido", "teiwaz"].includes(rune.id)) {
+  if (!["gebo", "raido", "teiwaz", "nauthiz", "dagaz"].includes(rune.id)) {
     return;
   }
 
@@ -866,11 +950,12 @@ function getMaxHandSize(state, playerId) {
     for (let col = 0; col < state.columns; col += 1) {
       const rune = state.boardRunes[row][col];
       const owner = state.board[row][col];
-      if (!rune || owner !== playerId || rune.id !== "ehwaz") {
+      const copiedEhwaz = getPassiveRuneAt(state, row, col, "ehwaz");
+      if (!rune || owner !== playerId || !copiedEhwaz) {
         continue;
       }
 
-      maxSize = Math.max(maxSize, rune.level >= 2 ? 4 : 3);
+      maxSize = Math.max(maxSize, copiedEhwaz.level >= 2 ? 4 : 3);
     }
   }
 
@@ -893,8 +978,7 @@ function getLegalColumnsForRune(state, playerId, rune) {
 
 function columnContainsLaguz(state, column) {
   for (let row = 0; row < state.rows; row += 1) {
-    const rune = state.boardRunes[row][column];
-    if (rune?.id === "laguz") {
+    if (cellHasPassiveRuneId(state, row, column, "laguz")) {
       return true;
     }
   }
@@ -967,12 +1051,47 @@ function insertRuneFromBottom(state, column, playerId, rune) {
   return move;
 }
 
+function placeFloatingRune(state, row, col, playerId, rune) {
+  if (state.board[row][col] !== EMPTY) {
+    return null;
+  }
+
+  state.board[row][col] = getOwnerForRune(rune, playerId);
+  const move = { row, col };
+  setRuneOnBoard(state, move, rune);
+  return move;
+}
+
 function applyRuneEffect(state, rune, move, playerId) {
   const notes = [];
   let extraTurn = false;
   let pendingAction = null;
 
-  if (rune.id === "odal" && move.row === 0) {
+  const copiedOnPlayRune = resolveDagazOnPlayRune(state, rune, move);
+  const effectRune = copiedOnPlayRune || rune;
+
+  if (rune.id === "dagaz" && copiedOnPlayRune) {
+    notes.push(`Dagaz copied ${copiedOnPlayRune.name}.`);
+  }
+
+  if (effectRune.id === "fehu") {
+    const recoverCount = effectRune.level >= 2 ? 2 : 1;
+    let recovered = 0;
+
+    for (let i = 0; i < recoverCount; i += 1) {
+      const recoveredRune = recoverAwayRuneForFehu(state, playerId);
+      if (!recoveredRune) {
+        break;
+      }
+      recovered += 1;
+    }
+
+    if (recovered > 0) {
+      notes.push(`Fehu recovered ${recovered} away rune(s) into ${playerName(playerId)} bag.`);
+    }
+  }
+
+  if (effectRune.id === "odal" && move.row === 0) {
     const gained = awardPointAndCheckGameEnd(state, playerId, "Odal (top row)");
     if (gained) {
       notes.push("Odal on top row granted 1 point from supply.");
@@ -981,7 +1100,7 @@ function applyRuneEffect(state, rune, move, playerId) {
     }
   }
 
-  if (rune.id === "ansuz") {
+  if (effectRune.id === "ansuz") {
     const targetRow = move.row + 1;
     const targetCol = move.col;
     if (isInside(state, targetRow, targetCol) && state.board[targetRow][targetCol] !== NEUTRAL_OWNER) {
@@ -992,10 +1111,10 @@ function applyRuneEffect(state, rune, move, playerId) {
     }
   }
 
-  if (rune.id === "gebo") {
-    if (rune.level >= 2) {
+  if (effectRune.id === "gebo") {
+    if (effectRune.level >= 2) {
       const validCells = getAdjacentOccupiedCells(state, move.row, move.col)
-        .filter((cell) => state.boardRunes[cell.row]?.[cell.col]?.id !== "laguz");
+        .filter((cell) => !cellHasPassiveRuneId(state, cell.row, cell.col, "laguz"));
       if (validCells.length > 0) {
         pendingAction = {
           type: "gebo-l2-target",
@@ -1014,7 +1133,7 @@ function applyRuneEffect(state, rune, move, playerId) {
     }
   }
 
-  if (rune.id === "mannaz") {
+  if (effectRune.id === "mannaz") {
     if (state.neutralSupply > 0) {
       state.players[getOpponent(playerId)].bag.push(createRuneInstance("neutral", 1));
       state.neutralSupply -= 1;
@@ -1022,11 +1141,11 @@ function applyRuneEffect(state, rune, move, playerId) {
     }
   }
 
-  if (rune.id === "perth") {
+  if (effectRune.id === "perth") {
     const opponentId = getOpponent(playerId);
     const adjacent = getAdjacentColumns(move.col, state.columns);
 
-    if (rune.level >= 2) {
+    if (effectRune.level >= 2) {
       const validColumns = adjacent.filter((col) => state.board[0][col] === EMPTY);
       if (validColumns.length > 0) {
         pendingAction = {
@@ -1042,13 +1161,13 @@ function applyRuneEffect(state, rune, move, playerId) {
     }
   }
 
-  if (rune.id === "raido") {
+  if (effectRune.id === "raido") {
     extraTurn = true;
     notes.push("Raido grants an extra turn.");
   }
 
-  if (rune.id === "sowelu") {
-    const discardCount = rune.level >= 2 ? 2 : 1;
+  if (effectRune.id === "sowelu") {
+    const discardCount = effectRune.level >= 2 ? 2 : 1;
     const opponent = state.players[getOpponent(playerId)];
     let discarded = 0;
 
@@ -1058,12 +1177,7 @@ function applyRuneEffect(state, rune, move, playerId) {
       }
       const index = Math.floor(Math.random() * opponent.bag.length);
       const [removed] = opponent.bag.splice(index, 1);
-      state.roundAwayRunes.push({
-        owner: opponent.id,
-        runeId: removed.id,
-        level: removed.level,
-        source: "sowelu",
-      });
+      sendRuneAwayForRound(state, opponent.id, removed.id, removed.level, "sowelu");
       discarded += 1;
     }
 
@@ -1072,8 +1186,8 @@ function applyRuneEffect(state, rune, move, playerId) {
     }
   }
 
-  if (rune.id === "teiwaz") {
-    const mode = rune.level >= 2 ? "any" : "adjacent";
+  if (effectRune.id === "teiwaz") {
+    const mode = effectRune.level >= 2 ? "any" : "adjacent";
     const validSourceColumns = getTeiwazSourceColumns(state, mode);
     if (validSourceColumns.length > 0) {
       pendingAction = {
@@ -1085,8 +1199,8 @@ function applyRuneEffect(state, rune, move, playerId) {
     }
   }
 
-  if (rune.id === "thurisa") {
-    const remainingDrops = Math.min(rune.level >= 2 ? 2 : 1, state.neutralSupply);
+  if (effectRune.id === "thurisa") {
+    const remainingDrops = Math.min(effectRune.level >= 2 ? 2 : 1, state.neutralSupply);
     const validColumns = getAvailableColumns(state.board);
     if (remainingDrops > 0 && validColumns.length > 0) {
       pendingAction = {
@@ -1140,9 +1254,11 @@ function removeRuneAt(state, row, col, source, returnMode) {
     return null;
   }
 
-  if (rune.id === "laguz") {
+  if (cellHasPassiveRuneId(state, row, col, "laguz")) {
     return null;
   }
+
+  const removedAsEihwaz = cellHasPassiveRuneId(state, row, col, "eihwaz");
 
   state.board[row][col] = EMPTY;
   state.boardRunes[row][col] = null;
@@ -1155,14 +1271,65 @@ function removeRuneAt(state, row, col, source, returnMode) {
     return { owner, rune };
   }
 
+  sendRuneAwayForRound(state, owner, rune.id, rune.level, source);
+  if (removedAsEihwaz && rune.id !== "eihwaz" && (owner === BLACK || owner === WHITE)) {
+    awardPointAndCheckGameEnd(state, owner, "Eihwaz discard");
+  }
+
+  return { owner, rune };
+}
+
+function sendRuneAwayForRound(state, owner, runeId, level, source) {
   state.roundAwayRunes.push({
     owner,
-    runeId: rune.id,
-    level: rune.level,
+    runeId,
+    level,
     source,
   });
 
-  return { owner, rune };
+  if ((owner === BLACK || owner === WHITE) && runeId === "eihwaz") {
+    awardPointAndCheckGameEnd(state, owner, "Eihwaz discard");
+  }
+}
+
+function recoverAwayRuneForFehu(state, playerId) {
+  if (!Array.isArray(state.roundAwayRunes) || state.roundAwayRunes.length === 0) {
+    return null;
+  }
+
+  const targetIndex = selectFehuAwayRuneIndex(state.roundAwayRunes, playerId);
+  if (targetIndex < 0) {
+    return null;
+  }
+
+  const [away] = state.roundAwayRunes.splice(targetIndex, 1);
+  const restored = createRuneInstance(away.runeId, away.level);
+  if (!restored) {
+    return null;
+  }
+
+  if ((away.owner === BLACK || away.owner === WHITE) && away.owner !== playerId) {
+    restored.capturedOwner = away.owner;
+  }
+
+  state.players[playerId].bag.push(restored);
+  return restored;
+}
+
+function selectFehuAwayRuneIndex(roundAwayRunes, playerId) {
+  const opponentId = getOpponent(playerId);
+
+  const opponentIndex = roundAwayRunes.findIndex((entry) => entry.owner === opponentId);
+  if (opponentIndex >= 0) {
+    return opponentIndex;
+  }
+
+  const ownIndex = roundAwayRunes.findIndex((entry) => entry.owner === playerId);
+  if (ownIndex >= 0) {
+    return ownIndex;
+  }
+
+  return roundAwayRunes.findIndex((entry) => entry.owner === NEUTRAL_OWNER || entry.owner === BLACK || entry.owner === WHITE);
 }
 
 function compactColumn(state, column) {
@@ -1197,8 +1364,7 @@ function getTeiwazSourceColumns(state, mode) {
       continue;
     }
 
-    const topRune = state.boardRunes[sourceRow]?.[col];
-    if (topRune?.id === "laguz") {
+    if (cellHasPassiveRuneId(state, sourceRow, col, "laguz")) {
       continue;
     }
 
@@ -1228,7 +1394,7 @@ function moveTopRuneFromColumnToColumn(state, sourceCol, targetCol) {
     return false;
   }
 
-  if (rune.id === "laguz") {
+  if (cellHasPassiveRuneId(state, sourceRow, sourceCol, "laguz")) {
     return false;
   }
 
@@ -1499,8 +1665,7 @@ function getAdjacentHagalzKeys(state, row, col, playerId) {
         continue;
       }
 
-      const rune = state.boardRunes[nextRow][nextCol];
-      if (rune && rune.id === "hagalz") {
+      if (cellHasPassiveRuneId(state, nextRow, nextCol, "hagalz")) {
         keys.push(`${nextRow}:${nextCol}`);
       }
     }
@@ -1539,8 +1704,8 @@ function finishRoundWithWinner(state, winnerId, winningLines) {
 
   const hasBerkanaInWin = winningLines.some((line) =>
     line.some(([row, col]) => {
-      const rune = state.boardRunes[row][col];
-      return rune && rune.id === "berkana" && state.board[row][col] === winnerId;
+      const owner = state.board[row][col];
+      return owner === winnerId && cellHasPassiveRuneId(state, row, col, "berkana");
     }),
   );
 
@@ -1625,6 +1790,10 @@ function evaluateMajorityWinner(state) {
 }
 
 function settleRound(state) {
+  const kenazFieldActive = hasActiveKenazEtherealField(state);
+
+  applyWunjoShopBonuses(state);
+
   const preservedIsa = [];
 
   for (const playerId of [BLACK, WHITE]) {
@@ -1643,7 +1812,7 @@ function settleRound(state) {
         continue;
       }
 
-      if (rune.id === "isa" && owner !== NEUTRAL_OWNER) {
+      if (!kenazFieldActive && owner !== NEUTRAL_OWNER && cellHasPassiveRuneId(state, row, col, "isa")) {
         preservedIsa.push({ owner, level: rune.level, col });
         continue;
       }
@@ -1653,7 +1822,7 @@ function settleRound(state) {
         continue;
       }
 
-      if (!rune.ethereal) {
+      if (!kenazFieldActive && !rune.ethereal) {
         state.players[owner].bag.push(createRuneInstance(rune.id, rune.level));
       } else {
         state.players[owner].shopSupply.push(createRuneInstance(rune.id, rune.level));
@@ -1684,6 +1853,24 @@ function settleRound(state) {
       };
     }
   }
+}
+
+function hasActiveKenazEtherealField(state) {
+  const kenazCounts = {
+    1: 0,
+    2: 0,
+  };
+
+  for (let row = 0; row < state.rows; row += 1) {
+    for (let col = 0; col < state.columns; col += 1) {
+      const owner = state.board[row][col];
+      if ((owner === BLACK || owner === WHITE) && cellHasPassiveRuneId(state, row, col, "kenaz")) {
+        kenazCounts[owner] += 1;
+      }
+    }
+  }
+
+  return kenazCounts[BLACK] >= 2 || kenazCounts[WHITE] >= 2;
 }
 
 function finalizeGameAtZeroPoints(state) {
@@ -1724,6 +1911,147 @@ function finalizeGameAtZeroPoints(state) {
   state.gameWinner = null;
   state.gameWinnerReason = "full-tie";
   state.log.unshift("Point supply is empty and all tie-breakers are equal. Game ends in full tie.");
+}
+
+function applyWunjoShopBonuses(state) {
+  if (!state.nextShopBonuses) {
+    state.nextShopBonuses = createEmptyShopBonuses();
+  }
+
+  const granted = new Set();
+
+  for (let row = 0; row < state.rows; row += 1) {
+    for (let col = 0; col < state.columns; col += 1) {
+      const owner = state.board[row][col];
+      if ((owner !== BLACK && owner !== WHITE) || !cellHasPassiveRuneId(state, row, col, "wunjo")) {
+        continue;
+      }
+
+      if (hasAdjacentAlliedRune(state, row, col, owner)) {
+        continue;
+      }
+
+      const bonus = ensureShopBonusEntry(state, owner);
+      bonus.extraAdds += 1;
+      bonus.extraRemoves += 1;
+      granted.add(owner);
+    }
+  }
+
+  for (const playerId of granted) {
+    state.log.unshift(`${playerName(playerId)} earned Wunjo bonus for next shop (+1 add, +1 remove).`);
+  }
+}
+
+function hasAdjacentAlliedRune(state, row, col, owner) {
+  for (let dr = -1; dr <= 1; dr += 1) {
+    for (let dc = -1; dc <= 1; dc += 1) {
+      if (dr === 0 && dc === 0) {
+        continue;
+      }
+
+      const nextRow = row + dr;
+      const nextCol = col + dc;
+      if (!isInside(state, nextRow, nextCol)) {
+        continue;
+      }
+
+      if (state.board[nextRow][nextCol] === owner) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+function getSelectedRuneForCurrentPlayer(state) {
+  if (state.phase !== "round") {
+    return null;
+  }
+
+  const player = state.players[state.currentPlayer];
+  if (!player || !player.selectedRuneInstanceId) {
+    return null;
+  }
+
+  return player.hand.find((rune) => rune.instanceId === player.selectedRuneInstanceId) || null;
+}
+
+function getFreeCells(state) {
+  const cells = [];
+  for (let row = 0; row < state.rows; row += 1) {
+    for (let col = 0; col < state.columns; col += 1) {
+      if (state.board[row][col] === EMPTY) {
+        cells.push({ row, col });
+      }
+    }
+  }
+  return cells;
+}
+
+function ensureShopBonusEntry(state, playerId) {
+  if (!state.nextShopBonuses[playerId]) {
+    state.nextShopBonuses[playerId] = { extraAdds: 0, extraRemoves: 0 };
+  }
+  return state.nextShopBonuses[playerId];
+}
+
+function resolveDagazCopiedRuneAt(state, row, col) {
+  if (!isInside(state, row, col)) {
+    return null;
+  }
+
+  let scanRow = row + 1;
+  while (scanRow < state.rows) {
+    const nextRune = state.boardRunes[scanRow]?.[col] || null;
+    if (!nextRune) {
+      return null;
+    }
+    if (nextRune.id !== "dagaz") {
+      return nextRune;
+    }
+    scanRow += 1;
+  }
+
+  return null;
+}
+
+function resolveDagazOnPlayRune(state, placedRune, move) {
+  if (!placedRune || placedRune.id !== "dagaz") {
+    return null;
+  }
+
+  const copied = resolveDagazCopiedRuneAt(state, move.row, move.col);
+  if (!copied || !DAGAZ_ON_PLAY_COPYABLE.has(copied.id)) {
+    return null;
+  }
+
+  return copied;
+}
+
+function cellHasPassiveRuneId(state, row, col, targetId) {
+  return Boolean(getPassiveRuneAt(state, row, col, targetId));
+}
+
+function getPassiveRuneAt(state, row, col, targetId) {
+  const rune = state.boardRunes[row]?.[col] || null;
+  if (!rune) {
+    return null;
+  }
+
+  if (rune.id === targetId) {
+    return rune;
+  }
+
+  if (rune.id !== "dagaz") {
+    return null;
+  }
+
+  const copied = resolveDagazCopiedRuneAt(state, row, col);
+  return copied && DAGAZ_PASSIVE_COPYABLE.has(copied.id) && copied.id === targetId
+    ? copied
+    : null;
 }
 
 function playerFromPointPool(pointPoolRemaining) {

@@ -49,7 +49,10 @@ export function applyRoundMoveOnLiveState(state, move) {
     return selected;
   }
 
-  const played = playTurn(state, move.column);
+  const played = playTurn(state, move.column, {
+    row: move.row,
+    col: move.col,
+  });
   return played;
 }
 
@@ -221,7 +224,10 @@ function applyMove(state, move, playerId) {
     return false;
   }
 
-  const played = playTurn(state, move.column);
+  const played = playTurn(state, move.column, {
+    row: move.row,
+    col: move.col,
+  });
   return !played.error;
 }
 
@@ -480,6 +486,10 @@ function getPendingChooserId(state) {
 export function describeAiMove(move) {
   if (!move) {
     return "No legal move found.";
+  }
+
+  if (move.runeId === "nauthiz" && Number.isInteger(move.row) && Number.isInteger(move.col)) {
+    return `Rune ${move.runeId} at row ${move.row + 1}, column ${move.col + 1}`;
   }
 
   return `Rune ${move.runeId} in column ${move.column + 1}`;

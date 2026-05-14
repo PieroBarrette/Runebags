@@ -161,6 +161,8 @@ export function renderBoard(
       if (isInteractiveTarget) {
         button.classList.add("target-cell");
         button.disabled = false;
+      } else if (pendingTargets.pending) {
+        button.disabled = true;
       } else if (state.phase !== "round") {
         button.disabled = true;
       } else if (state.pendingAction) {

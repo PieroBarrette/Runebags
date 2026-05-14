@@ -65,10 +65,14 @@ export function runAiStep(state, config) {
       autoResolvePending(state, config.playerId);
     }
 
+    const placementNote = move.runeId === "nauthiz" && Number.isInteger(move.row) && Number.isInteger(move.col)
+      ? `${getPlayerName(config.playerId)} AI placed Nauthiz at row ${move.row + 1}, column ${move.col + 1}.`
+      : `${getPlayerName(config.playerId)} AI played column ${move.column + 1}.`;
+
     return {
       state,
       error: null,
-      note: `${getPlayerName(config.playerId)} AI played column ${move.column + 1}.`,
+      note: placementNote,
     };
   }
 

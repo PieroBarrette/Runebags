@@ -686,7 +686,7 @@ function bindEvents() {
 
     const result = state.pendingAction
       ? resolvePendingBoardChoice(state, { row, col: column, column })
-      : playTurn(state, column);
+      : playTurn(state, column, { row, col: column });
 
     state = result.state;
     if (result.error) {
@@ -1250,6 +1250,15 @@ function updateTopStatus() {
   }
 
   elements.turnPill.textContent = `Round ${state.roundNumber} - Turn: ${getDisplayPlayerName(state.currentPlayer)}`;
+  const selectedRuneId = state.players[state.currentPlayer]?.selectedRuneInstanceId;
+  const selectedRune = selectedRuneId
+    ? state.players[state.currentPlayer].hand.find((rune) => rune.instanceId === selectedRuneId)
+    : null;
+  if (selectedRune?.id === "nauthiz") {
+    elements.status.textContent = `${getDisplayPlayerName(state.currentPlayer)}: choose any highlighted empty cell for Nauthiz.`;
+    return;
+  }
+
   const forcedColumns = state.nextTurnConstraints?.[state.currentPlayer] || [];
   if (forcedColumns.length > 0) {
     elements.status.textContent = `${getDisplayPlayerName(state.currentPlayer)}: forced to play adjacent columns (${forcedColumns.map((col) => col + 1).join(", ")}).`;
@@ -1312,7 +1321,7 @@ function renderShopPanel() {
   elements.shopPlayerTitle.textContent = online.isOnlineActive()
     ? `Your Shop - ${getDisplayPlayerName(playerId)}`
     : `Shop - ${getDisplayPlayerName(playerId)}`;
-  elements.shopModeLabel.textContent = `Mode: ${data.mode || "none"} | Added: ${data.addedCount}/2 | Remove used: ${data.removeUsed ? "yes" : "no"} | Ready: ${playerReady ? "yes" : "no"}`;
+  elements.shopModeLabel.textContent = `Mode: ${data.mode || "none"} | Added: ${data.addedCount}/${data.addLimit} | Removes: ${data.removeCount}/${data.removeLimit} | Ready: ${playerReady ? "yes" : "no"}`;
 
   renderRuneList(elements.shopOffer, data.offer, playerId, highlights.offerHighlightIds);
   renderRuneList(elements.shopBag, state.players[playerId].bag, playerId, highlights.bagHighlightIds);
