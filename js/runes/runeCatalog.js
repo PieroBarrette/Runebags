@@ -80,6 +80,7 @@ const RUNE_CATALOG = [
     columnRule: "any",
     supportsLevels: true,
     maxLevel: 2,
+    shopEffect: "When picked from shop, add a neutral rune to owner bag.",
   },
   {
     id: "ansuz",

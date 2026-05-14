@@ -883,7 +883,7 @@ function hasCombinablePair(state, playerId) {
 }
 
 function applyShopEffectIfAny(state, playerId, rune) {
-  if (!["gebo", "raido", "teiwaz", "nauthiz", "dagaz"].includes(rune.id)) {
+  if (!["algiz", "gebo", "raido", "teiwaz", "nauthiz", "dagaz"].includes(rune.id)) {
     return;
   }
 
