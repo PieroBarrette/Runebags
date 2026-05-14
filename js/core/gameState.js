@@ -184,7 +184,7 @@ export function playTurn(state, column, options = {}) {
       return { state, error: `${selectedRune.name} cannot be played in column ${column + 1}.` };
     }
 
-    move = dropToken(state.board, column, getOwnerForRune(selectedRune, state.currentPlayer));
+    move = dropTokenWithColumnPhysics(state, column, getOwnerForRune(selectedRune, state.currentPlayer));
     if (!move) {
       return { state, error: "That column is full." };
     }
@@ -314,7 +314,7 @@ export function resolvePendingBoardChoice(state, choice) {
       return finalizeTurn(state, turnContext.playerId, turnContext.extraTurn);
     }
 
-    const placement = dropToken(state.board, choice.column, NEUTRAL_OWNER);
+    const placement = dropTokenWithColumnPhysics(state, choice.column, NEUTRAL_OWNER);
     if (!placement) {
       return { state, error: "That column is full for Thurisa placement." };
     }
@@ -606,11 +606,13 @@ export function shopSelectBagRune(state, runeInstanceId) {
       state.log.unshift(`${playerName(playerId)} removed a Neutral rune. It returned to supply.`);
     } else if (rune.id === "basic") {
       state.log.unshift(`${playerName(playerId)} removed a Basic rune permanently.`);
-    } else {
+    } else if (rune.id === "inguz" || rune.id === "jera") {
       player.shopSupply.push(createRuneInstance(rune.id, rune.level));
       state.log.unshift(
         `${playerName(playerId)} removed ${rune.name} and returned it to their shop supply.`,
       );
+    } else {
+      state.log.unshift(`${playerName(playerId)} removed ${rune.name} permanently.`);
     }
 
     return { state, error: null };
@@ -963,7 +965,9 @@ function getMaxHandSize(state, playerId) {
 }
 
 function getLegalColumnsForRune(state, playerId, rune) {
-  const availableColumns = getAvailableColumns(state.board);
+  const availableColumns = rune.id === "algiz"
+    ? getAlgizAvailableColumns(state)
+    : getAvailableColumns(state.board);
   const allowedColumns = getAllowedColumns(rune, state.columns);
   const constrainedColumns = getConstrainedColumns(state, playerId, availableColumns);
   const blockedForAlgiz = rune.id === "algiz"
@@ -1036,11 +1040,24 @@ function getConstrainedColumns(state, playerId, availableColumns) {
 }
 
 function insertRuneFromBottom(state, column, playerId, rune) {
-  if (state.board[0][column] !== EMPTY) {
+  const startRow = getNauthizFloorRow(state, column) + 1;
+  if (startRow >= state.rows) {
     return null;
   }
 
-  for (let row = 0; row < state.rows - 1; row += 1) {
+  let hasEmptyInSegment = false;
+  for (let row = startRow; row < state.rows; row += 1) {
+    if (state.board[row][column] === EMPTY) {
+      hasEmptyInSegment = true;
+      break;
+    }
+  }
+
+  if (!hasEmptyInSegment) {
+    return null;
+  }
+
+  for (let row = startRow; row < state.rows - 1; row += 1) {
     state.board[row][column] = state.board[row + 1][column];
     state.boardRunes[row][column] = state.boardRunes[row + 1][column];
   }
@@ -1134,10 +1151,20 @@ function applyRuneEffect(state, rune, move, playerId) {
   }
 
   if (effectRune.id === "mannaz") {
-    if (state.neutralSupply > 0) {
+    const addCount = effectRune.level >= 2 ? 2 : 1;
+    let added = 0;
+
+    for (let i = 0; i < addCount; i += 1) {
+      if (state.neutralSupply <= 0) {
+        break;
+      }
       state.players[getOpponent(playerId)].bag.push(createRuneInstance("neutral", 1));
       state.neutralSupply -= 1;
-      notes.push("Mannaz added a neutral rune to opponent bag.");
+      added += 1;
+    }
+
+    if (added > 0) {
+      notes.push(`Mannaz added ${added} neutral rune(s) to opponent bag.`);
     }
   }
 
@@ -1333,9 +1360,15 @@ function selectFehuAwayRuneIndex(roundAwayRunes, playerId) {
 }
 
 function compactColumn(state, column) {
+  const nauthizFloor = getNauthizFloorRow(state, column);
+  const compactStart = nauthizFloor + 1;
+  if (compactStart >= state.rows) {
+    return;
+  }
+
   const pieces = [];
 
-  for (let row = state.rows - 1; row >= 0; row -= 1) {
+  for (let row = state.rows - 1; row >= compactStart; row -= 1) {
     const owner = state.board[row][column];
     const rune = state.boardRunes[row][column];
     if (owner !== EMPTY && rune) {
@@ -1343,7 +1376,7 @@ function compactColumn(state, column) {
     }
   }
 
-  for (let row = state.rows - 1; row >= 0; row -= 1) {
+  for (let row = state.rows - 1; row >= compactStart; row -= 1) {
     const index = state.rows - 1 - row;
     if (index < pieces.length) {
       state.board[row][column] = pieces[index].owner;
@@ -1402,13 +1435,70 @@ function moveTopRuneFromColumnToColumn(state, sourceCol, targetCol) {
   state.boardRunes[sourceRow][sourceCol] = null;
   compactColumn(state, sourceCol);
 
-  const placement = dropToken(state.board, targetCol, owner);
+  const placement = dropTokenWithColumnPhysics(state, targetCol, owner);
   if (!placement) {
     return false;
   }
 
   state.boardRunes[placement.row][placement.col] = rune;
   return true;
+}
+
+function getAlgizAvailableColumns(state) {
+  const columns = [];
+  for (let col = 0; col < state.columns; col += 1) {
+    const startRow = getNauthizFloorRow(state, col) + 1;
+    if (startRow >= state.rows) {
+      continue;
+    }
+
+    let hasEmpty = false;
+    for (let row = startRow; row < state.rows; row += 1) {
+      if (state.board[row][col] === EMPTY) {
+        hasEmpty = true;
+        break;
+      }
+    }
+
+    if (hasEmpty) {
+      columns.push(col);
+    }
+  }
+
+  return columns;
+}
+
+function getNauthizFloorRow(state, column) {
+  let floor = -1;
+  for (let row = 0; row < state.rows; row += 1) {
+    const rune = state.boardRunes[row][column];
+    if (rune?.id === "nauthiz") {
+      floor = row;
+    }
+  }
+  return floor;
+}
+
+function dropTokenWithColumnPhysics(state, column, playerId) {
+  if (column < 0 || column >= state.columns) {
+    return null;
+  }
+
+  if (state.board[0][column] !== EMPTY) {
+    return null;
+  }
+
+  for (let row = 1; row < state.rows; row += 1) {
+    if (state.board[row][column] !== EMPTY) {
+      const landingRow = row - 1;
+      state.board[landingRow][column] = playerId;
+      return { row: landingRow, col: column };
+    }
+  }
+
+  const landingRow = state.rows - 1;
+  state.board[landingRow][column] = playerId;
+  return { row: landingRow, col: column };
 }
 
 function findTopOccupiedRow(state, column) {

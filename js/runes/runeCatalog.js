@@ -177,12 +177,11 @@ const RUNE_CATALOG = [
     id: "mannaz",
     name: "Mannaz",
     type: "special",
-    description: "Adds a neutral rune to opponent bag.",
+    description: "Adds neutral runes to opponent bag (L1: 1, L2: 2).",
     icon: "./assets/runes/mannaz.svg",
     columnRule: "any",
     supportsLevels: true,
     maxLevel: 2,
-    etherealAtLevels: [1],
   },
   {
     id: "nauthiz",

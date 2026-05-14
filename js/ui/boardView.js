@@ -138,6 +138,8 @@ export function renderBoard(
             button.classList.add("anim-ansuz-drop");
           } else if (isThurisaDrop) {
             button.classList.add("anim-thurisa-drop");
+          } else if (rune?.id === "nauthiz") {
+            button.classList.add("anim-nauthiz-place");
           } else if (animationFrame.placedFromBottom?.has(animationKey)) {
             button.classList.add("anim-place-bottom");
           } else {

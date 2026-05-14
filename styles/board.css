@@ -247,6 +247,14 @@ body[data-animations="on"] .cell.anim-place .rune-symbol {
   animation: rune-symbol-drop-in var(--board-anim-duration) cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
+body[data-animations="on"] .cell.anim-nauthiz-place.has-piece::before {
+  animation: nauthiz-fade-zoom-in 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+body[data-animations="on"] .cell.anim-nauthiz-place .rune-symbol {
+  animation: nauthiz-symbol-fade-zoom-in 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
 body[data-animations="on"] .cell.anim-thurisa-drop.has-piece::before {
   animation: thurisa-neutral-drop 520ms cubic-bezier(0.2, 0.82, 0.24, 1);
 }
@@ -333,6 +341,28 @@ body[data-animations="on"] .cell.anim-shift-up .rune-symbol {
   }
   to {
     transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes nauthiz-fade-zoom-in {
+  from {
+    transform: scale(0.78);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes nauthiz-symbol-fade-zoom-in {
+  from {
+    transform: scale(0.72);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
     opacity: 1;
   }
 }
