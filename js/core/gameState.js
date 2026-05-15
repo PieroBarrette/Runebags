@@ -226,6 +226,37 @@ export function resolvePendingBoardChoice(state, choice) {
 
   const action = state.pendingAction;
 
+  if (action.type === "fehu-recover") {
+    if (!action.validAwayIndexes.includes(choice.awayIndex)) {
+      return { state, error: "Choose one highlighted away rune for Fehu." };
+    }
+
+    const recoveredRune = recoverAwayRuneForFehu(state, action.playerId, choice.awayIndex);
+    if (!recoveredRune) {
+      return { state, error: "Selected away rune is no longer available." };
+    }
+
+    const recoveredCount = (action.recoveredCount || 0) + 1;
+    const remaining = action.remainingRecovers - 1;
+    const validAwayIndexes = getFehuSelectableAwayIndexes(state.roundAwayRunes);
+
+    if (remaining > 0 && validAwayIndexes.length > 0) {
+      state.pendingAction = {
+        ...action,
+        remainingRecovers: remaining,
+        recoveredCount,
+        validAwayIndexes,
+      };
+      state.log.unshift(getPendingActionPrompt(state));
+      return { state, error: null };
+    }
+
+    state.log.unshift(`Fehu recovered ${recoveredCount} away rune(s) into ${playerName(action.playerId)} bag.`);
+    const turnContext = action.turnContext;
+    state.pendingAction = null;
+    return finalizeTurn(state, turnContext.playerId, turnContext.extraTurn);
+  }
+
   if (action.type === "gebo-l2-target") {
     const key = cellKey(choice.row, choice.col);
     const valid = new Set(action.validCells.map((cell) => cellKey(cell.row, cell.col)));
@@ -365,6 +396,10 @@ export function getPendingBoardTargets(state) {
     return { pending: true, mode: "cells", columns: [], cells: action.validCells };
   }
 
+  if (action.type === "fehu-recover") {
+    return { pending: true, mode: "away", columns: [], cells: [] };
+  }
+
   if (action.type === "teiwaz-source") {
     return { pending: true, mode: "columns", columns: action.validSourceColumns, cells: [] };
   }
@@ -388,6 +423,10 @@ export function getPendingChoices(state) {
   const action = state.pendingAction;
   if (action.type === "gebo-l2-target") {
     return action.validCells.map((cell) => ({ row: cell.row, col: cell.col, column: cell.col }));
+  }
+
+  if (action.type === "fehu-recover") {
+    return action.validAwayIndexes.map((awayIndex) => ({ awayIndex }));
   }
 
   if (action.type === "teiwaz-source") {
@@ -449,6 +488,9 @@ export function getPendingActionPrompt(state) {
   const action = state.pendingAction;
   if (action.type === "gebo-l2-target") {
     return "Gebo L2: choose one adjacent occupied rune to remove for this round.";
+  }
+  if (action.type === "fehu-recover") {
+    return `Fehu: choose an away rune to recover (${action.remainingRecovers} remaining).`;
   }
   if (action.type === "perth-l2-column") {
     return "Perth L2: choose the adjacent column the opponent must play next turn.";
@@ -918,7 +960,15 @@ function setRuneOnBoard(state, placement, rune) {
 }
 
 function getOwnerForRune(rune, playerId) {
-  return rune.id === "neutral" ? NEUTRAL_OWNER : playerId;
+  if (rune.id === "neutral") {
+    return NEUTRAL_OWNER;
+  }
+
+  if (rune.capturedOwner === BLACK || rune.capturedOwner === WHITE) {
+    return rune.capturedOwner;
+  }
+
+  return playerId;
 }
 
 function consumeSelectedRune(state, player, runeInstanceId) {
@@ -1040,10 +1090,7 @@ function getConstrainedColumns(state, playerId, availableColumns) {
 }
 
 function insertRuneFromBottom(state, column, playerId, rune) {
-  const startRow = getNauthizFloorRow(state, column) + 1;
-  if (startRow >= state.rows) {
-    return null;
-  }
+  const startRow = 0;
 
   let hasEmptyInSegment = false;
   for (let row = startRow; row < state.rows; row += 1) {
@@ -1093,18 +1140,15 @@ function applyRuneEffect(state, rune, move, playerId) {
 
   if (effectRune.id === "fehu") {
     const recoverCount = effectRune.level >= 2 ? 2 : 1;
-    let recovered = 0;
-
-    for (let i = 0; i < recoverCount; i += 1) {
-      const recoveredRune = recoverAwayRuneForFehu(state, playerId);
-      if (!recoveredRune) {
-        break;
-      }
-      recovered += 1;
-    }
-
-    if (recovered > 0) {
-      notes.push(`Fehu recovered ${recovered} away rune(s) into ${playerName(playerId)} bag.`);
+    const validAwayIndexes = getFehuSelectableAwayIndexes(state.roundAwayRunes);
+    if (validAwayIndexes.length > 0) {
+      pendingAction = {
+        type: "fehu-recover",
+        playerId,
+        remainingRecovers: Math.min(recoverCount, validAwayIndexes.length),
+        recoveredCount: 0,
+        validAwayIndexes,
+      };
     }
   }
 
@@ -1319,17 +1363,16 @@ function sendRuneAwayForRound(state, owner, runeId, level, source) {
   }
 }
 
-function recoverAwayRuneForFehu(state, playerId) {
+function recoverAwayRuneForFehu(state, playerId, awayIndex) {
   if (!Array.isArray(state.roundAwayRunes) || state.roundAwayRunes.length === 0) {
     return null;
   }
 
-  const targetIndex = selectFehuAwayRuneIndex(state.roundAwayRunes, playerId);
-  if (targetIndex < 0) {
+  if (!Number.isInteger(awayIndex) || awayIndex < 0 || awayIndex >= state.roundAwayRunes.length) {
     return null;
   }
 
-  const [away] = state.roundAwayRunes.splice(targetIndex, 1);
+  const [away] = state.roundAwayRunes.splice(awayIndex, 1);
   const restored = createRuneInstance(away.runeId, away.level);
   if (!restored) {
     return null;
@@ -1343,20 +1386,18 @@ function recoverAwayRuneForFehu(state, playerId) {
   return restored;
 }
 
-function selectFehuAwayRuneIndex(roundAwayRunes, playerId) {
-  const opponentId = getOpponent(playerId);
-
-  const opponentIndex = roundAwayRunes.findIndex((entry) => entry.owner === opponentId);
-  if (opponentIndex >= 0) {
-    return opponentIndex;
+function getFehuSelectableAwayIndexes(roundAwayRunes) {
+  if (!Array.isArray(roundAwayRunes)) {
+    return [];
   }
 
-  const ownIndex = roundAwayRunes.findIndex((entry) => entry.owner === playerId);
-  if (ownIndex >= 0) {
-    return ownIndex;
-  }
-
-  return roundAwayRunes.findIndex((entry) => entry.owner === NEUTRAL_OWNER || entry.owner === BLACK || entry.owner === WHITE);
+  const indexes = [];
+  roundAwayRunes.forEach((entry, index) => {
+    if (entry.owner === NEUTRAL_OWNER || entry.owner === BLACK || entry.owner === WHITE) {
+      indexes.push(index);
+    }
+  });
+  return indexes;
 }
 
 function compactColumn(state, column) {
@@ -1447,20 +1488,7 @@ function moveTopRuneFromColumnToColumn(state, sourceCol, targetCol) {
 function getAlgizAvailableColumns(state) {
   const columns = [];
   for (let col = 0; col < state.columns; col += 1) {
-    const startRow = getNauthizFloorRow(state, col) + 1;
-    if (startRow >= state.rows) {
-      continue;
-    }
-
-    let hasEmpty = false;
-    for (let row = startRow; row < state.rows; row += 1) {
-      if (state.board[row][col] === EMPTY) {
-        hasEmpty = true;
-        break;
-      }
-    }
-
-    if (hasEmpty) {
+    if (state.board[0][col] === EMPTY) {
       columns.push(col);
     }
   }

@@ -654,6 +654,7 @@ function applyAction(state, playerId, actionType, payload) {
         row: Number(payload.row),
         col: Number(payload.col),
         column: Number(payload.column),
+        awayIndex: Number(payload.awayIndex),
       });
     }
     if (state.currentPlayer !== playerId) {

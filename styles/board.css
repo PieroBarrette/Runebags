@@ -54,6 +54,10 @@
   background: radial-gradient(circle at 30% 25%, #ffffff, #e8e8e8 60%);
 }
 
+body:not([data-theme="dark"]) .cell.p2.has-piece::before {
+  box-shadow: inset 0 0 0 1px rgba(76, 90, 107, 0.52);
+}
+
 .cell.neutral.has-piece::before {
   background: radial-gradient(circle at 30% 25%, #cdcdcd, #7f7f7f 60%);
   border: 2px dashed #5c6772;
@@ -129,6 +133,10 @@
   background: radial-gradient(circle at 30% 25%, #ffffff, #e8e8e8 60%);
 }
 
+body:not([data-theme="dark"]) .effect-fade-ghost.p2 {
+  box-shadow: inset 0 0 0 1px rgba(76, 90, 107, 0.52);
+}
+
 .effect-fade-ghost.neutral {
   background: radial-gradient(circle at 30% 25%, #cdcdcd, #7f7f7f 60%);
   border: 2px dashed #5c6772;
@@ -162,6 +170,10 @@
 
 .effect-lift-ghost.p2 {
   background: radial-gradient(circle at 30% 25%, #ffffff, #e8e8e8 60%);
+}
+
+body:not([data-theme="dark"]) .effect-lift-ghost.p2 {
+  box-shadow: inset 0 0 0 1px rgba(76, 90, 107, 0.52);
 }
 
 .effect-lift-ghost.neutral {

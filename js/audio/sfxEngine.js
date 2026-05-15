@@ -205,6 +205,7 @@ export function createSfxEngine() {
   let enabled = true;
   let volume = DEFAULT_VOLUME;
   let lastUiClickAt = 0;
+  let resumePromise = null;
 
   function ensureContext() {
     if (audioContext && masterGain) {
@@ -217,7 +218,12 @@ export function createSfxEngine() {
     }
 
     try {
-      audioContext = new Ctor({ latencyHint: "interactive" });
+      // Older iOS Safari versions can reject constructor options.
+      try {
+        audioContext = new Ctor({ latencyHint: "interactive" });
+      } catch {
+        audioContext = new Ctor();
+      }
       masterGain = audioContext.createGain();
       masterGain.gain.value = volume;
       masterGain.connect(audioContext.destination);
@@ -248,18 +254,30 @@ export function createSfxEngine() {
     return volume;
   }
 
-  function unlockFromGesture() {
+  function ensureRunningContext() {
     if (!ensureContext()) {
-      return false;
+      return Promise.resolve(false);
     }
 
-    if (audioContext.state === "suspended") {
-      audioContext.resume().catch(() => {
-        // Ignore resume errors; another user interaction can retry.
-      });
+    if (audioContext.state === "running") {
+      return Promise.resolve(true);
     }
 
-    return audioContext.state === "running";
+    if (!resumePromise) {
+      resumePromise = audioContext.resume()
+        .then(() => audioContext.state === "running")
+        .catch(() => false)
+        .finally(() => {
+          resumePromise = null;
+        });
+    }
+
+    return resumePromise;
+  }
+
+  function unlockFromGesture() {
+    ensureRunningContext();
+    return Boolean(audioContext && audioContext.state === "running");
   }
 
   function play(eventName) {
@@ -271,10 +289,6 @@ export function createSfxEngine() {
       return;
     }
 
-    if (audioContext.state !== "running") {
-      return;
-    }
-
     if (eventName === "ui-click") {
       const t = performance.now();
       if (t - lastUiClickAt < 45) {
@@ -283,7 +297,17 @@ export function createSfxEngine() {
       lastUiClickAt = t;
     }
 
-    createWoodFeltProfile(audioContext, masterGain, eventName);
+    if (audioContext.state === "running") {
+      createWoodFeltProfile(audioContext, masterGain, eventName);
+      return;
+    }
+
+    ensureRunningContext().then((running) => {
+      if (!running || !enabled || !audioContext || !masterGain) {
+        return;
+      }
+      createWoodFeltProfile(audioContext, masterGain, eventName);
+    });
   }
 
   return {

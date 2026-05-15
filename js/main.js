@@ -698,6 +698,41 @@ function bindEvents() {
     scheduleAiTurnIfNeeded();
   });
 
+  elements.roundAwayList.addEventListener("click", (event) => {
+    const runeCard = event.target.closest(".away-rune");
+    if (!runeCard) {
+      return;
+    }
+
+    const awayIndex = Number(runeCard.dataset.awayIndex);
+    if (!Number.isInteger(awayIndex)) {
+      return;
+    }
+
+    const action = state.pendingAction;
+    if (!action || action.type !== "fehu-recover") {
+      return;
+    }
+
+    if (online.isOnlineActive()) {
+      if (waitingRoomState.playerId !== action.playerId) {
+        return;
+      }
+      online.sendAction("board_click", { awayIndex });
+      return;
+    }
+
+    const result = resolvePendingBoardChoice(state, { awayIndex });
+    state = result.state;
+    if (result.error) {
+      setStatus(result.error);
+    }
+
+    persistState();
+    render();
+    scheduleAiTurnIfNeeded();
+  });
+
   bindBoardRuneInfoEvents();
 
   [elements.player1Hand, elements.player2Hand].forEach((handEl) => {
@@ -1435,7 +1470,7 @@ function updateMeta() {
   elements.p2Discard.textContent = `Discard: ${state.players[2].discard.length}`;
   renderPointRunes(elements.pointPool, "Points", state.pointPoolRemaining);
   elements.neutralSupply.textContent = `Neutral Supply: ${state.neutralSupply}`;
-  const visibleAway = state.roundAwayRunes.filter((entry) => entry.owner === 1 || entry.owner === 2);
+  const visibleAway = state.roundAwayRunes.map((entry, awayIndex) => ({ ...entry, awayIndex }));
   const shouldShowAway = state.phase !== "shop" && visibleAway.length > 0;
   elements.roundDiscards.hidden = !shouldShowAway;
   elements.roundAwayList.hidden = !shouldShowAway;
@@ -1477,19 +1512,39 @@ function renderPointRunes(target, label, count) {
 function renderRoundAwayRunes(entries) {
   elements.roundAwayList.innerHTML = "";
 
+  const pendingFehu = state.pendingAction?.type === "fehu-recover"
+    ? state.pendingAction
+    : null;
+  const canActOnFehu = pendingFehu && (!online.isOnlineActive() || waitingRoomState.playerId === pendingFehu.playerId);
+  const selectableAwayIndexes = new Set(canActOnFehu ? pendingFehu.validAwayIndexes : []);
+
   entries.forEach((entry) => {
     const rune = getRuneById(entry.runeId);
     if (!rune) {
       return;
     }
 
-    const card = document.createElement("div");
+    const isSelectable = selectableAwayIndexes.has(entry.awayIndex);
+    const card = document.createElement(isSelectable ? "button" : "div");
+    if (isSelectable) {
+      card.type = "button";
+    }
     card.className = "rune-card away-rune";
-    card.classList.add(entry.owner === 1 ? "player-1" : "player-2");
+    if (entry.owner === 1 || entry.owner === 2) {
+      card.classList.add(entry.owner === 1 ? "player-1" : "player-2");
+    }
+    if (isSelectable) {
+      card.classList.add("selectable-away-rune");
+      card.dataset.awayIndex = String(entry.awayIndex);
+    }
 
     const icon = document.createElement("div");
     icon.className = "rune-chip";
-    icon.classList.add(entry.owner === 1 ? "black" : "white");
+    if (entry.owner === 1 || entry.owner === 2) {
+      icon.classList.add(entry.owner === 1 ? "black" : "white");
+    } else {
+      icon.classList.add("neutral");
+    }
 
     if (rune.icon) {
       const symbol = document.createElement("img");
@@ -1503,7 +1558,8 @@ function renderRoundAwayRunes(entries) {
     const title = document.createElement("strong");
     title.textContent = `${rune.name} L${entry.level}`;
     const subtitle = document.createElement("small");
-    subtitle.textContent = `Away (${entry.source})`;
+    const ownerLabel = entry.owner === 1 ? "Black" : entry.owner === 2 ? "White" : "Neutral";
+    subtitle.textContent = `Away (${entry.source}, ${ownerLabel})`;
 
     textWrap.appendChild(title);
     textWrap.appendChild(subtitle);
@@ -2184,6 +2240,7 @@ function bindButtonSoundEvents() {
     if (!button || button.disabled) {
       return;
     }
+    sfx.unlockFromGesture();
     sfx.play("ui-click");
   });
 }
@@ -2260,6 +2317,7 @@ function snapshotPendingAction(action) {
     .sort()
     .join("|");
   const serializeColumns = (columns = []) => [...columns].sort((a, b) => a - b).join("|");
+  const serializeAwayIndexes = (indexes = []) => [...indexes].sort((a, b) => a - b).join("|");
 
   return [
     action.type || "",
@@ -2267,7 +2325,9 @@ function snapshotPendingAction(action) {
     serializeColumns(action.validColumns),
     serializeColumns(action.validSourceColumns),
     serializeColumns(action.validTargetColumns),
+    serializeAwayIndexes(action.validAwayIndexes),
     action.sourceCol ?? "",
+    action.remainingRecovers ?? "",
     action.remainingDrops ?? "",
   ].join(";");
 }

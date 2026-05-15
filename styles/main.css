@@ -658,6 +658,18 @@ body[data-theme="dark"] .chat-row.you {
   cursor: default;
 }
 
+.away-rune.selectable-away-rune {
+  cursor: pointer;
+  border-color: rgba(198, 124, 15, 0.55);
+  box-shadow: 0 0 0 2px rgba(230, 172, 65, 0.22);
+}
+
+.away-rune.selectable-away-rune:hover,
+.away-rune.selectable-away-rune:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 0 0 2px rgba(230, 172, 65, 0.34);
+}
+
 .shop-toolbar button,
 .shop-actions-row button,
 #phase-btn {

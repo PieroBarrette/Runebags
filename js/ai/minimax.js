@@ -451,6 +451,10 @@ function createsPendingChoice(move) {
     return true;
   }
 
+  if (move.runeId === "fehu") {
+    return true;
+  }
+
   if (move.runeId === "perth" && move.level >= 2) {
     return true;
   }
@@ -463,6 +467,7 @@ function normalizeChoice(choice) {
     row: typeof choice.row === "number" ? choice.row : 0,
     col: typeof choice.col === "number" ? choice.col : choice.column,
     column: choice.column,
+    awayIndex: choice.awayIndex,
   };
 }
 
