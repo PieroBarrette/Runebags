@@ -84,6 +84,20 @@ function getEncounterType(node) {
   return "combat";
 }
 
+function getEnemyPoolSelection(node, campaignState) {
+  const nodeType = getEncounterType(node);
+  const seedBase = Number(campaignState?.startedAt) || Date.now();
+  const pools = ENEMY_BAG_POOLS[nodeType] || ENEMY_BAG_POOLS.combat;
+  const poolIndex = seededPickIndex(hashString(`${seedBase}-${node?.id || "node"}`), pools.length);
+  const enemyBagIds = pools[poolIndex] || pools[0] || [];
+  return {
+    nodeType,
+    pools,
+    poolIndex,
+    enemyBagIds,
+  };
+}
+
 function getObjective(nodeType, ante) {
   if (nodeType === "elite") {
     return `Elite encounter (Ante ${ante}): survive pressure over 5 supply points.`;
@@ -117,9 +131,20 @@ export function getCampaignEncounterByNodeId(nodeId) {
   return nodeId ? { id: nodeId } : null;
 }
 
+export function getCampaignOpponentPreview(node, campaignState) {
+  const selection = getEnemyPoolSelection(node, campaignState);
+  return {
+    nodeType: selection.nodeType,
+    poolIndex: selection.poolIndex,
+    poolCount: selection.pools.length,
+    runeIds: [...selection.enemyBagIds],
+  };
+}
+
 export function buildCampaignEncounterState(node, campaignState, options = {}) {
   const state = createInitialState(options);
-  const nodeType = getEncounterType(node);
+  const selection = getEnemyPoolSelection(node, campaignState);
+  const nodeType = selection.nodeType;
   const ante = Math.max(1, Number(node?.ante) || 1);
 
   state.phase = "round";
@@ -144,10 +169,9 @@ export function buildCampaignEncounterState(node, campaignState, options = {}) {
     }
   }
 
-  const seedBase = Number(campaignState?.startedAt) || Date.now();
-  const pools = ENEMY_BAG_POOLS[nodeType] || ENEMY_BAG_POOLS.combat;
-  const poolIndex = seededPickIndex(hashString(`${seedBase}-${node?.id || "node"}`), pools.length);
-  const enemyBagIds = pools[poolIndex] || pools[0] || [];
+  const pools = selection.pools;
+  const poolIndex = selection.poolIndex;
+  const enemyBagIds = selection.enemyBagIds;
 
   const playerBasic = createRuneInstance("basic", 1);
   const enemyBasic = createRuneInstance("basic", 1);

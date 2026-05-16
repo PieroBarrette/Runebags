@@ -81,6 +81,11 @@ import {
   startCampaignRun,
 } from "./persistence/campaignStore.js";
 import { buildCampaignEncounterState, getCampaignEncounterByNodeId } from "./campaign/campaignEncounterBuilder.js";
+import {
+  buildCampaignEncounterState,
+  getCampaignEncounterByNodeId,
+  getCampaignOpponentPreview,
+} from "./campaign/campaignEncounterBuilder.js";
 import { createOnlineController } from "./online/onlineController.js";
 import { createRuneInstance, getRuneById, RUNE_CATALOG } from "./runes/runeCatalog.js";
 import { createSfxEngine } from "./audio/sfxEngine.js";
@@ -317,6 +322,7 @@ let campaignActiveActionNodeId = null;
 let campaignActiveActionType = null;
 let campaignSelectedShopAddIndexes = new Set();
 let campaignInShopNode = false;
+let campaignScoutedNodeId = null;
 let puzzleDifficultyFilter = "all";
 let puzzleStatusFilter = "all";
 
@@ -843,6 +849,21 @@ function bindEvents() {
   });
 
   const handleCampaignPanelClick = (event) => {
+    const scoutBtn = event.target.closest("button[data-campaign-node-scout]");
+    if (scoutBtn) {
+      const nodeId = String(scoutBtn.dataset.campaignNodeScout || "");
+      selectCampaignNodeForScout(nodeId);
+      return;
+    }
+
+    const startScoutedBtn = event.target.closest("button[data-campaign-start-selected]");
+    if (startScoutedBtn) {
+      if (campaignScoutedNodeId) {
+        startCampaignEncounterByNode(campaignScoutedNodeId);
+      }
+      return;
+    }
+
     const startBtn = event.target.closest("button[data-campaign-node-start]");
     if (startBtn) {
       const nodeId = String(startBtn.dataset.campaignNodeStart || "");
@@ -1726,6 +1747,7 @@ function startCampaignEncounterByNode(nodeId, options = {}) {
   setAiSettings(aiConfig, true, 2, Math.max(1, aiConfig.depth || 2));
   currentLocalMode = MODE_CAMPAIGN;
   activeCampaignNodeId = node.id;
+  campaignScoutedNodeId = null;
   campaignOutcomeHandled = false;
   campaignInShopNode = false;
   campaignActiveActionNodeId = null;
@@ -2931,7 +2953,7 @@ function updateTopButtons() {
   }
 
   if (currentLocalMode === MODE_CAMPAIGN && activeCampaignNodeId) {
-    elements.newGameBtn.textContent = campaignInShopNode ? "Restart Shop" : "Restart Encounter";
+    elements.newGameBtn.hidden = true;
     return;
   }
 
@@ -3437,7 +3459,33 @@ function resolveCampaignNode(nodeId) {
     return;
   }
 
-  startCampaignEncounterByNode(node.id);
+  selectCampaignNodeForScout(node.id);
+}
+
+function selectCampaignNodeForScout(nodeId) {
+  const node = getCampaignNodeById(nodeId);
+  if (!node) {
+    return;
+  }
+
+  const unlocked = new Set(campaignState.unlockedNodeIds || []);
+  if (!unlocked.has(node.id)) {
+    return;
+  }
+
+  const nextNode = getNextCampaignPlayableNode();
+  if (!nextNode || nextNode.id !== node.id) {
+    showToast("Follow the campaign sequence in order.", "warn");
+    return;
+  }
+
+  if (node.type === "shop") {
+    openCampaignShopNode(node);
+    return;
+  }
+
+  campaignScoutedNodeId = node.id;
+  renderCampaignPanel();
 }
 
 function renderCampaignPanel() {
@@ -3494,9 +3542,15 @@ function renderCampaignPanel() {
     const resolveBtn = document.createElement("button");
     resolveBtn.type = "button";
     resolveBtn.className = "menu-btn";
-    resolveBtn.dataset.campaignNodeStart = node.id;
+    if (node.type === "shop") {
+      resolveBtn.dataset.campaignNodeStart = node.id;
+    } else {
+      resolveBtn.dataset.campaignNodeScout = node.id;
+    }
     resolveBtn.disabled = !isUnlocked || !isNext;
-    resolveBtn.textContent = getCampaignNodeActionLabel(node, isCompleted);
+    resolveBtn.textContent = node.type === "shop"
+      ? getCampaignNodeActionLabel(node, isCompleted)
+      : (isCompleted ? "Completed" : campaignScoutedNodeId === node.id ? "Selected" : "Scout Opponent");
     card.appendChild(resolveBtn);
 
     elements.campaignMap.appendChild(card);
@@ -3551,40 +3605,69 @@ function getNextCampaignPlayableNode() {
 }
 
 function renderCampaignLoadout() {
-  const loadout = Array.isArray(campaignState.loadoutRunes) ? campaignState.loadoutRunes : [];
-  elements.campaignLoadoutSummary.textContent = loadout.length
-    ? `${loadout.length} bonus rune${loadout.length > 1 ? "s" : ""} in loadout.`
-    : "No bonus runes yet.";
   elements.campaignLoadoutList.innerHTML = "";
 
-  if (!loadout.length) {
+  const scouted = getCampaignNodeById(campaignScoutedNodeId);
+  if (!scouted || scouted.type === "shop") {
+    elements.campaignLoadoutSummary.textContent = "Select a combat node to scout the next opponent bag.";
     const empty = document.createElement("p");
     empty.className = "settings-note";
-    empty.textContent = "Run starts with a normal bag. Use shops to tune it.";
+    empty.textContent = "Scouting reveals the opponent bag template for the selected upcoming combat.";
     elements.campaignLoadoutList.appendChild(empty);
+    renderCampaignNodeActionPanel();
     return;
   }
 
-  loadout.forEach((entry) => {
-    const rune = getRuneById(entry.runeId);
+  const preview = getCampaignOpponentPreview(scouted, campaignState);
+  elements.campaignLoadoutSummary.textContent = `${getCampaignNodeTypeLabel(scouted.type)} preview | Template ${preview.poolIndex + 1}/${preview.poolCount}`;
+
+  preview.runeIds.forEach((runeId) => {
+    const rune = getRuneById(runeId);
     const card = document.createElement("article");
     card.className = "achievement-card unlocked";
 
     const title = document.createElement("h3");
-    title.textContent = rune ? `${rune.name} L${entry.level}` : `${entry.runeId} L${entry.level}`;
+    title.textContent = rune?.name || runeId;
     card.appendChild(title);
 
     const desc = document.createElement("p");
-    desc.textContent = rune?.description || "Campaign loadout rune.";
+    desc.textContent = rune?.description || "Opponent bag rune.";
     card.appendChild(desc);
 
     elements.campaignLoadoutList.appendChild(card);
   });
+
+  renderCampaignNodeActionPanel();
 }
 
 function renderCampaignNodeActionPanel() {
-  elements.campaignActionPanel.hidden = true;
+  const scouted = getCampaignNodeById(campaignScoutedNodeId);
+  if (!scouted || scouted.type === "shop") {
+    elements.campaignActionPanel.hidden = true;
+    elements.campaignActionBody.innerHTML = "";
+    return;
+  }
+
+  elements.campaignActionPanel.hidden = false;
+  elements.campaignActionTitle.textContent = `${scouted.title} - Ready`;
   elements.campaignActionBody.innerHTML = "";
+
+  const info = document.createElement("p");
+  info.className = "settings-note";
+  info.textContent = "Start this combat when ready.";
+  elements.campaignActionBody.appendChild(info);
+
+  const actions = document.createElement("div");
+  actions.className = "menu-actions compact";
+
+  const startBtn = document.createElement("button");
+  startBtn.type = "button";
+  startBtn.className = "menu-btn";
+  startBtn.dataset.campaignStartSelected = "1";
+  startBtn.textContent = "Start Encounter";
+  actions.appendChild(startBtn);
+
+  elements.campaignActionBody.appendChild(actions);
 }
 
 function openCampaignShopNode(node) {
@@ -3603,6 +3686,7 @@ function openCampaignShopNode(node) {
   campaignActiveActionNodeId = null;
   campaignActiveActionType = null;
   campaignSelectedShopAddIndexes = new Set();
+  campaignScoutedNodeId = null;
 
   const shopState = createInitialState(getLocalGameOptions());
   shopState.phase = "shop";
@@ -3644,6 +3728,7 @@ function completeCampaignShopNodeFromState() {
   saveCampaignState(activeProfileSlot, campaignState);
   syncCampaignSummaryToProfile();
   campaignInShopNode = false;
+  campaignScoutedNodeId = null;
   clearModeSave(MODE_CAMPAIGN, activeProfileSlot);
   showToast(`${node.title} complete.`, "reward");
   showCampaignPanel();
@@ -3942,6 +4027,7 @@ function activateProfileSlot(slot, options = {}) {
   activeCampaignNodeId = null;
   campaignOutcomeHandled = false;
   campaignInShopNode = false;
+  campaignScoutedNodeId = null;
   applySelectedCosmetics();
 
   const passplayState = getSavedStateForMode(MODE_PASSPLAY, activeProfileSlot);
