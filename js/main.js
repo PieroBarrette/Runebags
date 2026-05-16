@@ -1663,9 +1663,9 @@ function startCampaignEncounterByNode(nodeId, options = {}) {
     return;
   }
 
-  const unlocked = new Set(campaignState.unlockedNodeIds || []);
-  if (!unlocked.has(node.id)) {
-    showToast("This node is still locked.", "warn");
+  const nextNode = getNextCampaignPlayableNode();
+  if (!nextNode || nextNode.id !== node.id) {
+    showToast("You can only start the next encounter in sequence.", "warn");
     return;
   }
 
@@ -3170,12 +3170,6 @@ function resolveCampaignNode(nodeId) {
     return;
   }
 
-  const unlocked = new Set(campaignState.unlockedNodeIds || []);
-  if (!unlocked.has(node.id)) {
-    showToast("This node is still locked.", "warn");
-    return;
-  }
-
   const nextNode = getNextCampaignPlayableNode();
   if (nextNode && nextNode.id !== node.id) {
     showToast("Follow the campaign sequence in order.", "warn");
@@ -3196,19 +3190,13 @@ function selectCampaignNodeForScout(nodeId) {
     return;
   }
 
-  const unlocked = new Set(campaignState.unlockedNodeIds || []);
-  if (!unlocked.has(node.id)) {
-    return;
-  }
-
-  const nextNode = getNextCampaignPlayableNode();
-  if (!nextNode || nextNode.id !== node.id) {
-    showToast("Follow the campaign sequence in order.", "warn");
-    return;
-  }
-
   if (node.type === "shop") {
-    openCampaignShopNode(node);
+    const nextNode = getNextCampaignPlayableNode();
+    if (nextNode && nextNode.id === node.id) {
+      openCampaignShopNode(node);
+    } else {
+      showToast("You can only open the next shop in sequence.", "warn");
+    }
     return;
   }
 
@@ -3218,7 +3206,6 @@ function selectCampaignNodeForScout(nodeId) {
 
 function renderCampaignPanel() {
   const completion = getCampaignCompletion(campaignState);
-  const unlocked = new Set(campaignState.unlockedNodeIds || []);
   const completed = new Set(campaignState.completedNodeIds || []);
   const nextNode = getNextCampaignPlayableNode();
   const ante = Math.max(1, Number(nextNode?.ante) || 1);
@@ -3239,20 +3226,14 @@ function renderCampaignPanel() {
   renderCampaignNodeActionPanel();
 
   elements.campaignMap.innerHTML = "";
-  const displayNodes = CAMPAIGN_NODES.filter((node) => {
-    if (node.id === "start-shop" && !completed.has(node.id)) {
-      return true;
-    }
-    return Number(node.ante) === ante;
-  });
+  const displayNodes = CAMPAIGN_NODES;
 
   displayNodes.forEach((node) => {
-    const isUnlocked = unlocked.has(node.id);
     const isCompleted = completed.has(node.id);
     const isNext = nextNode?.id === node.id;
 
     const card = document.createElement("article");
-    card.className = `campaign-node ${node.type} ${isCompleted ? "completed" : ""} ${isUnlocked ? "unlocked" : "locked"}`.trim();
+    card.className = `campaign-node ${node.type} ${isCompleted ? "completed" : ""}`.trim();
 
     const title = document.createElement("h4");
     const antePrefix = node.ante > 0 ? `Ante ${node.ante} - ` : "";
@@ -3263,7 +3244,7 @@ function renderCampaignPanel() {
     card.appendChild(title);
 
     const detail = document.createElement("small");
-    const status = isCompleted ? "Cleared" : isNext ? "Current" : isUnlocked ? "Unlocked" : "Locked";
+    const status = isCompleted ? "Cleared" : isNext ? "Current" : "Upcoming";
     detail.textContent = `${getCampaignNodeTypeLabel(node.type)} | Supply ${Math.max(0, Number(node.roundPointPool) || 0)} | ${status}`;
     card.appendChild(detail);
 
@@ -3275,7 +3256,9 @@ function renderCampaignPanel() {
     } else {
       resolveBtn.dataset.campaignNodeScout = node.id;
     }
-    resolveBtn.disabled = !isUnlocked || !isNext;
+    resolveBtn.disabled = node.type === "shop"
+      ? (!isNext || isCompleted)
+      : isCompleted;
     resolveBtn.textContent = node.type === "shop"
       ? getCampaignNodeActionLabel(node, isCompleted)
       : (isCompleted ? "Completed" : campaignScoutedNodeId === node.id ? "Selected" : "Scout Opponent");
@@ -3327,9 +3310,8 @@ function getCampaignRunPayout(outcome, stateSnapshot = campaignState) {
 }
 
 function getNextCampaignPlayableNode() {
-  const unlocked = new Set(campaignState.unlockedNodeIds || []);
   const completed = new Set(campaignState.completedNodeIds || []);
-  return CAMPAIGN_NODES.find((node) => unlocked.has(node.id) && !completed.has(node.id)) || null;
+  return CAMPAIGN_NODES.find((node) => !completed.has(node.id)) || null;
 }
 
 function renderCampaignLoadout() {
