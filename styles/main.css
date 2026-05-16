@@ -28,6 +28,70 @@ body {
   background: linear-gradient(160deg, var(--bg-deep), var(--bg-mid));
 }
 
+@keyframes menu-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes panel-pop {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes item-stagger-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes glow-drift {
+  from {
+    transform: translate3d(-2%, 0, 0);
+  }
+  to {
+    transform: translate3d(2%, -1%, 0);
+  }
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: -18% -10% auto;
+  height: 55vh;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 20% 25%, rgba(255, 255, 255, 0.34), transparent 58%),
+    radial-gradient(ellipse at 80% 5%, rgba(197, 214, 233, 0.42), transparent 62%);
+  opacity: 0.72;
+  filter: blur(1px);
+  animation: glow-drift 8s ease-in-out infinite alternate;
+  z-index: 0;
+}
+
+body[data-theme="dark"]::before {
+  background:
+    radial-gradient(ellipse at 20% 25%, rgba(84, 118, 154, 0.2), transparent 58%),
+    radial-gradient(ellipse at 80% 5%, rgba(116, 157, 199, 0.16), transparent 62%);
+  opacity: 0.8;
+}
+
 body[data-theme="dark"] {
   --bg-deep: #10141a;
   --bg-mid: #1f2833;
@@ -96,6 +160,21 @@ h2 {
   color: var(--text-soft);
 }
 
+#game-status.ui-fade-swap {
+  animation: ui-fade-swap 220ms ease-out;
+}
+
+@keyframes ui-fade-swap {
+  from {
+    opacity: 0.35;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .player-title {
   display: flex;
   align-items: center;
@@ -152,6 +231,31 @@ h2 {
   text-align: center;
 }
 
+.menu-screen:not([hidden]) {
+  animation: menu-fade-up 320ms ease-out;
+}
+
+.menu-screen:not([hidden]) .menu-logo,
+.menu-screen:not([hidden]) h1,
+.menu-screen:not([hidden]) .menu-subtitle,
+.menu-screen:not([hidden]) .menu-actions,
+.menu-screen:not([hidden]) .profiles-list {
+  animation: item-stagger-in 360ms ease-out both;
+}
+
+.menu-screen:not([hidden]) h1 {
+  animation-delay: 40ms;
+}
+
+.menu-screen:not([hidden]) .menu-subtitle {
+  animation-delay: 90ms;
+}
+
+.menu-screen:not([hidden]) .menu-actions,
+.menu-screen:not([hidden]) .profiles-list {
+  animation-delay: 140ms;
+}
+
 .menu-utility {
   position: absolute;
   top: 0.35rem;
@@ -180,6 +284,16 @@ body[data-theme="dark"] .menu-logo {
   gap: 0.65rem;
   flex-wrap: wrap;
   justify-content: center;
+}
+
+.menu-actions .menu-btn {
+  transition: transform 150ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.menu-actions .menu-btn:hover,
+.menu-actions .menu-btn:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(31, 49, 74, 0.14);
 }
 
 .ai-config {
@@ -347,6 +461,25 @@ body[data-theme="dark"] .menu-logo {
   padding: 0.6rem;
   display: grid;
   gap: 0.5rem;
+  transition: transform 160ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.profiles-list .profile-slot-card,
+.achievements-list .achievement-card {
+  animation: item-stagger-in 320ms ease both;
+}
+
+.profiles-list .profile-slot-card:nth-child(1),
+.achievements-list .achievement-card:nth-child(1) { animation-delay: 20ms; }
+.profiles-list .profile-slot-card:nth-child(2),
+.achievements-list .achievement-card:nth-child(2) { animation-delay: 55ms; }
+.profiles-list .profile-slot-card:nth-child(3),
+.achievements-list .achievement-card:nth-child(3) { animation-delay: 90ms; }
+
+.profile-slot-card:hover,
+.profile-slot-card:focus-within {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(25, 38, 56, 0.14);
 }
 
 .profile-slot-card.active {
@@ -385,6 +518,13 @@ body[data-theme="dark"] .menu-logo {
   background: rgba(252, 253, 255, 0.76);
   display: grid;
   gap: 0.34rem;
+  transition: transform 160ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.achievement-card:hover,
+.achievement-card:focus-within {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(25, 38, 56, 0.13);
 }
 
 .achievement-card h3 {
@@ -609,6 +749,10 @@ body[data-theme="dark"] .chat-row.you {
   width: min(900px, 94vw);
 }
 
+.menu-panel:not([hidden]) {
+  animation: panel-pop 280ms ease-out;
+}
+
 .menu-panel input {
   width: 100%;
   border: 1px solid rgba(36, 51, 71, 0.25);
@@ -740,6 +884,50 @@ body[data-theme="dark"] .chat-row.you {
   border-radius: 999px;
   background: rgba(245, 249, 255, 0.95);
   border: 1px solid rgba(40, 58, 82, 0.25);
+  transition: border-color 160ms ease, box-shadow 180ms ease, transform 160ms ease;
+}
+
+.turn-pill.ui-pulse {
+  animation: turn-pill-pulse 300ms cubic-bezier(0.2, 0.8, 0.22, 1);
+}
+
+@keyframes turn-pill-pulse {
+  from {
+    transform: translateY(1px) scale(0.985);
+    box-shadow: 0 0 0 0 rgba(84, 132, 189, 0.28);
+  }
+  to {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 0 0 8px rgba(84, 132, 189, 0);
+  }
+}
+
+.board-panel {
+  transition: box-shadow 220ms ease, border-color 220ms ease, transform 180ms ease;
+}
+
+.board-panel.board-in-shop {
+  border-color: rgba(114, 140, 173, 0.45);
+  box-shadow: 0 14px 28px rgba(37, 57, 84, 0.22);
+}
+
+.board-panel.board-in-round {
+  border-color: rgba(36, 51, 71, 0.26);
+}
+
+.shop-panel.ui-panel-shift {
+  animation: shop-panel-shift 260ms ease-out;
+}
+
+@keyframes shop-panel-shift {
+  from {
+    opacity: 0.45;
+    transform: translateY(5px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .hint {
@@ -795,6 +983,31 @@ body[data-theme="dark"] .chat-row.you {
   border: 1px solid rgba(36, 51, 71, 0.22);
   border-radius: 10px;
   background: rgba(241, 246, 252, 0.8);
+}
+
+.reward-popup {
+  margin-top: 0.75rem;
+  border: 1px solid rgba(36, 51, 71, 0.22);
+  border-radius: 10px;
+  background: rgba(241, 246, 252, 0.92);
+  padding: 0.65rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.reward-popup:not([hidden]) {
+  animation: panel-pop 260ms ease-out;
+}
+
+.reward-popup h3 {
+  margin: 0;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 1rem;
+}
+
+body[data-theme="dark"] .reward-popup {
+  border-color: rgba(220, 230, 241, 0.28);
+  background: rgba(35, 45, 57, 0.85);
 }
 
 .shop-panel h3 {
@@ -984,5 +1197,16 @@ body[data-theme="dark"] .chat-row.you {
       "p1"
       "p2"
       "board";
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
   }
 }

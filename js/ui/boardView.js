@@ -134,6 +134,7 @@ export function renderBoard(
         const isTeiwazStagedDrop = animationFrame.teiwazAfterLiftDrop?.has(animationKey);
         const isThurisaDrop = animationFrame.thurisaDrops?.has(animationKey);
         if (animationFrame.placed?.has(animationKey)) {
+          button.classList.add("anim-cell-arrive");
           if (isAnsuzStaged) {
             button.classList.add("anim-ansuz-drop");
           } else if (isThurisaDrop) {

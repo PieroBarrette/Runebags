@@ -46,6 +46,27 @@
   background: #222;
 }
 
+body[data-animations="on"] .cell.anim-cell-arrive::after {
+  content: "";
+  position: absolute;
+  inset: 11%;
+  border-radius: 50%;
+  border: 2px solid rgba(114, 172, 234, 0.55);
+  pointer-events: none;
+  animation: cell-arrive-ring 420ms ease-out forwards;
+}
+
+@keyframes cell-arrive-ring {
+  from {
+    opacity: 0.9;
+    transform: scale(0.74);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.18);
+  }
+}
+
 .cell.p1.has-piece::before {
   background: radial-gradient(circle at 30% 25%, #6f6f6f, #111111 60%);
 }

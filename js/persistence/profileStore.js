@@ -194,6 +194,31 @@ export function setProfileAchievementProgress(slot, unlockedCount, totalCount) {
   saveProfileState(payload);
 }
 
+export function addProfileWalletPoints(slot, points) {
+  const safeSlot = sanitizeSlot(slot, 1);
+  const amount = Math.max(0, Math.floor(Number(points) || 0));
+  if (amount <= 0) {
+    return 0;
+  }
+
+  const payload = loadProfileState();
+  const profile = payload.slots.find((item) => item.slot === safeSlot);
+  if (!profile) {
+    return 0;
+  }
+
+  profile.walletPoints = Math.max(0, Math.floor(Number(profile.walletPoints) || 0)) + amount;
+  profile.lastPlayedAt = Date.now();
+  saveProfileState(payload);
+  return amount;
+}
+
+export function getProfileWalletPoints(slot) {
+  const safeSlot = sanitizeSlot(slot, 1);
+  const profile = getProfileBySlot(safeSlot);
+  return Math.max(0, Math.floor(Number(profile.walletPoints) || 0));
+}
+
 export function calculateProfileProgressPercent(profile) {
   if (!profile || typeof profile !== "object") {
     return 0;

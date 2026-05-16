@@ -22,6 +22,7 @@ function renderPlayerHand(state, playerId, elements, isVisible, isForcedVisible)
   const player = state.players[playerId];
   const handEl = playerId === 1 ? elements.player1Hand : elements.player2Hand;
   const toggleEl = playerId === 1 ? elements.player1Toggle : elements.player2Toggle;
+  const previousVisible = !handEl.classList.contains("hidden-hand");
 
   handEl.innerHTML = "";
   handEl.classList.toggle("hidden-hand", !isVisible);
@@ -81,6 +82,11 @@ function renderPlayerHand(state, playerId, elements, isVisible, isForcedVisible)
 
     button.appendChild(icon);
     button.appendChild(textWrap);
+
+    if (!previousVisible && isVisible) {
+      button.classList.add("anim-hand-reveal");
+    }
+
     handEl.appendChild(button);
   });
 }

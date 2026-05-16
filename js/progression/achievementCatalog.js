@@ -5,6 +5,7 @@ export const ACHIEVEMENT_CATALOG = [
     description: "Finish your first game.",
     metricKey: "gamesFinished",
     required: 1,
+    rewardPoints: 30,
   },
   {
     id: "first_victory",
@@ -12,6 +13,7 @@ export const ACHIEVEMENT_CATALOG = [
     description: "Win a game.",
     metricKey: "wins",
     required: 1,
+    rewardPoints: 60,
   },
   {
     id: "captured_rune_purge",
@@ -19,6 +21,7 @@ export const ACHIEVEMENT_CATALOG = [
     description: "Permanently remove a captured opponent rune in shop.",
     metricKey: "capturedRemovals",
     required: 1,
+    rewardPoints: 75,
   },
   {
     id: "first_turn_round_win",
@@ -26,6 +29,7 @@ export const ACHIEVEMENT_CATALOG = [
     description: "Win a round on turn 1.",
     metricKey: "firstTurnRoundWins",
     required: 1,
+    rewardPoints: 90,
   },
   {
     id: "full_tie_game",
@@ -33,6 +37,7 @@ export const ACHIEVEMENT_CATALOG = [
     description: "Finish a game in a full tie.",
     metricKey: "fullTies",
     required: 1,
+    rewardPoints: 80,
   },
   {
     id: "veteran_10_games",
@@ -40,6 +45,7 @@ export const ACHIEVEMENT_CATALOG = [
     description: "Finish 10 games.",
     metricKey: "gamesFinished",
     required: 10,
+    rewardPoints: 180,
   },
 ];
 
