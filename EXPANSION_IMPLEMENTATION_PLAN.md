@@ -74,6 +74,8 @@ Status update:
 - Added toast VFX feedback for rewards, unlocks, purchases, and equips.
 - Added first-game tutorial suggestion toast per profile (one-time).
 - Added Puzzle Mode scaffold: puzzle menu panel, deterministic puzzle catalog/loader, per-profile puzzle progress, and first-solve rewards.
+- Expanded Puzzle Mode to 20 curated puzzles with difficulty tags and menu filters.
+- Added Campaign map prototype scaffold with branching nodes, 3 boss milestones, per-profile run persistence, and node completion rewards.
 
 ### M4
 - Puzzle mode with deterministic scenario loader.

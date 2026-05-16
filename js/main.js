@@ -39,6 +39,7 @@ import {
   hasProfileSeenTutorial,
   markProfileTutorialSeen,
   setProfileAchievementProgress,
+  setProfileCampaignProgress,
   setProfilePuzzleProgress,
   setActiveProfileSlot,
   spendProfileWalletPoints,
@@ -66,6 +67,15 @@ import {
   markPuzzleSolved,
   savePuzzleState,
 } from "./persistence/puzzleStore.js";
+import { CAMPAIGN_NODES, getCampaignNodeById } from "./campaign/campaignCatalog.js";
+import {
+  completeCampaignNode,
+  getCampaignCompletion,
+  loadCampaignState,
+  resetCampaignRun,
+  saveCampaignState,
+  startCampaignRun,
+} from "./persistence/campaignStore.js";
 import { createOnlineController } from "./online/onlineController.js";
 import { getRuneById, RUNE_CATALOG } from "./runes/runeCatalog.js";
 import { createSfxEngine } from "./audio/sfxEngine.js";
@@ -101,13 +111,22 @@ const elements = {
   profileEntryScreen: document.getElementById("profile-entry-screen"),
   profileEntryList: document.getElementById("profile-entry-list"),
   mainMenu: document.getElementById("main-menu"),
+  menuCampaignBtn: document.getElementById("menu-campaign-btn"),
   menuAiBtn: document.getElementById("menu-ai-btn"),
   menuPassplayBtn: document.getElementById("menu-passplay-btn"),
   menuPuzzleBtn: document.getElementById("menu-puzzle-btn"),
   puzzlePanel: document.getElementById("puzzle-panel"),
   puzzleSummary: document.getElementById("puzzle-summary"),
+  puzzleDifficultyFilter: document.getElementById("puzzle-difficulty-filter"),
+  puzzleStatusFilter: document.getElementById("puzzle-status-filter"),
   puzzleList: document.getElementById("puzzle-list"),
   puzzleBackBtn: document.getElementById("puzzle-back-btn"),
+  campaignPanel: document.getElementById("campaign-panel"),
+  campaignSummary: document.getElementById("campaign-summary"),
+  campaignMap: document.getElementById("campaign-map"),
+  campaignStartBtn: document.getElementById("campaign-start-btn"),
+  campaignResetBtn: document.getElementById("campaign-reset-btn"),
+  campaignBackBtn: document.getElementById("campaign-back-btn"),
   aiSideSelect: document.getElementById("ai-side-select"),
   aiDepthSelect: document.getElementById("ai-depth-select"),
   aiPanel: document.getElementById("ai-panel"),
@@ -223,6 +242,7 @@ let activeProfileSlot = getActiveProfileSlot();
 let achievementState = loadAchievementState(activeProfileSlot);
 let cosmeticState = loadCosmeticState(activeProfileSlot);
 let puzzleState = loadPuzzleState(activeProfileSlot);
+let campaignState = loadCampaignState(activeProfileSlot);
 let state = restoreState(
   getSavedStateForMode(MODE_PASSPLAY, activeProfileSlot) || createInitialState(getLocalGameOptions()),
   getLocalGameOptions(),
@@ -258,6 +278,8 @@ let pendingEntryRoute = null;
 let rewardPopupShownForGame = false;
 let activePuzzleId = null;
 let puzzleOutcomeHandled = false;
+let puzzleDifficultyFilter = "all";
+let puzzleStatusFilter = "all";
 
 registerServiceWorker();
 
@@ -272,6 +294,7 @@ applySelectedCosmetics();
 refreshProfileHeader();
 syncAchievementSummaryToProfile();
 syncPuzzleSummaryToProfile();
+syncCampaignSummaryToProfile();
 render();
 initializeEntryMode();
 
@@ -444,6 +467,10 @@ function bindEvents() {
 
   elements.menuAiBtn.addEventListener("click", () => {
     showAiPanel();
+  });
+
+  elements.menuCampaignBtn.addEventListener("click", () => {
+    showCampaignPanel();
   });
 
   elements.menuPassplayBtn.addEventListener("click", () => {
@@ -674,6 +701,40 @@ function bindEvents() {
     showMainMenu();
   });
 
+  elements.campaignBackBtn.addEventListener("click", () => {
+    showMainMenu();
+  });
+
+  elements.campaignStartBtn.addEventListener("click", () => {
+    campaignState = startCampaignRun(campaignState);
+    saveCampaignState(activeProfileSlot, campaignState);
+    syncCampaignSummaryToProfile();
+    renderCampaignPanel();
+    showToast("Campaign run ready. Choose an unlocked node.", "info");
+  });
+
+  elements.campaignResetBtn.addEventListener("click", () => {
+    campaignState = resetCampaignRun();
+    saveCampaignState(activeProfileSlot, campaignState);
+    syncCampaignSummaryToProfile();
+    renderCampaignPanel();
+    showToast("Campaign run reset.", "warn");
+  });
+
+  elements.puzzleDifficultyFilter.addEventListener("change", () => {
+    const selected = String(elements.puzzleDifficultyFilter.value || "all").toLowerCase();
+    puzzleDifficultyFilter = selected === "easy" || selected === "medium" || selected === "hard"
+      ? selected
+      : "all";
+    renderPuzzlePanel();
+  });
+
+  elements.puzzleStatusFilter.addEventListener("change", () => {
+    const selected = String(elements.puzzleStatusFilter.value || "all").toLowerCase();
+    puzzleStatusFilter = selected === "solved" || selected === "unsolved" ? selected : "all";
+    renderPuzzlePanel();
+  });
+
   elements.shopBackBtn.addEventListener("click", () => {
     showMainMenu();
   });
@@ -735,6 +796,16 @@ function bindEvents() {
 
     const puzzleId = String(startBtn.dataset.puzzleStart || "");
     startPuzzleById(puzzleId);
+  });
+
+  elements.campaignMap.addEventListener("click", (event) => {
+    const resolveBtn = event.target.closest("button[data-campaign-node]");
+    if (!resolveBtn) {
+      return;
+    }
+
+    const nodeId = String(resolveBtn.dataset.campaignNode || "");
+    resolveCampaignNode(nodeId);
   });
 
   elements.rewardPopupClose.addEventListener("click", () => {
@@ -1050,6 +1121,12 @@ function bindEvents() {
   });
 
   elements.phaseBtn.addEventListener("click", () => {
+    if (currentLocalMode === MODE_PUZZLE) {
+      showPuzzlePanel();
+      setStatus("Choose another puzzle.");
+      return;
+    }
+
     if (online.isOnlineActive()) {
       if (state.phase === "shop") {
         online.sendAction("shop_ready", { ready: !waitingRoomState.shopReadyYou });
@@ -1406,6 +1483,7 @@ function render() {
   }
 
   hideBoardRuneInfo();
+  normalizePuzzleEndStateIfNeeded();
 
   const boardSnapshot = snapshotBoard(state);
   const audioSnapshot = snapshotAudioState(state, boardSnapshot);
@@ -1519,6 +1597,23 @@ function render() {
   scheduleAiTurnIfNeeded();
 }
 
+function normalizePuzzleEndStateIfNeeded() {
+  if (currentLocalMode !== MODE_PUZZLE || state.phase !== "round-end") {
+    return;
+  }
+
+  state.phase = "game-over";
+  if (state.winner === 1 || state.winner === 2) {
+    state.gameWinner = state.winner;
+    state.gameWinnerReason = "puzzle-solved";
+    state.log.unshift(`${getDisplayPlayerName(state.winner)} solved the puzzle.`);
+  } else {
+    state.gameWinner = null;
+    state.gameWinnerReason = "puzzle-failed";
+    state.log.unshift("Puzzle ended without a valid solution.");
+  }
+}
+
 function startPuzzleById(puzzleId, options = {}) {
   const restart = Boolean(options.restart);
   const puzzle = getPuzzleById(puzzleId);
@@ -1569,7 +1664,7 @@ function evaluatePuzzleProgressIfNeeded() {
   const solved = state.gameWinner === puzzle.currentPlayer;
   if (!solved) {
     showToast(`Puzzle failed: ${puzzle.title}. Try again.`, "warn");
-    setStatus(`Puzzle failed. Use New Game to retry ${puzzle.title}.`);
+    setStatus(`Puzzle failed. Use Restart Puzzle or More Puzzles.`);
     return;
   }
 
@@ -1686,6 +1781,19 @@ function updateTopStatus() {
 }
 
 function renderShopPanel() {
+  if (currentLocalMode === MODE_PUZZLE) {
+    const inPuzzleEnd = state.phase === "game-over";
+    elements.shopPanel.hidden = true;
+    elements.boardEl.hidden = false;
+    elements.shopInstruction.hidden = true;
+    elements.shopSwitchPlayer.hidden = true;
+    elements.shopRemoveBtn.hidden = true;
+    elements.shopCombineBtn.hidden = true;
+    elements.phaseBtn.hidden = !inPuzzleEnd;
+    elements.phaseBtn.textContent = "More Puzzles";
+    return;
+  }
+
   const inShop = state.phase === "shop";
   elements.shopPanel.hidden = !inShop;
   elements.boardEl.hidden = inShop;
@@ -2131,6 +2239,7 @@ function showProfileEntryScreen() {
   elements.profileEntryScreen.hidden = false;
   elements.mainMenu.hidden = true;
   elements.puzzlePanel.hidden = true;
+  elements.campaignPanel.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
   elements.profilesPanel.hidden = true;
@@ -2167,6 +2276,7 @@ function showMainMenu() {
   elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = false;
   elements.puzzlePanel.hidden = true;
+  elements.campaignPanel.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
   elements.profilesPanel.hidden = true;
@@ -2182,6 +2292,7 @@ function showAiPanel() {
   elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
   elements.puzzlePanel.hidden = true;
+  elements.campaignPanel.hidden = true;
   elements.aiPanel.hidden = false;
   elements.settingsPanel.hidden = true;
   elements.profilesPanel.hidden = true;
@@ -2205,6 +2316,7 @@ function showOnlinePanel() {
   elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
   elements.puzzlePanel.hidden = true;
+  elements.campaignPanel.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
   elements.profilesPanel.hidden = true;
@@ -2225,6 +2337,7 @@ function showRulesPanel() {
   elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
   elements.puzzlePanel.hidden = true;
+  elements.campaignPanel.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
   elements.profilesPanel.hidden = true;
@@ -2239,6 +2352,7 @@ function showSettingsPanel() {
   elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
   elements.puzzlePanel.hidden = true;
+  elements.campaignPanel.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = false;
   elements.profilesPanel.hidden = true;
@@ -2253,6 +2367,7 @@ function showProfilesPanel() {
   elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
   elements.puzzlePanel.hidden = true;
+  elements.campaignPanel.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
   elements.profilesPanel.hidden = false;
@@ -2268,6 +2383,7 @@ function showAchievementsPanel() {
   elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
   elements.puzzlePanel.hidden = true;
+  elements.campaignPanel.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
   elements.profilesPanel.hidden = true;
@@ -2283,6 +2399,7 @@ function showShopPanelMenu() {
   elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
   elements.puzzlePanel.hidden = true;
+  elements.campaignPanel.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
   elements.profilesPanel.hidden = true;
@@ -2298,6 +2415,7 @@ function showPuzzlePanel() {
   elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
   elements.puzzlePanel.hidden = false;
+  elements.campaignPanel.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
   elements.profilesPanel.hidden = true;
@@ -2309,10 +2427,27 @@ function showPuzzlePanel() {
   renderPuzzlePanel();
 }
 
+function showCampaignPanel() {
+  elements.profileEntryScreen.hidden = true;
+  elements.mainMenu.hidden = true;
+  elements.puzzlePanel.hidden = true;
+  elements.campaignPanel.hidden = false;
+  elements.aiPanel.hidden = true;
+  elements.settingsPanel.hidden = true;
+  elements.profilesPanel.hidden = true;
+  elements.achievementsPanel.hidden = true;
+  elements.shopPanelMenu.hidden = true;
+  elements.onlinePanel.hidden = true;
+  elements.rulesPanel.hidden = true;
+  elements.gameScreen.hidden = true;
+  renderCampaignPanel();
+}
+
 function enterGameScreen(mode, roomCode = null) {
   elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
   elements.puzzlePanel.hidden = true;
+  elements.campaignPanel.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
   elements.profilesPanel.hidden = true;
@@ -2891,15 +3026,24 @@ function renderShopPanelMenu() {
 
 function renderPuzzlePanel() {
   const solvedSet = new Set(puzzleState?.solvedIds || []);
-  elements.puzzleSummary.textContent = `${solvedSet.size}/${getPuzzleCount()} solved`;
+  const totalCount = getPuzzleCount();
+  const filtered = PUZZLE_CATALOG.filter((puzzle) => matchesPuzzleFilters(puzzle, solvedSet));
+  const solvedInFilter = filtered.filter((puzzle) => solvedSet.has(puzzle.id)).length;
+  elements.puzzleSummary.textContent = `${solvedSet.size}/${totalCount} solved | Showing ${filtered.length} (${solvedInFilter} solved)`;
   elements.puzzleList.innerHTML = "";
 
-  PUZZLE_CATALOG.forEach((puzzle) => {
+  filtered.forEach((puzzle) => {
     const solved = solvedSet.has(puzzle.id);
     const attempts = Math.max(0, Number(puzzleState?.attemptsById?.[puzzle.id]) || 0);
 
     const card = document.createElement("article");
     card.className = `achievement-card ${solved ? "unlocked" : "locked"}`;
+
+    const difficulty = String(puzzle.difficulty || "medium").toLowerCase();
+    const tag = document.createElement("span");
+    tag.className = `puzzle-difficulty-tag ${difficulty}`;
+    tag.textContent = difficulty;
+    card.appendChild(tag);
 
     const title = document.createElement("h3");
     title.textContent = puzzle.title;
@@ -2927,11 +3071,115 @@ function renderPuzzlePanel() {
     card.appendChild(actionWrap);
     elements.puzzleList.appendChild(card);
   });
+
+  if (!filtered.length) {
+    const empty = document.createElement("p");
+    empty.className = "settings-note";
+    empty.textContent = "No puzzles match the selected filters.";
+    elements.puzzleList.appendChild(empty);
+  }
+}
+
+function resolveCampaignNode(nodeId) {
+  const node = getCampaignNodeById(nodeId);
+  if (!node) {
+    showToast("Campaign node not found.", "warn");
+    return;
+  }
+
+  const unlocked = new Set(campaignState.unlockedNodeIds || []);
+  const completed = new Set(campaignState.completedNodeIds || []);
+  if (!unlocked.has(node.id)) {
+    showToast("This node is still locked.", "warn");
+    return;
+  }
+
+  campaignState = completeCampaignNode(campaignState, node.id);
+  saveCampaignState(activeProfileSlot, campaignState);
+  syncCampaignSummaryToProfile();
+
+  const wasCompleted = completed.has(node.id);
+  if (!wasCompleted) {
+    const reward = Math.max(0, Number(node.rewardPoints) || 0);
+    if (reward > 0) {
+      addProfileWalletPoints(activeProfileSlot, reward);
+      refreshProfileHeader();
+      pulseElement(elements.menuProfileSwitchBtn, "ui-pulse");
+      showToast(`Campaign node cleared: ${node.title} (+${reward} pts)`, "reward");
+    }
+  } else {
+    showToast(`Node replayed: ${node.title}`, "info");
+  }
+
+  renderCampaignPanel();
+}
+
+function renderCampaignPanel() {
+  const completion = getCampaignCompletion(campaignState);
+  const unlocked = new Set(campaignState.unlockedNodeIds || []);
+  const completed = new Set(campaignState.completedNodeIds || []);
+  elements.campaignSummary.textContent = `Completed ${completion.completed}/${completion.total} (${completion.percent}%) | Bosses defeated: ${completion.bosses}/3`;
+  elements.campaignMap.innerHTML = "";
+
+  CAMPAIGN_NODES.forEach((node) => {
+    const isUnlocked = unlocked.has(node.id);
+    const isCompleted = completed.has(node.id);
+
+    const card = document.createElement("article");
+    card.className = `achievement-card ${isCompleted ? "unlocked" : "locked"}`;
+    if (node.type === "boss") {
+      card.classList.add("campaign-boss");
+    }
+
+    const title = document.createElement("h3");
+    title.textContent = node.title;
+    card.appendChild(title);
+
+    const desc = document.createElement("p");
+    desc.textContent = `${node.description} Reward: ${node.rewardPoints} pts.`;
+    card.appendChild(desc);
+
+    const detail = document.createElement("p");
+    detail.className = "achievement-progress";
+    detail.textContent = `${node.type === "boss" ? "Boss" : "Encounter"} | ${isCompleted ? "Cleared" : isUnlocked ? "Unlocked" : "Locked"}`;
+    card.appendChild(detail);
+
+    const actionWrap = document.createElement("div");
+    actionWrap.className = "menu-actions compact";
+
+    const resolveBtn = document.createElement("button");
+    resolveBtn.type = "button";
+    resolveBtn.className = "menu-btn";
+    resolveBtn.dataset.campaignNode = node.id;
+    resolveBtn.disabled = !isUnlocked;
+    resolveBtn.textContent = isCompleted ? "Replay Node" : "Resolve Node";
+    actionWrap.appendChild(resolveBtn);
+
+    card.appendChild(actionWrap);
+    elements.campaignMap.appendChild(card);
+  });
+}
+
+function matchesPuzzleFilters(puzzle, solvedSet) {
+  const difficulty = String(puzzle?.difficulty || "medium").toLowerCase();
+  const solved = solvedSet.has(puzzle.id);
+
+  const difficultyOk = puzzleDifficultyFilter === "all" || difficulty === puzzleDifficultyFilter;
+  const solvedOk = puzzleStatusFilter === "all"
+    || (puzzleStatusFilter === "solved" && solved)
+    || (puzzleStatusFilter === "unsolved" && !solved);
+
+  return difficultyOk && solvedOk;
 }
 
 function syncPuzzleSummaryToProfile() {
   const solved = Array.isArray(puzzleState?.solvedIds) ? puzzleState.solvedIds.length : 0;
   setProfilePuzzleProgress(activeProfileSlot, solved, getPuzzleCount());
+}
+
+function syncCampaignSummaryToProfile() {
+  const completion = getCampaignCompletion(campaignState);
+  setProfileCampaignProgress(activeProfileSlot, completion.completed, completion.total);
 }
 
 function isCosmeticEquipped(cosmetic) {
@@ -3066,6 +3314,7 @@ function activateProfileSlot(slot, options = {}) {
   achievementState = loadAchievementState(activeProfileSlot);
   cosmeticState = loadCosmeticState(activeProfileSlot);
   puzzleState = loadPuzzleState(activeProfileSlot);
+  campaignState = loadCampaignState(activeProfileSlot);
   activePuzzleId = null;
   puzzleOutcomeHandled = false;
   applySelectedCosmetics();
@@ -3082,6 +3331,7 @@ function activateProfileSlot(slot, options = {}) {
   resetRewardTracking();
   syncAchievementSummaryToProfile();
   syncPuzzleSummaryToProfile();
+  syncCampaignSummaryToProfile();
 
   refreshProfileHeader();
   render();

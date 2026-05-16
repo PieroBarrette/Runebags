@@ -231,6 +231,23 @@ export function setProfilePuzzleProgress(slot, solvedCount, totalCount) {
   saveProfileState(payload);
 }
 
+export function setProfileCampaignProgress(slot, completedCount, totalCount) {
+  const safeSlot = sanitizeSlot(slot, 1);
+  const payload = loadProfileState();
+  const profile = payload.slots.find((item) => item.slot === safeSlot);
+  if (!profile) {
+    return;
+  }
+
+  profile.progression = sanitizeProgress({
+    ...profile.progression,
+    campaignNodesCompleted: Math.max(0, Number(completedCount) || 0),
+    campaignNodesTotal: Math.max(0, Number(totalCount) || 0),
+  });
+  profile.lastPlayedAt = Date.now();
+  saveProfileState(payload);
+}
+
 export function addProfileWalletPoints(slot, points) {
   const safeSlot = sanitizeSlot(slot, 1);
   const amount = Math.max(0, Math.floor(Number(points) || 0));

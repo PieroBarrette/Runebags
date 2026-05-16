@@ -447,6 +447,43 @@ body[data-theme="dark"] .menu-logo {
   text-align: left;
 }
 
+.puzzle-filters {
+  width: min(620px, 100%);
+  margin: 0.7rem 0 0.4rem;
+}
+
+.puzzle-difficulty-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  padding: 0.16rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(36, 51, 71, 0.22);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.puzzle-difficulty-tag.easy {
+  background: rgba(225, 247, 232, 0.9);
+  border-color: rgba(31, 110, 49, 0.38);
+  color: #1b5a2c;
+}
+
+.puzzle-difficulty-tag.medium {
+  background: rgba(255, 244, 219, 0.92);
+  border-color: rgba(173, 129, 26, 0.42);
+  color: #7a5b10;
+}
+
+.puzzle-difficulty-tag.hard {
+  background: rgba(255, 230, 228, 0.92);
+  border-color: rgba(166, 55, 47, 0.42);
+  color: #7a2b26;
+}
+
 .profiles-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -549,6 +586,11 @@ body[data-theme="dark"] .menu-logo {
   opacity: 0.9;
 }
 
+.achievement-card.campaign-boss {
+  border-color: rgba(156, 58, 50, 0.48);
+  background: linear-gradient(180deg, rgba(255, 234, 232, 0.92), rgba(255, 244, 243, 0.88));
+}
+
 .achievement-progress {
   font-weight: 600;
 }
@@ -630,6 +672,24 @@ body[data-theme="dark"] .settings-rune-list {
   background: rgba(16, 22, 29, 0.78);
 }
 
+body[data-theme="dark"] .puzzle-difficulty-tag.easy {
+  background: rgba(22, 65, 36, 0.9);
+  border-color: rgba(102, 216, 141, 0.5);
+  color: #c9f2d4;
+}
+
+body[data-theme="dark"] .puzzle-difficulty-tag.medium {
+  background: rgba(73, 57, 19, 0.9);
+  border-color: rgba(240, 196, 83, 0.5);
+  color: #fde7ac;
+}
+
+body[data-theme="dark"] .puzzle-difficulty-tag.hard {
+  background: rgba(83, 29, 28, 0.88);
+  border-color: rgba(228, 113, 106, 0.5);
+  color: #ffd4d1;
+}
+
 body[data-theme="dark"] .profile-slot-card {
   border-color: rgba(220, 230, 241, 0.28);
   background: rgba(16, 22, 29, 0.78);
@@ -643,6 +703,11 @@ body[data-theme="dark"] .achievement-card {
 body[data-theme="dark"] .achievement-card.unlocked {
   border-color: rgba(102, 216, 141, 0.55);
   background: linear-gradient(180deg, rgba(22, 55, 33, 0.92), rgba(17, 45, 26, 0.88));
+}
+
+body[data-theme="dark"] .achievement-card.campaign-boss {
+  border-color: rgba(228, 113, 106, 0.54);
+  background: linear-gradient(180deg, rgba(72, 26, 24, 0.9), rgba(58, 19, 18, 0.86));
 }
 
 body[data-theme="dark"] .profile-slot-card.active {
