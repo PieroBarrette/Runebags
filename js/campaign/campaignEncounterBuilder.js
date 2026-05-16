@@ -48,15 +48,23 @@ function createBagFromIds(ids) {
 }
 
 function buildPlayerCampaignBag(loadoutRunes) {
-  const bag = [];
-  for (let i = 0; i < 4; i += 1) {
-    const basic = createRuneInstance("basic", 1);
-    if (basic) {
-      bag.push(basic);
-    }
-  }
+  const source = Array.isArray(loadoutRunes) && loadoutRunes.length > 0
+    ? loadoutRunes
+    : [
+      { runeId: "basic", level: 1 },
+      { runeId: "basic", level: 1 },
+      { runeId: "basic", level: 1 },
+      { runeId: "basic", level: 1 },
+      { runeId: "basic", level: 1 },
+      { runeId: "basic", level: 1 },
+      { runeId: "jera", level: 1 },
+      { runeId: "jera", level: 1 },
+      { runeId: "inguz", level: 1 },
+      { runeId: "inguz", level: 1 },
+    ];
 
-  (Array.isArray(loadoutRunes) ? loadoutRunes : []).forEach((entry) => {
+  const bag = [];
+  source.forEach((entry) => {
     const rune = createRuneInstance(entry?.runeId, Number(entry?.level) || 1);
     if (rune) {
       bag.push(rune);
@@ -117,6 +125,7 @@ export function buildCampaignEncounterState(node, campaignState, options = {}) {
   state.phase = "round";
   state.roundNumber = 1;
   state.turnNumber = 1;
+  state.pointPoolTotal = Math.max(1, Number(node?.roundPointPool) || 3);
   state.pointPoolRemaining = Math.max(1, Number(node?.roundPointPool) || 3);
   state.tieRemovedPoints = 0;
   state.winner = null;

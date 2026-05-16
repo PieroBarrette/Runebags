@@ -9,7 +9,7 @@ function sanitizeLoadoutRunes(candidate) {
     .map((entry) => {
       const runeId = String(entry?.runeId || "").trim();
       const rune = getRuneById(runeId);
-      if (!rune || rune.type !== "special") {
+      if (!rune) {
         return null;
       }
 
@@ -17,6 +17,21 @@ function sanitizeLoadoutRunes(candidate) {
       return { runeId, level };
     })
     .filter(Boolean);
+}
+
+function createDefaultRunBag() {
+  return [
+    { runeId: "basic", level: 1 },
+    { runeId: "basic", level: 1 },
+    { runeId: "basic", level: 1 },
+    { runeId: "basic", level: 1 },
+    { runeId: "basic", level: 1 },
+    { runeId: "basic", level: 1 },
+    { runeId: "jera", level: 1 },
+    { runeId: "jera", level: 1 },
+    { runeId: "inguz", level: 1 },
+    { runeId: "inguz", level: 1 },
+  ];
 }
 
 function getKey(profileSlot) {
@@ -33,7 +48,7 @@ function createDefaultState() {
     unlockedNodeIds: [CAMPAIGN_START_NODE_ID],
     completedNodeIds: [],
     completedBossCount: 0,
-    loadoutRunes: [],
+    loadoutRunes: createDefaultRunBag(),
     pendingRewardNodeId: null,
     pendingRewardChoices: [],
     shopOfferByNode: {},
@@ -143,6 +158,9 @@ export function startCampaignRun(state) {
     next.currentNodeId = CAMPAIGN_START_NODE_ID;
   }
   next.unlockedNodeIds = Array.from(new Set([...next.unlockedNodeIds, CAMPAIGN_START_NODE_ID]));
+  if (!Array.isArray(next.loadoutRunes) || next.loadoutRunes.length === 0) {
+    next.loadoutRunes = createDefaultRunBag();
+  }
   if (!next.startedAt) {
     next.startedAt = Date.now();
   }

@@ -71,14 +71,12 @@ import { CAMPAIGN_NODES, getCampaignNodeById } from "./campaign/campaignCatalog.
 import {
   addCampaignCombatPoints,
   addCampaignPerformancePoints,
-  claimCampaignRewardChoice,
   completeCampaignNode,
   getCampaignCompletion,
   loadCampaignState,
   resetCampaignRun,
   saveCampaignState,
   setCampaignBossName,
-  setCampaignPendingReward,
   spendCampaignReroll,
   startCampaignRun,
 } from "./persistence/campaignStore.js";
@@ -851,15 +849,6 @@ function bindEvents() {
       resolveCampaignNode(nodeId);
       return;
     }
-
-    const rewardBtn = event.target.closest("button[data-campaign-reward-pick]");
-    if (rewardBtn) {
-      const nodeId = String(rewardBtn.dataset.campaignRewardNode || "");
-      const index = Number(rewardBtn.dataset.campaignRewardPick);
-      claimCampaignNodeReward(nodeId, index);
-      return;
-    }
-
   };
 
   elements.campaignMap.addEventListener("click", handleCampaignPanelClick);
@@ -1381,6 +1370,12 @@ function bindEvents() {
       return;
     }
 
+    const campaignShopData = state.shop?.players?.[1];
+    if (campaignShopData && campaignShopData.addedCount >= campaignShopData.addLimit) {
+      setStatus("Cannot reroll after reaching max adds for this shop.");
+      return;
+    }
+
     const available = getCampaignAvailableRerolls();
     if (available <= 0) {
       setStatus("No rerolls left for this run.");
@@ -1719,11 +1714,6 @@ function startCampaignEncounterByNode(nodeId, options = {}) {
     return;
   }
 
-  if (!restart && campaignState.pendingRewardChoices?.length > 0 && campaignState.pendingRewardNodeId) {
-    showToast("Pick your pending reward before entering a new encounter.", "warn");
-    return;
-  }
-
   if (online.isOnlineActive()) {
     online.leaveRoom();
   }
@@ -1733,7 +1723,7 @@ function startCampaignEncounterByNode(nodeId, options = {}) {
   saveCampaignState(activeProfileSlot, campaignState);
 
   const encounter = buildCampaignEncounterState(node, campaignState, getLocalGameOptions());
-  setAiSettings(aiConfig, false, aiConfig.playerId, aiConfig.depth);
+  setAiSettings(aiConfig, true, 2, Math.max(1, aiConfig.depth || 2));
   currentLocalMode = MODE_CAMPAIGN;
   activeCampaignNodeId = node.id;
   campaignOutcomeHandled = false;
@@ -1833,20 +1823,11 @@ function evaluateCampaignProgressIfNeeded() {
     campaignState = addCampaignPerformancePoints(campaignState, Math.max(0, Number(node.rewardPoints) || 0));
   }
 
-  if (!wasCompleted && (node.type === "combat" || node.type === "elite" || node.type === "boss")) {
-    const rewardChoices = generateCampaignRewardChoices(3);
-    campaignState = setCampaignPendingReward(campaignState, node.id, rewardChoices);
-  }
-
   saveCampaignState(activeProfileSlot, campaignState);
   syncCampaignSummaryToProfile();
 
   if (!wasCompleted) {
     showToast(`Campaign cleared: ${node.title}`, "reward");
-
-    if (campaignState.pendingRewardChoices?.length > 0) {
-      showToast("Pick 1 rune from 3 to improve your run.", "info");
-    }
 
     if (node.type === "final-boss") {
       const victoryPayout = getCampaignRunPayout("victory", campaignState);
@@ -1870,23 +1851,6 @@ function evaluateCampaignProgressIfNeeded() {
   }
 
   renderCampaignPanel();
-}
-
-function generateCampaignRewardChoices(count) {
-  const pool = [...SELECTABLE_RUNES];
-  const picks = [];
-  const max = Math.max(1, Number(count) || 1);
-
-  while (pool.length > 0 && picks.length < max) {
-    const index = Math.floor(Math.random() * pool.length);
-    const rune = pool.splice(index, 1)[0];
-    if (!rune) {
-      continue;
-    }
-    picks.push({ runeId: rune.id, level: 1 });
-  }
-
-  return picks;
 }
 
 function normalizePuzzleEndStateIfNeeded() {
@@ -2142,9 +2106,11 @@ function renderShopPanel() {
 
   if (campaignInShopNode) {
     const available = getCampaignAvailableRerolls();
+    const campaignShopData = state.shop?.players?.[1];
+    const addLimitReached = Boolean(campaignShopData && campaignShopData.addedCount >= campaignShopData.addLimit);
     elements.shopInstruction.textContent = `Campaign shop: normal rules apply. Rerolls left: ${available}.`;
     elements.shopSwitchPlayer.hidden = true;
-    elements.shopRerollBtn.disabled = available <= 0;
+    elements.shopRerollBtn.disabled = available <= 0 || addLimitReached;
     elements.shopRerollBtn.textContent = `Reroll Offer (${available})`;
   }
 
@@ -3460,12 +3426,6 @@ function resolveCampaignNode(nodeId) {
     return;
   }
 
-  if (campaignState.pendingRewardChoices?.length > 0 && campaignState.pendingRewardNodeId) {
-    showToast("Pick your campaign reward before moving on.", "warn");
-    renderCampaignPanel();
-    return;
-  }
-
   const nextNode = getNextCampaignPlayableNode();
   if (nextNode && nextNode.id !== node.id) {
     showToast("Follow the campaign sequence in order.", "warn");
@@ -3484,7 +3444,6 @@ function renderCampaignPanel() {
   const completion = getCampaignCompletion(campaignState);
   const unlocked = new Set(campaignState.unlockedNodeIds || []);
   const completed = new Set(campaignState.completedNodeIds || []);
-  const pendingReward = Array.isArray(campaignState.pendingRewardChoices) && campaignState.pendingRewardChoices.length > 0;
   const nextNode = getNextCampaignPlayableNode();
   const ante = Math.max(1, Number(nextNode?.ante) || 1);
   const bossClears = CAMPAIGN_NODES.reduce((count, node) => {
@@ -3499,9 +3458,6 @@ function renderCampaignPanel() {
 
   const rerolls = getCampaignAvailableRerolls();
   elements.campaignSummary.textContent = `Completed ${completion.completed}/${completion.total} (${completion.percent}%) | Ante ${Math.min(ante, 8)}/8 | Bosses defeated: ${bossClears}/8 | Rerolls: ${rerolls}`;
-  if (pendingReward) {
-    elements.campaignSummary.textContent += " | Reward pick pending";
-  }
 
   renderCampaignLoadout();
   renderCampaignNodeActionPanel();
@@ -3539,7 +3495,7 @@ function renderCampaignPanel() {
     resolveBtn.type = "button";
     resolveBtn.className = "menu-btn";
     resolveBtn.dataset.campaignNodeStart = node.id;
-    resolveBtn.disabled = !isUnlocked || !isNext || Boolean(pendingReward && campaignState.pendingRewardNodeId !== node.id);
+    resolveBtn.disabled = !isUnlocked || !isNext;
     resolveBtn.textContent = getCampaignNodeActionLabel(node, isCompleted);
     card.appendChild(resolveBtn);
 
@@ -3604,7 +3560,7 @@ function renderCampaignLoadout() {
   if (!loadout.length) {
     const empty = document.createElement("p");
     empty.className = "settings-note";
-    empty.textContent = "Clear combats to earn rune rewards.";
+    empty.textContent = "Run starts with a normal bag. Use shops to tune it.";
     elements.campaignLoadoutList.appendChild(empty);
     return;
   }
@@ -3627,45 +3583,8 @@ function renderCampaignLoadout() {
 }
 
 function renderCampaignNodeActionPanel() {
-  const pendingRewards = Array.isArray(campaignState.pendingRewardChoices)
-    ? campaignState.pendingRewardChoices
-    : [];
-  if (pendingRewards.length > 0 && campaignState.pendingRewardNodeId) {
-    const rewardNode = getCampaignNodeById(campaignState.pendingRewardNodeId);
-    elements.campaignActionPanel.hidden = false;
-    elements.campaignActionTitle.textContent = rewardNode
-      ? `Reward Pick: ${rewardNode.title}`
-      : "Reward Pick";
-    elements.campaignActionBody.innerHTML = "";
-
-    pendingRewards.forEach((reward, index) => {
-      const rune = getRuneById(reward.runeId);
-      const card = document.createElement("article");
-      card.className = "achievement-card unlocked";
-
-      const title = document.createElement("h3");
-      title.textContent = rune ? `${rune.name} L${reward.level}` : reward.runeId;
-      card.appendChild(title);
-
-      const desc = document.createElement("p");
-      desc.textContent = rune?.description || "Add this rune to your campaign loadout.";
-      card.appendChild(desc);
-
-      const actions = document.createElement("div");
-      actions.className = "menu-actions compact";
-      const pickBtn = document.createElement("button");
-      pickBtn.type = "button";
-      pickBtn.className = "menu-btn";
-      pickBtn.dataset.campaignRewardPick = String(index);
-      pickBtn.dataset.campaignRewardNode = campaignState.pendingRewardNodeId;
-      pickBtn.textContent = "Pick Rune";
-      actions.appendChild(pickBtn);
-      card.appendChild(actions);
-
-      elements.campaignActionBody.appendChild(card);
-    });
-    return;
-  }
+  elements.campaignActionPanel.hidden = true;
+  elements.campaignActionBody.innerHTML = "";
 }
 
 function openCampaignShopNode(node) {
@@ -3732,7 +3651,6 @@ function completeCampaignShopNodeFromState() {
 
 function extractCampaignLoadoutFromBag(bag) {
   return (Array.isArray(bag) ? bag : [])
-    .filter((rune) => rune?.type === "special")
     .map((rune) => ({
       runeId: rune.id,
       level: Math.max(1, Number(rune.level) || 1),
@@ -3740,15 +3658,23 @@ function extractCampaignLoadoutFromBag(bag) {
 }
 
 function buildCampaignPlayerBag(loadoutRunes) {
-  const bag = [];
-  for (let i = 0; i < 4; i += 1) {
-    const basic = createRuneInstance("basic", 1);
-    if (basic) {
-      bag.push(basic);
-    }
-  }
+  const source = Array.isArray(loadoutRunes) && loadoutRunes.length > 0
+    ? loadoutRunes
+    : [
+      { runeId: "basic", level: 1 },
+      { runeId: "basic", level: 1 },
+      { runeId: "basic", level: 1 },
+      { runeId: "basic", level: 1 },
+      { runeId: "basic", level: 1 },
+      { runeId: "basic", level: 1 },
+      { runeId: "jera", level: 1 },
+      { runeId: "jera", level: 1 },
+      { runeId: "inguz", level: 1 },
+      { runeId: "inguz", level: 1 },
+    ];
 
-  (Array.isArray(loadoutRunes) ? loadoutRunes : []).forEach((entry) => {
+  const bag = [];
+  source.forEach((entry) => {
     const rune = createRuneInstance(entry?.runeId, entry?.level);
     if (rune) {
       bag.push(rune);
@@ -3854,24 +3780,6 @@ function getCampaignBossConstraintId(node) {
   }
   const index = Math.abs(hash >>> 0) % CAMPAIGN_BOSS_CONSTRAINT_POOL.length;
   return CAMPAIGN_BOSS_CONSTRAINT_POOL[index];
-}
-
-function claimCampaignNodeReward(nodeId, rewardIndex) {
-  const node = getCampaignNodeById(nodeId);
-  if (!node) {
-    return;
-  }
-
-  const beforeCount = campaignState.loadoutRunes?.length || 0;
-  campaignState = claimCampaignRewardChoice(campaignState, nodeId, rewardIndex);
-  const afterCount = campaignState.loadoutRunes?.length || 0;
-  if (afterCount <= beforeCount) {
-    return;
-  }
-
-  saveCampaignState(activeProfileSlot, campaignState);
-  showToast(`Reward claimed for ${node.title}.`, "reward");
-  renderCampaignPanel();
 }
 
 function matchesPuzzleFilters(puzzle, solvedSet) {

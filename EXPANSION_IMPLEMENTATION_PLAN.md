@@ -79,7 +79,7 @@ Status update:
 - Campaign nodes now launch playable encounter scenarios with win/fail outcomes, restart flow, and progression rewards on clear.
 - Campaign upgraded to a branching Slay-the-Spire style tree with combat, elite, shop, remove, and boss nodes.
 - Encounter pacing now follows node type (combat: 1-round pace, elite: multi-round pace, bosses: longer act fights).
-- Campaign clears now offer a choose-1-from-3 rune reward, and run loadout persists across nodes.
+- Campaign no longer grants post-combat choose-1 rewards; bag progression is handled by classic shop nodes between combats.
 - Shop/remove campaign nodes are now slower run-management actions separate from normal match shop flow.
 - Active campaign encounters auto-resume on profile entry/profile switch when a save is present.
 - Campaign UI simplified from map graph to a linear progression list.
@@ -87,6 +87,7 @@ Status update:
 - Campaign combats now run as multi-round supply fights without between-round shops.
 - Enemy combat bags now come from predefined templates by type (combat/elite/boss/final-boss), randomly selected per run seed.
 - Campaign shop nodes now use the real in-game shop phase UI and rules (remove/combine/add), then convert resulting bag specials back into run loadout.
+- Campaign shop nodes now persist the full run bag (normal runes and specials), with default run start bag matching normal game (6 Basic, 2 Jera, 2 Inguz).
 - Campaign is now ironman: failure resets the run to opening shop.
 - Bosses now have randomized names from a pool and ante-specific opening constraints; final boss has its own name pool and hard edge-opener constraint.
 - Campaign run victory now ends immediately with a victory reward popup and run reset.
@@ -95,6 +96,8 @@ Status update:
 -   Run reroll points: earned during run combats from round-point performance, spent only on campaign shop rerolls, carry through the run.
 -   Wallet points: profile currency awarded only once at run end (victory or defeat payout), never during intermediate campaign nodes.
 - Boss constraints now randomize from a per-run constraint pool for roguelike variety.
+- Campaign combats are solo vs minimax AI (player always Black, AI as White).
+- Campaign combat victory checks now use per-encounter point supply majority thresholds (e.g., 2 of 3 for 3-supply fights).
 
 ### M4
 - Puzzle mode with deterministic scenario loader.

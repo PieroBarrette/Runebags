@@ -44,6 +44,7 @@ export function createInitialState(options = {}) {
     phase: "shop",
     turnNumber: 1,
     roundNumber: 0,
+    pointPoolTotal: POINT_POOL_TOTAL,
     pointPoolRemaining: POINT_POOL_TOTAL,
     tieRemovedPoints: 0,
     neutralSupply: STARTING_NEUTRAL_SUPPLY,
@@ -105,6 +106,10 @@ export function restoreState(candidate, options = {}) {
 
   if (!candidate.phase) {
     candidate.phase = "shop";
+  }
+
+  if (!Number.isInteger(candidate.pointPoolTotal) || candidate.pointPoolTotal <= 0) {
+    candidate.pointPoolTotal = POINT_POOL_TOTAL;
   }
 
   return candidate;
@@ -1967,7 +1972,8 @@ function getUniqueWinningCells(lines) {
 }
 
 function evaluateMajorityWinner(state) {
-  const majorityThreshold = Math.floor((POINT_POOL_TOTAL - state.tieRemovedPoints) / 2) + 1;
+  const pointPoolTotal = Math.max(1, Number(state.pointPoolTotal) || POINT_POOL_TOTAL);
+  const majorityThreshold = Math.floor((pointPoolTotal - state.tieRemovedPoints) / 2) + 1;
 
   if (state.players[BLACK].points >= majorityThreshold) {
     state.gameWinner = BLACK;
