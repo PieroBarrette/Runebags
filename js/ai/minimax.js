@@ -60,7 +60,7 @@ export function autoResolvePending(state, aiPlayerId) {
   let iterations = 0;
   while (state.pendingAction && iterations < 24) {
     iterations += 1;
-    const choices = getPendingChoices(state);
+    const choices = orderPendingChoices(state, getPendingChoices(state), aiPlayerId);
     if (choices.length === 0) {
       break;
     }
@@ -135,7 +135,7 @@ function minimax(state, depth, alpha, beta, aiPlayerId, search) {
   }
 
   if (state.pendingAction) {
-    const choices = getPendingChoices(state);
+    const choices = orderPendingChoices(state, getPendingChoices(state), aiPlayerId);
     if (choices.length === 0) {
       return evaluateState(state, aiPlayerId);
     }
@@ -439,6 +439,10 @@ function orderMoves(moves) {
 }
 
 function createsPendingChoice(move) {
+  if (move.runeId === "kenaz") {
+    return true;
+  }
+
   if (move.runeId === "gebo" && move.level >= 2) {
     return true;
   }
@@ -460,6 +464,71 @@ function createsPendingChoice(move) {
   }
 
   return false;
+}
+
+function orderPendingChoices(state, choices, aiPlayerId) {
+  if (!state?.pendingAction || !Array.isArray(choices) || choices.length <= 1) {
+    return choices;
+  }
+
+  if (state.pendingAction.type !== "kenaz-destroy-target") {
+    return choices;
+  }
+
+  const chooserId = getPendingChooserId(state);
+  const opponentId = aiPlayerId === 1 ? 2 : 1;
+
+  return [...choices].sort((a, b) => {
+    const scoreA = scoreKenazDestroyChoice(state, a, chooserId, aiPlayerId, opponentId);
+    const scoreB = scoreKenazDestroyChoice(state, b, chooserId, aiPlayerId, opponentId);
+    return scoreB - scoreA;
+  });
+}
+
+function scoreKenazDestroyChoice(state, choice, chooserId, aiPlayerId, opponentId) {
+  const row = typeof choice.row === "number" ? choice.row : null;
+  const col = typeof choice.col === "number" ? choice.col : null;
+  if (row === null || col === null) {
+    return -999;
+  }
+
+  const owner = state.board?.[row]?.[col];
+  const rune = state.boardRunes?.[row]?.[col] || null;
+  if (!rune || !owner) {
+    return -999;
+  }
+
+  let score = 0;
+
+  if (owner === 3) {
+    score += 6;
+  } else if (owner === chooserId) {
+    score -= 14;
+  } else {
+    score += 12;
+  }
+
+  if (rune.id === "eihwaz") {
+    score += owner === chooserId ? -8 : 8;
+  }
+
+  if (rune.id === "berkana") {
+    score += owner === chooserId ? -4 : 5;
+  }
+
+  if (rune.id === "laguz") {
+    score += owner === chooserId ? -5 : 4;
+  }
+
+  if (rune.id === "kenaz") {
+    score += owner === chooserId ? -4 : 4;
+  }
+
+  if (owner === opponentId && chooserId === aiPlayerId) {
+    score += 2;
+  }
+
+  return score;
 }
 
 function normalizeChoice(choice) {

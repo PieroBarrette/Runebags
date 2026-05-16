@@ -23,7 +23,7 @@ const SHOP_ADD_LIMIT = 2;
 const SHOP_REMOVE_LIMIT = 1;
 const NON_COMBINABLE_RUNES = new Set(["basic", "inguz", "jera", "neutral", "berkana", "dagaz", "hagalz", "isa", "kenaz", "laguz", "wunjo", "nauthiz", "eihwaz"]);
 const DAGAZ_ON_PLAY_COPYABLE = new Set(["raido", "sowelu", "teiwaz", "thurisa", "perth", "odal", "mannaz", "gebo", "ansuz", "fehu"]);
-const DAGAZ_PASSIVE_COPYABLE = new Set(["laguz", "berkana", "ehwaz", "hagalz", "isa", "uruz", "wunjo", "kenaz", "eihwaz"]);
+const DAGAZ_PASSIVE_COPYABLE = new Set(["laguz", "berkana", "ehwaz", "hagalz", "isa", "uruz", "wunjo", "eihwaz"]);
 
 export function createInitialState(options = {}) {
   const black = createPlayer(BLACK, options);
@@ -274,6 +274,23 @@ export function resolvePendingBoardChoice(state, choice) {
     return finalizeTurn(state, turnContext.playerId, turnContext.extraTurn);
   }
 
+  if (action.type === "kenaz-destroy-target") {
+    const key = cellKey(choice.row, choice.col);
+    const valid = new Set(action.validCells.map((cell) => cellKey(cell.row, cell.col)));
+    if (!valid.has(key)) {
+      return { state, error: "Choose an occupied rune to destroy with Kenaz." };
+    }
+
+    const destroyed = removeRuneAt(state, choice.row, choice.col, "kenaz", "destroy");
+    if (destroyed) {
+      state.log.unshift("Kenaz destroyed the chosen rune permanently.");
+    }
+
+    const turnContext = action.turnContext;
+    state.pendingAction = null;
+    return finalizeTurn(state, turnContext.playerId, turnContext.extraTurn);
+  }
+
   if (action.type === "perth-l2-column") {
     if (!action.validColumns.includes(choice.column)) {
       return { state, error: "Choose one highlighted adjacent column for Perth." };
@@ -392,7 +409,7 @@ export function getPendingBoardTargets(state) {
 
   const action = state.pendingAction;
 
-  if (action.type === "gebo-l2-target") {
+  if (action.type === "gebo-l2-target" || action.type === "kenaz-destroy-target") {
     return { pending: true, mode: "cells", columns: [], cells: action.validCells };
   }
 
@@ -421,7 +438,7 @@ export function getPendingChoices(state) {
   }
 
   const action = state.pendingAction;
-  if (action.type === "gebo-l2-target") {
+  if (action.type === "gebo-l2-target" || action.type === "kenaz-destroy-target") {
     return action.validCells.map((cell) => ({ row: cell.row, col: cell.col, column: cell.col }));
   }
 
@@ -488,6 +505,9 @@ export function getPendingActionPrompt(state) {
   const action = state.pendingAction;
   if (action.type === "gebo-l2-target") {
     return "Gebo L2: choose one adjacent occupied rune to remove for this round.";
+  }
+  if (action.type === "kenaz-destroy-target") {
+    return "Kenaz: choose one occupied rune to destroy permanently.";
   }
   if (action.type === "fehu-recover") {
     return `Fehu: choose an away rune to recover (${action.remainingRecovers} remaining).`;
@@ -1194,6 +1214,20 @@ function applyRuneEffect(state, rune, move, playerId) {
     }
   }
 
+  if (effectRune.id === "kenaz") {
+    const ownedKenazCount = countOwnedRuneOnBoard(state, playerId, "kenaz");
+    if (ownedKenazCount === 2) {
+      const validCells = getOccupiedCells(state);
+      if (validCells.length > 0) {
+        pendingAction = {
+          type: "kenaz-destroy-target",
+          playerId,
+          validCells,
+        };
+      }
+    }
+  }
+
   if (effectRune.id === "mannaz") {
     const addCount = effectRune.level >= 2 ? 2 : 1;
     let added = 0;
@@ -1314,6 +1348,18 @@ function getAdjacentOccupiedCells(state, row, col) {
   return cells;
 }
 
+function getOccupiedCells(state) {
+  const cells = [];
+  for (let row = 0; row < state.rows; row += 1) {
+    for (let col = 0; col < state.columns; col += 1) {
+      if (state.board[row][col] !== EMPTY && state.boardRunes[row][col]) {
+        cells.push({ row, col });
+      }
+    }
+  }
+  return cells;
+}
+
 function removeRuneAt(state, row, col, source, returnMode) {
   if (!isInside(state, row, col)) {
     return null;
@@ -1325,7 +1371,7 @@ function removeRuneAt(state, row, col, source, returnMode) {
     return null;
   }
 
-  if (cellHasPassiveRuneId(state, row, col, "laguz")) {
+  if (returnMode !== "destroy" && cellHasPassiveRuneId(state, row, col, "laguz")) {
     return null;
   }
 
@@ -1334,6 +1380,13 @@ function removeRuneAt(state, row, col, source, returnMode) {
   state.board[row][col] = EMPTY;
   state.boardRunes[row][col] = null;
   compactColumn(state, col);
+
+  if (returnMode === "destroy") {
+    if (owner === NEUTRAL_OWNER) {
+      state.neutralSupply += 1;
+    }
+    return { owner, rune };
+  }
 
   if (returnMode === "immediate") {
     if (owner !== NEUTRAL_OWNER) {
@@ -1930,8 +1983,6 @@ function evaluateMajorityWinner(state) {
 }
 
 function settleRound(state) {
-  const kenazFieldActive = hasActiveKenazEtherealField(state);
-
   applyWunjoShopBonuses(state);
 
   const preservedIsa = [];
@@ -1952,7 +2003,7 @@ function settleRound(state) {
         continue;
       }
 
-      if (!kenazFieldActive && owner !== NEUTRAL_OWNER && cellHasPassiveRuneId(state, row, col, "isa")) {
+      if (owner !== NEUTRAL_OWNER && cellHasPassiveRuneId(state, row, col, "isa")) {
         preservedIsa.push({ owner, runeId: rune.id, level: rune.level, col });
         continue;
       }
@@ -1962,7 +2013,7 @@ function settleRound(state) {
         continue;
       }
 
-      if (!kenazFieldActive && !rune.ethereal) {
+      if (!rune.ethereal) {
         state.players[owner].bag.push(createRuneInstance(rune.id, rune.level));
       } else {
         state.players[owner].shopSupply.push(createRuneInstance(rune.id, rune.level));
@@ -1995,22 +2046,16 @@ function settleRound(state) {
   }
 }
 
-function hasActiveKenazEtherealField(state) {
-  const kenazCounts = {
-    1: 0,
-    2: 0,
-  };
-
+function countOwnedRuneOnBoard(state, ownerId, runeId) {
+  let count = 0;
   for (let row = 0; row < state.rows; row += 1) {
     for (let col = 0; col < state.columns; col += 1) {
-      const owner = state.board[row][col];
-      if ((owner === BLACK || owner === WHITE) && cellHasPassiveRuneId(state, row, col, "kenaz")) {
-        kenazCounts[owner] += 1;
+      if (state.board[row][col] === ownerId && state.boardRunes[row][col]?.id === runeId) {
+        count += 1;
       }
     }
   }
-
-  return kenazCounts[BLACK] >= 2 || kenazCounts[WHITE] >= 2;
+  return count;
 }
 
 function finalizeGameAtZeroPoints(state) {
