@@ -22,7 +22,6 @@ This plan is implementation-oriented and keeps js/main.js as a compatibility she
 - js/modes/aiMode.js
 - js/modes/onlineMode.js
 - js/modes/tutorialMode.js
-- js/modes/puzzleMode.js
 - js/modes/campaignMode.js
 
 ### Progression
@@ -48,7 +47,7 @@ This plan is implementation-oriented and keeps js/main.js as a compatibility she
 - Legacy fallback remains for migration safety.
 
 ### Next Save Stores
-- progression store: achievements, unlocks, tutorial flags, puzzle stats, campaign run stats.
+- progression store: achievements, unlocks, tutorial flags, campaign run stats.
 - keep large static content in js assets; save only progress deltas.
 
 ## Suggested Vertical Milestones
@@ -73,8 +72,6 @@ Status update:
 - Added shop SFX cosmetics (buy/equip) with multiple sound profiles.
 - Added toast VFX feedback for rewards, unlocks, purchases, and equips.
 - Added first-game tutorial suggestion toast per profile (one-time).
-- Added Puzzle Mode scaffold: puzzle menu panel, deterministic puzzle catalog/loader, per-profile puzzle progress, and first-solve rewards.
-- Expanded Puzzle Mode to 20 curated puzzles with difficulty tags and menu filters.
 - Added Campaign map prototype scaffold with branching nodes, 3 boss milestones, per-profile run persistence, and node completion rewards.
 - Campaign nodes now launch playable encounter scenarios with win/fail outcomes, restart flow, and progression rewards on clear.
 - Campaign upgraded to a branching Slay-the-Spire style tree with combat, elite, shop, remove, and boss nodes.
@@ -100,14 +97,10 @@ Status update:
 - Campaign combat victory checks now use per-encounter point supply majority thresholds (e.g., 2 of 3 for 3-supply fights).
 
 ### M4
-- Puzzle mode with deterministic scenario loader.
-- Start with 20 curated puzzles then scale to 100.
-
-### M5
 - Campaign map prototype with 3 bosses and branch choices.
 - Save/resume current run by seed + node progress.
 
-### M6
+### M5
 - Online cosmetic sync payloads and host-board rule.
 
 ## Boss Concepts (Campaign)
@@ -119,15 +112,8 @@ Status update:
 - Permanently removed opponent rune in shop.
 - Won a round on first turn.
 - Won with 0 point supply remaining.
-- Solved 10 puzzles without hints.
 - Cleared first campaign boss.
 - Perfect shop phase (max adds and legal combine in one phase).
-
-## Puzzle Reward Suggestions
-- Easy: 20-30 points.
-- Medium: 45-70 points.
-- Hard: 90-140 points.
-- Bonus: +25% first-attempt clear.
 
 ## Verification Checklist
 - Legacy saves migrate safely.

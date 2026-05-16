@@ -6,8 +6,6 @@ function createEmptyProgress() {
   return {
     campaignNodesCompleted: 0,
     campaignNodesTotal: 0,
-    puzzlesSolved: 0,
-    puzzlesTotal: 0,
     achievementsUnlocked: 0,
     achievementsTotal: 0,
   };
@@ -54,8 +52,6 @@ function sanitizeProgress(rawProgress) {
   return {
     campaignNodesCompleted: Math.max(0, Number(source.campaignNodesCompleted) || 0),
     campaignNodesTotal: Math.max(0, Number(source.campaignNodesTotal) || 0),
-    puzzlesSolved: Math.max(0, Number(source.puzzlesSolved) || 0),
-    puzzlesTotal: Math.max(0, Number(source.puzzlesTotal) || 0),
     achievementsUnlocked: Math.max(0, Number(source.achievementsUnlocked) || 0),
     achievementsTotal: Math.max(0, Number(source.achievementsTotal) || 0),
   };
@@ -214,23 +210,6 @@ export function setProfileAchievementProgress(slot, unlockedCount, totalCount) {
   saveProfileState(payload);
 }
 
-export function setProfilePuzzleProgress(slot, solvedCount, totalCount) {
-  const safeSlot = sanitizeSlot(slot, 1);
-  const payload = loadProfileState();
-  const profile = payload.slots.find((item) => item.slot === safeSlot);
-  if (!profile) {
-    return;
-  }
-
-  profile.progression = sanitizeProgress({
-    ...profile.progression,
-    puzzlesSolved: Math.max(0, Number(solvedCount) || 0),
-    puzzlesTotal: Math.max(0, Number(totalCount) || 0),
-  });
-  profile.lastPlayedAt = Date.now();
-  saveProfileState(payload);
-}
-
 export function setProfileCampaignProgress(slot, completedCount, totalCount) {
   const safeSlot = sanitizeSlot(slot, 1);
   const payload = loadProfileState();
@@ -306,14 +285,11 @@ export function calculateProfileProgressPercent(profile) {
   const campaignRatio = progression.campaignNodesTotal > 0
     ? progression.campaignNodesCompleted / progression.campaignNodesTotal
     : 0;
-  const puzzleRatio = progression.puzzlesTotal > 0
-    ? progression.puzzlesSolved / progression.puzzlesTotal
-    : 0;
   const achievementRatio = progression.achievementsTotal > 0
     ? progression.achievementsUnlocked / progression.achievementsTotal
     : 0;
 
-  const weighted = campaignRatio * 0.5 + puzzleRatio * 0.3 + achievementRatio * 0.2;
+  const weighted = campaignRatio * 0.7 + achievementRatio * 0.3;
   const clamped = Math.max(0, Math.min(1, weighted));
   return Math.round(clamped * 100);
 }

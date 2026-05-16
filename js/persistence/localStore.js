@@ -3,7 +3,6 @@ const STORAGE_KEYS = {
   passplay: "runebags-save-passplay-v2",
   ai: "runebags-save-ai-v2",
   campaign: "runebags-save-campaign-v1",
-  puzzle: "runebags-save-puzzle-v1",
   online: "runebags-save-online-v2",
 };
 

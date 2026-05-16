@@ -40,7 +40,6 @@ import {
   markProfileTutorialSeen,
   setProfileAchievementProgress,
   setProfileCampaignProgress,
-  setProfilePuzzleProgress,
   setActiveProfileSlot,
   spendProfileWalletPoints,
   touchProfileSlot,
@@ -59,14 +58,6 @@ import {
   saveCosmeticState,
   selectCosmetic,
 } from "./persistence/cosmeticStore.js";
-import { buildPuzzleState, getPuzzleById, getPuzzleCount, PUZZLE_CATALOG } from "./puzzles/puzzleCatalog.js";
-import {
-  isPuzzleSolved,
-  loadPuzzleState,
-  markPuzzleAttempt,
-  markPuzzleSolved,
-  savePuzzleState,
-} from "./persistence/puzzleStore.js";
 import { CAMPAIGN_NODES, getCampaignNodeById } from "./campaign/campaignCatalog.js";
 import {
   addCampaignCombatPoints,
@@ -80,7 +71,6 @@ import {
   spendCampaignReroll,
   startCampaignRun,
 } from "./persistence/campaignStore.js";
-import { buildCampaignEncounterState, getCampaignEncounterByNodeId } from "./campaign/campaignEncounterBuilder.js";
 import {
   buildCampaignEncounterState,
   getCampaignEncounterByNodeId,
@@ -99,7 +89,6 @@ const ONLINE_NAME_MAX = 14;
 const MODE_PASSPLAY = "passplay";
 const MODE_AI = "ai";
 const MODE_CAMPAIGN = "campaign";
-const MODE_PUZZLE = "puzzle";
 const MODE_ONLINE = "online";
 const DEFAULT_SFX_VOLUME = 0.18;
 const SELECTABLE_RUNES = RUNE_CATALOG.filter(
@@ -146,13 +135,6 @@ const elements = {
   menuCampaignBtn: document.getElementById("menu-campaign-btn"),
   menuAiBtn: document.getElementById("menu-ai-btn"),
   menuPassplayBtn: document.getElementById("menu-passplay-btn"),
-  menuPuzzleBtn: document.getElementById("menu-puzzle-btn"),
-  puzzlePanel: document.getElementById("puzzle-panel"),
-  puzzleSummary: document.getElementById("puzzle-summary"),
-  puzzleDifficultyFilter: document.getElementById("puzzle-difficulty-filter"),
-  puzzleStatusFilter: document.getElementById("puzzle-status-filter"),
-  puzzleList: document.getElementById("puzzle-list"),
-  puzzleBackBtn: document.getElementById("puzzle-back-btn"),
   campaignPanel: document.getElementById("campaign-panel"),
   campaignSummary: document.getElementById("campaign-summary"),
   campaignMap: document.getElementById("campaign-map"),
@@ -279,7 +261,6 @@ let selectedLocalRuneIds = loadRuneSelectionPreference();
 let activeProfileSlot = getActiveProfileSlot();
 let achievementState = loadAchievementState(activeProfileSlot);
 let cosmeticState = loadCosmeticState(activeProfileSlot);
-let puzzleState = loadPuzzleState(activeProfileSlot);
 let campaignState = loadCampaignState(activeProfileSlot);
 let state = restoreState(
   getSavedStateForMode(MODE_PASSPLAY, activeProfileSlot) || createInitialState(getLocalGameOptions()),
@@ -314,8 +295,6 @@ let onlineChatMessages = [];
 let hasUnreadChat = false;
 let pendingEntryRoute = null;
 let rewardPopupShownForGame = false;
-let activePuzzleId = null;
-let puzzleOutcomeHandled = false;
 let activeCampaignNodeId = null;
 let campaignOutcomeHandled = false;
 let campaignActiveActionNodeId = null;
@@ -323,8 +302,6 @@ let campaignActiveActionType = null;
 let campaignSelectedShopAddIndexes = new Set();
 let campaignInShopNode = false;
 let campaignScoutedNodeId = null;
-let puzzleDifficultyFilter = "all";
-let puzzleStatusFilter = "all";
 
 registerServiceWorker();
 
@@ -338,7 +315,6 @@ bindSoundUnlockHandlers();
 applySelectedCosmetics();
 refreshProfileHeader();
 syncAchievementSummaryToProfile();
-syncPuzzleSummaryToProfile();
 syncCampaignSummaryToProfile();
 render();
 initializeEntryMode();
@@ -543,10 +519,6 @@ function bindEvents() {
     render();
   });
 
-  elements.menuPuzzleBtn.addEventListener("click", () => {
-    showPuzzlePanel();
-  });
-
   elements.aiContinueBtn.addEventListener("click", () => {
     persistState();
     touchProfileSlot(activeProfileSlot);
@@ -742,10 +714,6 @@ function bindEvents() {
     showMainMenu();
   });
 
-  elements.puzzleBackBtn.addEventListener("click", () => {
-    showMainMenu();
-  });
-
   elements.campaignBackBtn.addEventListener("click", () => {
     showMainMenu();
   });
@@ -769,20 +737,6 @@ function bindEvents() {
     syncCampaignSummaryToProfile();
     renderCampaignPanel();
     showToast("Campaign run reset.", "warn");
-  });
-
-  elements.puzzleDifficultyFilter.addEventListener("change", () => {
-    const selected = String(elements.puzzleDifficultyFilter.value || "all").toLowerCase();
-    puzzleDifficultyFilter = selected === "easy" || selected === "medium" || selected === "hard"
-      ? selected
-      : "all";
-    renderPuzzlePanel();
-  });
-
-  elements.puzzleStatusFilter.addEventListener("change", () => {
-    const selected = String(elements.puzzleStatusFilter.value || "all").toLowerCase();
-    puzzleStatusFilter = selected === "solved" || selected === "unsolved" ? selected : "all";
-    renderPuzzlePanel();
   });
 
   elements.shopBackBtn.addEventListener("click", () => {
@@ -836,16 +790,6 @@ function bindEvents() {
       renderShopPanelMenu();
       showToast(`Equipped ${cosmetic.title}.`, "reward");
     }
-  });
-
-  elements.puzzleList.addEventListener("click", (event) => {
-    const startBtn = event.target.closest("button[data-puzzle-start]");
-    if (!startBtn) {
-      return;
-    }
-
-    const puzzleId = String(startBtn.dataset.puzzleStart || "");
-    startPuzzleById(puzzleId);
   });
 
   const handleCampaignPanelClick = (event) => {
@@ -1189,12 +1133,6 @@ function bindEvents() {
   });
 
   elements.phaseBtn.addEventListener("click", () => {
-    if (currentLocalMode === MODE_PUZZLE) {
-      showPuzzlePanel();
-      setStatus("Choose another puzzle.");
-      return;
-    }
-
     if (currentLocalMode === MODE_CAMPAIGN && activeCampaignNodeId && !campaignInShopNode) {
       showCampaignPanel();
       setStatus("Choose your next campaign node.");
@@ -1270,11 +1208,6 @@ function bindEvents() {
   });
 
   elements.newGameBtn.addEventListener("click", () => {
-    if (currentLocalMode === MODE_PUZZLE && activePuzzleId) {
-      startPuzzleById(activePuzzleId, { restart: true });
-      return;
-    }
-
     if (currentLocalMode === MODE_CAMPAIGN && activeCampaignNodeId) {
       if (campaignInShopNode) {
         const node = getCampaignNodeById(activeCampaignNodeId);
@@ -1600,7 +1533,6 @@ function render() {
   }
 
   hideBoardRuneInfo();
-  normalizePuzzleEndStateIfNeeded();
   normalizeCampaignEndStateIfNeeded();
 
   const boardSnapshot = snapshotBoard(state);
@@ -1700,7 +1632,6 @@ function render() {
   applyOnlinePlayerNames();
   evaluateAchievementsIfNeeded();
   evaluateRewardsIfNeeded();
-  evaluatePuzzleProgressIfNeeded();
   evaluateCampaignProgressIfNeeded();
 
   renderLog(state, elements);
@@ -1875,97 +1806,6 @@ function evaluateCampaignProgressIfNeeded() {
   renderCampaignPanel();
 }
 
-function normalizePuzzleEndStateIfNeeded() {
-  if (currentLocalMode !== MODE_PUZZLE || state.phase !== "round-end") {
-    return;
-  }
-
-  state.phase = "game-over";
-  if (state.winner === 1 || state.winner === 2) {
-    state.gameWinner = state.winner;
-    state.gameWinnerReason = "puzzle-solved";
-    state.log.unshift(`${getDisplayPlayerName(state.winner)} solved the puzzle.`);
-  } else {
-    state.gameWinner = null;
-    state.gameWinnerReason = "puzzle-failed";
-    state.log.unshift("Puzzle ended without a valid solution.");
-  }
-}
-
-function startPuzzleById(puzzleId, options = {}) {
-  const restart = Boolean(options.restart);
-  const puzzle = getPuzzleById(puzzleId);
-  if (!puzzle) {
-    showToast("Puzzle not found.", "warn");
-    return;
-  }
-
-  if (online.isOnlineActive()) {
-    online.leaveRoom();
-  }
-
-  setAiSettings(aiConfig, false, aiConfig.playerId, aiConfig.depth);
-  currentLocalMode = MODE_PUZZLE;
-  activePuzzleId = puzzle.id;
-  puzzleOutcomeHandled = false;
-  state = restoreState(buildPuzzleState(puzzle, getLocalGameOptions()), getLocalGameOptions());
-  handVisibility = {
-    1: puzzle.currentPlayer === 1,
-    2: puzzle.currentPlayer === 2,
-  };
-  resetAchievementTracking();
-  resetRewardTracking();
-
-  puzzleState = markPuzzleAttempt(puzzleState, puzzle.id);
-  savePuzzleState(activeProfileSlot, puzzleState);
-  syncPuzzleSummaryToProfile();
-  persistState();
-  enterGameScreen("puzzle");
-
-  const restartPrefix = restart ? "Puzzle restarted. " : "Puzzle started. ";
-  setStatus(`${restartPrefix}${puzzle.objective} Hint: column ${Number(puzzle.recommendedColumn) + 1}.`);
-  showToast(`${puzzle.title}: ${puzzle.objective}`, "info");
-  render();
-}
-
-function evaluatePuzzleProgressIfNeeded() {
-  if (currentLocalMode !== MODE_PUZZLE || !activePuzzleId || puzzleOutcomeHandled || state.phase !== "game-over") {
-    return;
-  }
-
-  puzzleOutcomeHandled = true;
-  const puzzle = getPuzzleById(activePuzzleId);
-  if (!puzzle) {
-    return;
-  }
-
-  const solved = state.gameWinner === puzzle.currentPlayer;
-  if (!solved) {
-    showToast(`Puzzle failed: ${puzzle.title}. Try again.`, "warn");
-    setStatus(`Puzzle failed. Use Restart Puzzle or More Puzzles.`);
-    return;
-  }
-
-  const wasAlreadySolved = isPuzzleSolved(puzzleState, puzzle.id);
-  puzzleState = markPuzzleSolved(puzzleState, puzzle.id);
-  savePuzzleState(activeProfileSlot, puzzleState);
-  syncPuzzleSummaryToProfile();
-
-  if (!wasAlreadySolved) {
-    const reward = Math.max(0, Number(puzzle.rewardPoints) || 0);
-    if (reward > 0) {
-      addProfileWalletPoints(activeProfileSlot, reward);
-      refreshProfileHeader();
-      pulseElement(elements.menuProfileSwitchBtn, "ui-pulse");
-      showToast(`Puzzle solved: ${puzzle.title} (+${reward} pts)`, "reward");
-    } else {
-      showToast(`Puzzle solved: ${puzzle.title}`, "reward");
-    }
-  } else {
-    showToast(`Puzzle solved again: ${puzzle.title}`, "reward");
-  }
-}
-
 function pulseElement(el, className) {
   if (!el) {
     return;
@@ -2070,19 +1910,6 @@ function renderShopPanel() {
     elements.shopRerollBtn.hidden = true;
     elements.phaseBtn.hidden = !inEncounterEnd;
     elements.phaseBtn.textContent = "Back to Campaign";
-    return;
-  }
-
-  if (currentLocalMode === MODE_PUZZLE) {
-    const inPuzzleEnd = state.phase === "game-over";
-    elements.shopPanel.hidden = true;
-    elements.boardEl.hidden = false;
-    elements.shopInstruction.hidden = true;
-    elements.shopSwitchPlayer.hidden = true;
-    elements.shopRemoveBtn.hidden = true;
-    elements.shopCombineBtn.hidden = true;
-    elements.phaseBtn.hidden = !inPuzzleEnd;
-    elements.phaseBtn.textContent = "More Puzzles";
     return;
   }
 
@@ -2545,7 +2372,6 @@ function initializeEntryMode() {
 function showProfileEntryScreen() {
   elements.profileEntryScreen.hidden = false;
   elements.mainMenu.hidden = true;
-  elements.puzzlePanel.hidden = true;
   elements.campaignPanel.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
@@ -2585,7 +2411,6 @@ function continueAfterProfileEntry() {
 function showMainMenu() {
   elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = false;
-  elements.puzzlePanel.hidden = true;
   elements.campaignPanel.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
@@ -2601,7 +2426,6 @@ function showMainMenu() {
 function showAiPanel() {
   elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
-  elements.puzzlePanel.hidden = true;
   elements.campaignPanel.hidden = true;
   elements.aiPanel.hidden = false;
   elements.settingsPanel.hidden = true;
@@ -2625,7 +2449,6 @@ function showAiPanel() {
 function showOnlinePanel() {
   elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
-  elements.puzzlePanel.hidden = true;
   elements.campaignPanel.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
@@ -2646,7 +2469,6 @@ function showOnlinePanel() {
 function showRulesPanel() {
   elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
-  elements.puzzlePanel.hidden = true;
   elements.campaignPanel.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
@@ -2661,7 +2483,6 @@ function showRulesPanel() {
 function showSettingsPanel() {
   elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
-  elements.puzzlePanel.hidden = true;
   elements.campaignPanel.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = false;
@@ -2676,7 +2497,6 @@ function showSettingsPanel() {
 function showProfilesPanel() {
   elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
-  elements.puzzlePanel.hidden = true;
   elements.campaignPanel.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
@@ -2692,7 +2512,6 @@ function showProfilesPanel() {
 function showAchievementsPanel() {
   elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
-  elements.puzzlePanel.hidden = true;
   elements.campaignPanel.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
@@ -2708,7 +2527,6 @@ function showAchievementsPanel() {
 function showShopPanelMenu() {
   elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
-  elements.puzzlePanel.hidden = true;
   elements.campaignPanel.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
@@ -2721,26 +2539,9 @@ function showShopPanelMenu() {
   renderShopPanelMenu();
 }
 
-function showPuzzlePanel() {
-  elements.profileEntryScreen.hidden = true;
-  elements.mainMenu.hidden = true;
-  elements.puzzlePanel.hidden = false;
-  elements.campaignPanel.hidden = true;
-  elements.aiPanel.hidden = true;
-  elements.settingsPanel.hidden = true;
-  elements.profilesPanel.hidden = true;
-  elements.achievementsPanel.hidden = true;
-  elements.shopPanelMenu.hidden = true;
-  elements.onlinePanel.hidden = true;
-  elements.rulesPanel.hidden = true;
-  elements.gameScreen.hidden = true;
-  renderPuzzlePanel();
-}
-
 function showCampaignPanel() {
   elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
-  elements.puzzlePanel.hidden = true;
   elements.campaignPanel.hidden = false;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
@@ -2756,7 +2557,6 @@ function showCampaignPanel() {
 function enterGameScreen(mode, roomCode = null) {
   elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
-  elements.puzzlePanel.hidden = true;
   elements.campaignPanel.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
@@ -2957,11 +2757,6 @@ function updateTopButtons() {
     return;
   }
 
-  if (currentLocalMode === MODE_PUZZLE && activePuzzleId) {
-    elements.newGameBtn.textContent = "Restart Puzzle";
-    return;
-  }
-
   elements.newGameBtn.textContent = "New Game";
 }
 
@@ -3036,15 +2831,6 @@ function persistState() {
       playerId: waitingRoomState.playerId || null,
       playerNames: waitingRoomState.playerNames || null,
       state,
-      updatedAt: Date.now(),
-    }, activeProfileSlot);
-    return;
-  }
-
-  if (currentLocalMode === MODE_PUZZLE && activePuzzleId) {
-    saveModeSave(MODE_PUZZLE, {
-      state,
-      puzzleId: activePuzzleId,
       updatedAt: Date.now(),
     }, activeProfileSlot);
     return;
@@ -3195,7 +2981,7 @@ function getRewardPerspectivePlayerId() {
 }
 
 function evaluateRewardsIfNeeded() {
-  if (currentLocalMode === MODE_PUZZLE || currentLocalMode === MODE_CAMPAIGN) {
+  if (currentLocalMode === MODE_CAMPAIGN) {
     previousRewardSnapshot = createRewardSnapshot(state, currentLocalMode);
     return;
   }
@@ -3246,11 +3032,6 @@ function syncAchievementSummaryToProfile() {
 }
 
 function evaluateAchievementsIfNeeded() {
-  if (currentLocalMode === MODE_PUZZLE) {
-    previousAchievementSnapshot = createAchievementSnapshot(state, currentLocalMode);
-    return;
-  }
-
   const result = evaluateAchievementProgress(
     achievementState,
     previousAchievementSnapshot,
@@ -3377,62 +3158,6 @@ function renderShopPanelMenu() {
     card.appendChild(actionWrap);
     elements.shopCosmeticsList.appendChild(card);
   });
-}
-
-function renderPuzzlePanel() {
-  const solvedSet = new Set(puzzleState?.solvedIds || []);
-  const totalCount = getPuzzleCount();
-  const filtered = PUZZLE_CATALOG.filter((puzzle) => matchesPuzzleFilters(puzzle, solvedSet));
-  const solvedInFilter = filtered.filter((puzzle) => solvedSet.has(puzzle.id)).length;
-  elements.puzzleSummary.textContent = `${solvedSet.size}/${totalCount} solved | Showing ${filtered.length} (${solvedInFilter} solved)`;
-  elements.puzzleList.innerHTML = "";
-
-  filtered.forEach((puzzle) => {
-    const solved = solvedSet.has(puzzle.id);
-    const attempts = Math.max(0, Number(puzzleState?.attemptsById?.[puzzle.id]) || 0);
-
-    const card = document.createElement("article");
-    card.className = `achievement-card ${solved ? "unlocked" : "locked"}`;
-
-    const difficulty = String(puzzle.difficulty || "medium").toLowerCase();
-    const tag = document.createElement("span");
-    tag.className = `puzzle-difficulty-tag ${difficulty}`;
-    tag.textContent = difficulty;
-    card.appendChild(tag);
-
-    const title = document.createElement("h3");
-    title.textContent = puzzle.title;
-    card.appendChild(title);
-
-    const desc = document.createElement("p");
-    desc.textContent = `${puzzle.objective} Reward: ${puzzle.rewardPoints} pts.`;
-    card.appendChild(desc);
-
-    const detail = document.createElement("p");
-    detail.className = "achievement-progress";
-    detail.textContent = `${solved ? "Solved" : "Unsolved"} | Attempts: ${attempts} | Hint: column ${Number(puzzle.recommendedColumn) + 1}`;
-    card.appendChild(detail);
-
-    const actionWrap = document.createElement("div");
-    actionWrap.className = "menu-actions compact";
-
-    const startBtn = document.createElement("button");
-    startBtn.type = "button";
-    startBtn.className = "menu-btn";
-    startBtn.dataset.puzzleStart = puzzle.id;
-    startBtn.textContent = solved ? "Play Again" : "Start Puzzle";
-    actionWrap.appendChild(startBtn);
-
-    card.appendChild(actionWrap);
-    elements.puzzleList.appendChild(card);
-  });
-
-  if (!filtered.length) {
-    const empty = document.createElement("p");
-    empty.className = "settings-note";
-    empty.textContent = "No puzzles match the selected filters.";
-    elements.puzzleList.appendChild(empty);
-  }
 }
 
 function resolveCampaignNode(nodeId) {
@@ -3867,23 +3592,6 @@ function getCampaignBossConstraintId(node) {
   return CAMPAIGN_BOSS_CONSTRAINT_POOL[index];
 }
 
-function matchesPuzzleFilters(puzzle, solvedSet) {
-  const difficulty = String(puzzle?.difficulty || "medium").toLowerCase();
-  const solved = solvedSet.has(puzzle.id);
-
-  const difficultyOk = puzzleDifficultyFilter === "all" || difficulty === puzzleDifficultyFilter;
-  const solvedOk = puzzleStatusFilter === "all"
-    || (puzzleStatusFilter === "solved" && solved)
-    || (puzzleStatusFilter === "unsolved" && !solved);
-
-  return difficultyOk && solvedOk;
-}
-
-function syncPuzzleSummaryToProfile() {
-  const solved = Array.isArray(puzzleState?.solvedIds) ? puzzleState.solvedIds.length : 0;
-  setProfilePuzzleProgress(activeProfileSlot, solved, getPuzzleCount());
-}
-
 function syncCampaignSummaryToProfile() {
   const completion = getCampaignCompletion(campaignState);
   setProfileCampaignProgress(activeProfileSlot, completion.completed, completion.total);
@@ -4020,10 +3728,7 @@ function activateProfileSlot(slot, options = {}) {
   touchProfileSlot(activeProfileSlot);
   achievementState = loadAchievementState(activeProfileSlot);
   cosmeticState = loadCosmeticState(activeProfileSlot);
-  puzzleState = loadPuzzleState(activeProfileSlot);
   campaignState = loadCampaignState(activeProfileSlot);
-  activePuzzleId = null;
-  puzzleOutcomeHandled = false;
   activeCampaignNodeId = null;
   campaignOutcomeHandled = false;
   campaignInShopNode = false;
@@ -4041,7 +3746,6 @@ function activateProfileSlot(slot, options = {}) {
   resetAchievementTracking();
   resetRewardTracking();
   syncAchievementSummaryToProfile();
-  syncPuzzleSummaryToProfile();
   syncCampaignSummaryToProfile();
 
   refreshProfileHeader();
