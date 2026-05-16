@@ -219,6 +219,30 @@ export function getProfileWalletPoints(slot) {
   return Math.max(0, Math.floor(Number(profile.walletPoints) || 0));
 }
 
+export function spendProfileWalletPoints(slot, points) {
+  const safeSlot = sanitizeSlot(slot, 1);
+  const amount = Math.max(0, Math.floor(Number(points) || 0));
+  if (amount <= 0) {
+    return false;
+  }
+
+  const payload = loadProfileState();
+  const profile = payload.slots.find((item) => item.slot === safeSlot);
+  if (!profile) {
+    return false;
+  }
+
+  const current = Math.max(0, Math.floor(Number(profile.walletPoints) || 0));
+  if (current < amount) {
+    return false;
+  }
+
+  profile.walletPoints = current - amount;
+  profile.lastPlayedAt = Date.now();
+  saveProfileState(payload);
+  return true;
+}
+
 export function calculateProfileProgressPercent(profile) {
   if (!profile || typeof profile !== "object") {
     return 0;

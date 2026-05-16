@@ -38,6 +38,7 @@ import {
   getProfileWalletPoints,
   setProfileAchievementProgress,
   setActiveProfileSlot,
+  spendProfileWalletPoints,
   touchProfileSlot,
   updateProfileName,
 } from "./persistence/profileStore.js";
@@ -45,6 +46,15 @@ import { ACHIEVEMENT_CATALOG } from "./progression/achievementCatalog.js";
 import { evaluateAchievementProgress } from "./progression/achievementEngine.js";
 import { loadAchievementState, saveAchievementState } from "./persistence/achievementStore.js";
 import { calculateGameReward, createRewardSnapshot } from "./progression/rewardEngine.js";
+import { COSMETIC_CATALOG, getCosmeticById } from "./cosmetics/cosmeticCatalog.js";
+import {
+  canPurchase,
+  isOwned,
+  loadCosmeticState,
+  ownCosmetic,
+  saveCosmeticState,
+  selectCosmetic,
+} from "./persistence/cosmeticStore.js";
 import { createOnlineController } from "./online/onlineController.js";
 import { getRuneById, RUNE_CATALOG } from "./runes/runeCatalog.js";
 import { createSfxEngine } from "./audio/sfxEngine.js";
@@ -88,6 +98,7 @@ const elements = {
   aiStartBtn: document.getElementById("ai-start-btn"),
   aiBackBtn: document.getElementById("ai-back-btn"),
   menuOnlineBtn: document.getElementById("menu-online-btn"),
+  menuShopBtn: document.getElementById("menu-shop-btn"),
   menuAchievementsBtn: document.getElementById("menu-achievements-btn"),
   menuProfileSwitchBtn: document.getElementById("menu-profile-switch-btn"),
   menuRulesBtn: document.getElementById("menu-rules-btn"),
@@ -106,6 +117,10 @@ const elements = {
   achievementsList: document.getElementById("achievements-list"),
   achievementsSummary: document.getElementById("achievements-summary"),
   achievementsBackBtn: document.getElementById("achievements-back-btn"),
+  shopPanelMenu: document.getElementById("shop-panel-menu"),
+  shopWalletSummary: document.getElementById("shop-wallet-summary"),
+  shopCosmeticsList: document.getElementById("shop-cosmetics-list"),
+  shopBackBtn: document.getElementById("shop-back-btn"),
   onlinePanel: document.getElementById("online-panel"),
   onlineServerDot: document.getElementById("online-server-dot"),
   onlineServerText: document.getElementById("online-server-text"),
@@ -183,11 +198,13 @@ const elements = {
   shopSwitchPlayer: document.getElementById("shop-switch-player"),
   shopRemoveBtn: document.getElementById("shop-remove-btn"),
   shopCombineBtn: document.getElementById("shop-combine-btn"),
+  fxToastLayer: document.getElementById("fx-toast-layer"),
 };
 
 let selectedLocalRuneIds = loadRuneSelectionPreference();
 let activeProfileSlot = getActiveProfileSlot();
 let achievementState = loadAchievementState(activeProfileSlot);
+let cosmeticState = loadCosmeticState(activeProfileSlot);
 let state = restoreState(
   getSavedStateForMode(MODE_PASSPLAY, activeProfileSlot) || createInitialState(getLocalGameOptions()),
   getLocalGameOptions(),
@@ -231,6 +248,7 @@ initializeAnimations();
 initializeSound();
 renderRuneSelectionSettings();
 bindSoundUnlockHandlers();
+applySelectedCosmetics();
 refreshProfileHeader();
 syncAchievementSummaryToProfile();
 render();
@@ -603,6 +621,10 @@ function bindEvents() {
     showSettingsPanel();
   });
 
+  elements.menuShopBtn.addEventListener("click", () => {
+    showShopPanelMenu();
+  });
+
   elements.menuAchievementsBtn.addEventListener("click", () => {
     showAchievementsPanel();
   });
@@ -621,6 +643,59 @@ function bindEvents() {
 
   elements.achievementsBackBtn.addEventListener("click", () => {
     showMainMenu();
+  });
+
+  elements.shopBackBtn.addEventListener("click", () => {
+    showMainMenu();
+  });
+
+  elements.shopCosmeticsList.addEventListener("click", (event) => {
+    const buyBtn = event.target.closest("button[data-cosmetic-buy]");
+    if (buyBtn) {
+      const id = String(buyBtn.dataset.cosmeticBuy || "");
+      const cosmetic = getCosmeticById(id);
+      if (!cosmetic) {
+        return;
+      }
+
+      if (!canPurchase(cosmeticState, id)) {
+        showToast("Item already owned or unavailable.", "warn");
+        return;
+      }
+
+      const spent = spendProfileWalletPoints(activeProfileSlot, cosmetic.price);
+      if (!spent) {
+        showToast("Not enough profile points.", "warn");
+        return;
+      }
+
+      cosmeticState = ownCosmetic(cosmeticState, id);
+      saveCosmeticState(activeProfileSlot, cosmeticState);
+      refreshProfileHeader();
+      renderShopPanelMenu();
+      showToast(`Purchased ${cosmetic.title} (-${cosmetic.price} pts).`, "reward");
+      return;
+    }
+
+    const equipBtn = event.target.closest("button[data-cosmetic-equip]");
+    if (equipBtn) {
+      const id = String(equipBtn.dataset.cosmeticEquip || "");
+      const cosmetic = getCosmeticById(id);
+      if (!cosmetic) {
+        return;
+      }
+
+      if (!isOwned(cosmeticState, id)) {
+        showToast("Purchase this item before equipping.", "warn");
+        return;
+      }
+
+      cosmeticState = selectCosmetic(cosmeticState, cosmetic);
+      saveCosmeticState(activeProfileSlot, cosmeticState);
+      applySelectedCosmetics();
+      renderShopPanelMenu();
+      showToast(`Equipped ${cosmetic.title}.`, "reward");
+    }
   });
 
   elements.rewardPopupClose.addEventListener("click", () => {
@@ -1940,6 +2015,7 @@ function showProfileEntryScreen() {
   elements.settingsPanel.hidden = true;
   elements.profilesPanel.hidden = true;
   elements.achievementsPanel.hidden = true;
+  elements.shopPanelMenu.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
@@ -1974,6 +2050,7 @@ function showMainMenu() {
   elements.settingsPanel.hidden = true;
   elements.profilesPanel.hidden = true;
   elements.achievementsPanel.hidden = true;
+  elements.shopPanelMenu.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
@@ -1987,6 +2064,7 @@ function showAiPanel() {
   elements.settingsPanel.hidden = true;
   elements.profilesPanel.hidden = true;
   elements.achievementsPanel.hidden = true;
+  elements.shopPanelMenu.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
@@ -2008,6 +2086,7 @@ function showOnlinePanel() {
   elements.settingsPanel.hidden = true;
   elements.profilesPanel.hidden = true;
   elements.achievementsPanel.hidden = true;
+  elements.shopPanelMenu.hidden = true;
   elements.onlinePanel.hidden = false;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
@@ -2026,6 +2105,7 @@ function showRulesPanel() {
   elements.settingsPanel.hidden = true;
   elements.profilesPanel.hidden = true;
   elements.achievementsPanel.hidden = true;
+  elements.shopPanelMenu.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = false;
   elements.gameScreen.hidden = true;
@@ -2038,6 +2118,7 @@ function showSettingsPanel() {
   elements.settingsPanel.hidden = false;
   elements.profilesPanel.hidden = true;
   elements.achievementsPanel.hidden = true;
+  elements.shopPanelMenu.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
@@ -2050,6 +2131,7 @@ function showProfilesPanel() {
   elements.settingsPanel.hidden = true;
   elements.profilesPanel.hidden = false;
   elements.achievementsPanel.hidden = true;
+  elements.shopPanelMenu.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
@@ -2063,10 +2145,25 @@ function showAchievementsPanel() {
   elements.settingsPanel.hidden = true;
   elements.profilesPanel.hidden = true;
   elements.achievementsPanel.hidden = false;
+  elements.shopPanelMenu.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
   renderAchievementsPanel();
+}
+
+function showShopPanelMenu() {
+  elements.profileEntryScreen.hidden = true;
+  elements.mainMenu.hidden = true;
+  elements.aiPanel.hidden = true;
+  elements.settingsPanel.hidden = true;
+  elements.profilesPanel.hidden = true;
+  elements.achievementsPanel.hidden = true;
+  elements.shopPanelMenu.hidden = false;
+  elements.onlinePanel.hidden = true;
+  elements.rulesPanel.hidden = true;
+  elements.gameScreen.hidden = true;
+  renderShopPanelMenu();
 }
 
 function enterGameScreen(mode, roomCode = null) {
@@ -2076,6 +2173,7 @@ function enterGameScreen(mode, roomCode = null) {
   elements.settingsPanel.hidden = true;
   elements.profilesPanel.hidden = true;
   elements.achievementsPanel.hidden = true;
+  elements.shopPanelMenu.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = false;
@@ -2360,6 +2458,32 @@ function refreshProfileHeader() {
   elements.menuProfileSwitchBtn.textContent = `Profile ${activeProfileSlot}: ${profile.name} (${getProfileWalletPoints(activeProfileSlot)} pts)`;
 }
 
+function applySelectedCosmetics() {
+  const boardSkin = cosmeticState?.selected?.board || "board-classic";
+  const runeSkin = cosmeticState?.selected?.rune || "rune-classic";
+  document.body.dataset.boardSkin = boardSkin;
+  document.body.dataset.runeSkin = runeSkin;
+}
+
+function showToast(message, type = "info") {
+  const layer = elements.fxToastLayer;
+  if (!layer) {
+    return;
+  }
+
+  const toast = document.createElement("div");
+  toast.className = `fx-toast ${type}`;
+  toast.textContent = message;
+  layer.appendChild(toast);
+
+  window.setTimeout(() => {
+    toast.classList.add("fade-out");
+    window.setTimeout(() => {
+      toast.remove();
+    }, 260);
+  }, 2200);
+}
+
 function createAchievementSnapshot(currentState, mode) {
   return {
     mode,
@@ -2418,6 +2542,8 @@ function evaluateRewardsIfNeeded() {
       ? "Draw"
       : "Defeat";
   setStatus(`${outcomeLabel}: +${credited} profile points (${payout.gamePoints} x${payout.multiplier}).`);
+  showToast(`${outcomeLabel}! +${credited} profile points`, "reward");
+  pulseElement(elements.menuProfileSwitchBtn, "ui-pulse");
   const rewardLines = [`Match result: ${outcomeLabel}`, `Game points: ${payout.gamePoints}`, `Multiplier: x${payout.multiplier}`, `Awarded: +${credited} profile points`];
   if (!rewardPopupShownForGame && !elements.rewardPopup.hidden) {
     // no-op; popup already visible and populated for this game transition.
@@ -2469,13 +2595,19 @@ function evaluateAchievementsIfNeeded() {
 
   if (result.unlockedNow.length > 0) {
     let achievementBonusTotal = 0;
+    const unlockedNames = [];
     result.unlockedNow.forEach((id) => {
       const item = ACHIEVEMENT_CATALOG.find((entry) => entry.id === id);
       achievementBonusTotal += Math.max(0, Number(item?.rewardPoints) || 0);
+      if (item?.title) {
+        unlockedNames.push(item.title);
+      }
     });
     if (achievementBonusTotal > 0) {
       addProfileWalletPoints(activeProfileSlot, achievementBonusTotal);
       setStatus(`Achievement reward: +${achievementBonusTotal} profile points.`);
+      showToast(`Unlocked: ${unlockedNames.join(", ")} (+${achievementBonusTotal} pts)`, "reward");
+      pulseElement(elements.menuProfileSwitchBtn, "ui-pulse");
       refreshProfileHeader();
     }
   }
@@ -2516,6 +2648,54 @@ function renderAchievementsPanel() {
     card.appendChild(progress);
 
     elements.achievementsList.appendChild(card);
+  });
+}
+
+function renderShopPanelMenu() {
+  const wallet = getProfileWalletPoints(activeProfileSlot);
+  elements.shopWalletSummary.textContent = `Wallet: ${wallet} pts`;
+  elements.shopCosmeticsList.innerHTML = "";
+
+  COSMETIC_CATALOG.forEach((cosmetic) => {
+    const card = document.createElement("article");
+    card.className = "achievement-card";
+
+    const title = document.createElement("h3");
+    title.textContent = cosmetic.title;
+    card.appendChild(title);
+
+    const desc = document.createElement("p");
+    desc.textContent = `${cosmetic.description} Price: ${cosmetic.price} pts.`;
+    card.appendChild(desc);
+
+    const isItemOwned = isOwned(cosmeticState, cosmetic.id);
+    const isEquipped = cosmetic.type === "board"
+      ? cosmeticState.selected.board === cosmetic.id
+      : cosmeticState.selected.rune === cosmetic.id;
+
+    const actionWrap = document.createElement("div");
+    actionWrap.className = "menu-actions compact";
+
+    if (!isItemOwned && cosmetic.price > 0) {
+      const buyBtn = document.createElement("button");
+      buyBtn.type = "button";
+      buyBtn.className = "menu-btn";
+      buyBtn.dataset.cosmeticBuy = cosmetic.id;
+      buyBtn.disabled = wallet < cosmetic.price;
+      buyBtn.textContent = wallet < cosmetic.price ? "Not Enough Points" : `Buy (${cosmetic.price})`;
+      actionWrap.appendChild(buyBtn);
+    } else {
+      const equipBtn = document.createElement("button");
+      equipBtn.type = "button";
+      equipBtn.className = "menu-btn secondary";
+      equipBtn.dataset.cosmeticEquip = cosmetic.id;
+      equipBtn.disabled = isEquipped;
+      equipBtn.textContent = isEquipped ? "Equipped" : "Equip";
+      actionWrap.appendChild(equipBtn);
+    }
+
+    card.appendChild(actionWrap);
+    elements.shopCosmeticsList.appendChild(card);
   });
 }
 
@@ -2629,6 +2809,8 @@ function activateProfileSlot(slot, options = {}) {
   activeProfileSlot = targetSlot;
   touchProfileSlot(activeProfileSlot);
   achievementState = loadAchievementState(activeProfileSlot);
+  cosmeticState = loadCosmeticState(activeProfileSlot);
+  applySelectedCosmetics();
 
   const passplayState = getSavedStateForMode(MODE_PASSPLAY, activeProfileSlot);
   state = restoreState(passplayState || createInitialState(getLocalGameOptions()), getLocalGameOptions());

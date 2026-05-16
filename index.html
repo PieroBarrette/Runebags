@@ -34,6 +34,7 @@
         <button id="menu-ai-btn" class="menu-btn" type="button">Play Against AI</button>
         <button id="menu-passplay-btn" class="menu-btn" type="button">Pass &amp; Play</button>
         <button id="menu-online-btn" class="menu-btn" type="button">Play Online</button>
+        <button id="menu-shop-btn" class="menu-btn" type="button">Shop</button>
         <button id="menu-achievements-btn" class="menu-btn" type="button">Achievements</button>
         <button id="menu-rules-btn" class="menu-btn" type="button">Rules</button>
         <button id="menu-settings-btn" class="menu-btn" type="button">Settings</button>
@@ -106,6 +107,15 @@
       <div id="achievements-list" class="achievements-list"></div>
       <div class="menu-actions compact">
         <button id="achievements-back-btn" class="menu-btn secondary" type="button">Back</button>
+      </div>
+    </section>
+
+    <section id="shop-panel-menu" class="panel menu-panel" hidden>
+      <h2>Profile Shop</h2>
+      <p id="shop-wallet-summary" class="settings-note">Wallet: 0 pts</p>
+      <div id="shop-cosmetics-list" class="achievements-list"></div>
+      <div class="menu-actions compact">
+        <button id="shop-back-btn" class="menu-btn secondary" type="button">Back</button>
       </div>
     </section>
 
@@ -317,6 +327,7 @@
     // Example: window.RUNEBAGS_ONLINE_SERVER = "https://your-service.onrender.com";
     window.RUNEBAGS_ONLINE_SERVER = "https://runebags.onrender.com";
   </script>
+  <div id="fx-toast-layer" class="fx-toast-layer" aria-live="polite" aria-atomic="false"></div>
   <script type="module" src="./js/main.js"></script>
 </body>
 </html>

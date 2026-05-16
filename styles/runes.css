@@ -109,6 +109,24 @@ body[data-animations="on"] .rune-card.anim-hand-reveal {
   border-width: 2px;
 }
 
+body[data-rune-skin="rune-gilded"] .rune-card {
+  border-color: rgba(196, 153, 53, 0.5);
+  box-shadow: inset 0 0 0 1px rgba(234, 193, 96, 0.34);
+}
+
+body[data-rune-skin="rune-gilded"] .rune-chip {
+  box-shadow: 0 0 0 1px rgba(229, 189, 94, 0.35), 0 5px 10px rgba(114, 88, 23, 0.18);
+}
+
+body[data-rune-skin="rune-obsidian"] .rune-card {
+  border-color: rgba(70, 84, 104, 0.46);
+  background: linear-gradient(175deg, rgba(228, 235, 245, 0.98), rgba(205, 216, 231, 0.98));
+}
+
+body[data-theme="dark"][data-rune-skin="rune-obsidian"] .rune-card {
+  background: linear-gradient(175deg, rgba(44, 52, 65, 0.98), rgba(26, 33, 44, 0.98));
+}
+
 .rune-card.shop-highlight {
   box-shadow: 0 0 0 2px rgba(123, 215, 137, 0.85);
 }

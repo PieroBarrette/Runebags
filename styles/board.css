@@ -18,6 +18,26 @@
   overflow: hidden;
 }
 
+body[data-board-skin="board-frost"] .board {
+  border-color: rgba(115, 170, 220, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(197, 230, 255, 0.45);
+}
+
+body[data-board-skin="board-frost"] .cell {
+  background: rgba(225, 239, 252, 0.88);
+  border-color: rgba(129, 160, 191, 0.26);
+}
+
+body[data-board-skin="board-ember"] .board {
+  border-color: rgba(179, 112, 73, 0.5);
+  box-shadow: inset 0 0 0 1px rgba(243, 187, 148, 0.42);
+}
+
+body[data-board-skin="board-ember"] .cell {
+  background: rgba(246, 232, 221, 0.9);
+  border-color: rgba(175, 132, 102, 0.26);
+}
+
 .cell {
   position: relative;
   width: 100%;
