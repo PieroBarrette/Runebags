@@ -177,6 +177,26 @@ export function touchProfileSlot(slot) {
   saveProfileState(payload);
 }
 
+export function hasProfileSeenTutorial(slot) {
+  const safeSlot = sanitizeSlot(slot, 1);
+  const profile = getProfileBySlot(safeSlot);
+  return Boolean(profile?.tutorialSeen);
+}
+
+export function markProfileTutorialSeen(slot) {
+  const safeSlot = sanitizeSlot(slot, 1);
+  const payload = loadProfileState();
+  const profile = payload.slots.find((item) => item.slot === safeSlot);
+  if (!profile) {
+    return false;
+  }
+
+  profile.tutorialSeen = true;
+  profile.lastPlayedAt = Date.now();
+  saveProfileState(payload);
+  return true;
+}
+
 export function setProfileAchievementProgress(slot, unlockedCount, totalCount) {
   const safeSlot = sanitizeSlot(slot, 1);
   const payload = loadProfileState();

@@ -12,6 +12,7 @@ export const COSMETIC_CATALOG = [
     title: "Frost Veil",
     description: "Cool icy board glow.",
     price: 220,
+    unlockAchievementId: "first_game_finished",
   },
   {
     id: "board-ember",
@@ -19,6 +20,7 @@ export const COSMETIC_CATALOG = [
     title: "Ember Forge",
     description: "Warm high-contrast board accents.",
     price: 260,
+    unlockAchievementId: "veteran_10_games",
   },
   {
     id: "rune-classic",
@@ -33,6 +35,7 @@ export const COSMETIC_CATALOG = [
     title: "Gilded Script",
     description: "Golden highlights around rune chips.",
     price: 180,
+    unlockAchievementId: "first_victory",
   },
   {
     id: "rune-obsidian",
@@ -40,6 +43,7 @@ export const COSMETIC_CATALOG = [
     title: "Obsidian Ink",
     description: "Sharper dark rune engraving style.",
     price: 210,
+    unlockAchievementId: "captured_rune_purge",
   },
 ];
 

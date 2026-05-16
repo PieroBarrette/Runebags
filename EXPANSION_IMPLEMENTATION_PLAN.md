@@ -67,6 +67,12 @@ This plan is implementation-oriented and keeps js/main.js as a compatibility she
 - Shop tab: purchase and equip board/rune/sfx/fx cosmetics.
 - Settings remain global toggles for theme/sound/animation.
 
+Status update:
+- Implemented profile shop for board and rune cosmetics with buy/equip actions.
+- Added achievement-gated cosmetics (unlock achievement + points spend).
+- Added toast VFX feedback for rewards, unlocks, purchases, and equips.
+- Added first-game tutorial suggestion toast per profile (one-time).
+
 ### M4
 - Puzzle mode with deterministic scenario loader.
 - Start with 20 curated puzzles then scale to 100.
