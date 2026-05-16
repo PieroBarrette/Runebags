@@ -177,6 +177,23 @@ export function touchProfileSlot(slot) {
   saveProfileState(payload);
 }
 
+export function setProfileAchievementProgress(slot, unlockedCount, totalCount) {
+  const safeSlot = sanitizeSlot(slot, 1);
+  const payload = loadProfileState();
+  const profile = payload.slots.find((item) => item.slot === safeSlot);
+  if (!profile) {
+    return;
+  }
+
+  profile.progression = sanitizeProgress({
+    ...profile.progression,
+    achievementsUnlocked: Math.max(0, Number(unlockedCount) || 0),
+    achievementsTotal: Math.max(0, Number(totalCount) || 0),
+  });
+  profile.lastPlayedAt = Date.now();
+  saveProfileState(payload);
+}
+
 export function calculateProfileProgressPercent(profile) {
   if (!profile || typeof profile !== "object") {
     return 0;

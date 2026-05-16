@@ -34,10 +34,14 @@ import {
   getActiveProfileSlot,
   getProfileBySlot,
   getProfileSlots,
+  setProfileAchievementProgress,
   setActiveProfileSlot,
   touchProfileSlot,
   updateProfileName,
 } from "./persistence/profileStore.js";
+import { ACHIEVEMENT_CATALOG } from "./progression/achievementCatalog.js";
+import { evaluateAchievementProgress } from "./progression/achievementEngine.js";
+import { loadAchievementState, saveAchievementState } from "./persistence/achievementStore.js";
 import { createOnlineController } from "./online/onlineController.js";
 import { getRuneById, RUNE_CATALOG } from "./runes/runeCatalog.js";
 import { createSfxEngine } from "./audio/sfxEngine.js";
@@ -80,6 +84,7 @@ const elements = {
   aiBackBtn: document.getElementById("ai-back-btn"),
   menuOnlineBtn: document.getElementById("menu-online-btn"),
   menuProfilesBtn: document.getElementById("menu-profiles-btn"),
+  menuAchievementsBtn: document.getElementById("menu-achievements-btn"),
   menuProfileSwitchBtn: document.getElementById("menu-profile-switch-btn"),
   menuRulesBtn: document.getElementById("menu-rules-btn"),
   menuSettingsBtn: document.getElementById("menu-settings-btn"),
@@ -93,6 +98,10 @@ const elements = {
   profilesPanel: document.getElementById("profiles-panel"),
   profilesList: document.getElementById("profiles-list"),
   profilesBackBtn: document.getElementById("profiles-back-btn"),
+  achievementsPanel: document.getElementById("achievements-panel"),
+  achievementsList: document.getElementById("achievements-list"),
+  achievementsSummary: document.getElementById("achievements-summary"),
+  achievementsBackBtn: document.getElementById("achievements-back-btn"),
   onlinePanel: document.getElementById("online-panel"),
   onlineServerDot: document.getElementById("online-server-dot"),
   onlineServerText: document.getElementById("online-server-text"),
@@ -171,11 +180,13 @@ const elements = {
 
 let selectedLocalRuneIds = loadRuneSelectionPreference();
 let activeProfileSlot = getActiveProfileSlot();
+let achievementState = loadAchievementState(activeProfileSlot);
 let state = restoreState(
   getSavedStateForMode(MODE_PASSPLAY, activeProfileSlot) || createInitialState(getLocalGameOptions()),
   getLocalGameOptions(),
 );
 let currentLocalMode = MODE_PASSPLAY;
+let previousAchievementSnapshot = createAchievementSnapshot(state, currentLocalMode);
 let handVisibility = {
   1: state.currentPlayer === 1,
   2: state.currentPlayer === 2,
@@ -208,6 +219,7 @@ initializeSound();
 renderRuneSelectionSettings();
 bindSoundUnlockHandlers();
 refreshProfileHeader();
+syncAchievementSummaryToProfile();
 render();
 initializeEntryMode();
 
@@ -277,6 +289,9 @@ function wireOnlineEvents() {
     state: (snapshot) => {
       state = restoreState(snapshot.state);
       currentLocalMode = MODE_ONLINE;
+      if (elements.gameScreen.hidden) {
+        resetAchievementTracking();
+      }
       onlineChatMessages = Array.isArray(snapshot.chat) ? snapshot.chat.slice(-100) : [];
       waitingRoomState = {
         ...waitingRoomState,
@@ -365,6 +380,7 @@ function bindEvents() {
       1: state.currentPlayer === 1,
       2: state.currentPlayer === 2,
     };
+    resetAchievementTracking();
     persistState();
     enterGameScreen("passplay");
     setStatus("Pass & Play resumed.");
@@ -397,6 +413,7 @@ function bindEvents() {
     elements.aiSideSelect.value = String(aiConfig.playerId);
     elements.aiDepthSelect.value = String(aiConfig.depth);
     setStatus(`AI game resumed. ${getPlayerName(aiConfig.playerId)} is AI (depth ${aiConfig.depth}).`);
+    resetAchievementTracking();
 
     persistState();
     enterGameScreen("passplay");
@@ -420,6 +437,7 @@ function bindEvents() {
     }
     handVisibility = { 1: aiSide !== 1, 2: aiSide !== 2 };
     setStatus(`AI mode started. ${getPlayerName(aiConfig.playerId)} is AI (depth ${aiConfig.depth}).`);
+    resetAchievementTracking();
 
     persistState();
     enterGameScreen("passplay");
@@ -542,6 +560,10 @@ function bindEvents() {
     showProfilesPanel();
   });
 
+  elements.menuAchievementsBtn.addEventListener("click", () => {
+    showAchievementsPanel();
+  });
+
   elements.menuProfileSwitchBtn.addEventListener("click", () => {
     showProfilesPanel();
   });
@@ -551,6 +573,10 @@ function bindEvents() {
   });
 
   elements.profilesBackBtn.addEventListener("click", () => {
+    showMainMenu();
+  });
+
+  elements.achievementsBackBtn.addEventListener("click", () => {
     showMainMenu();
   });
 
@@ -949,6 +975,7 @@ function bindEvents() {
       switchShopPlayer(state);
     }
     handVisibility = { 1: false, 2: true };
+    resetAchievementTracking();
     if (aiConfig.enabled || currentLocalMode === MODE_AI) {
       clearModeSave(MODE_AI, activeProfileSlot);
     } else {
@@ -1308,6 +1335,7 @@ function render() {
   previousPendingActionSnapshot = pendingSnapshot;
   renderHands(state, elements, handVisibility, forcedVisible);
   applyOnlinePlayerNames();
+  evaluateAchievementsIfNeeded();
 
   renderLog(state, elements);
   renderChatPanel();
@@ -1826,6 +1854,7 @@ function showMainMenu() {
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
   elements.profilesPanel.hidden = true;
+  elements.achievementsPanel.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
@@ -1837,6 +1866,7 @@ function showAiPanel() {
   elements.aiPanel.hidden = false;
   elements.settingsPanel.hidden = true;
   elements.profilesPanel.hidden = true;
+  elements.achievementsPanel.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
@@ -1856,6 +1886,7 @@ function showOnlinePanel() {
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
   elements.profilesPanel.hidden = true;
+  elements.achievementsPanel.hidden = true;
   elements.onlinePanel.hidden = false;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
@@ -1872,6 +1903,7 @@ function showRulesPanel() {
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
   elements.profilesPanel.hidden = true;
+  elements.achievementsPanel.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = false;
   elements.gameScreen.hidden = true;
@@ -1882,6 +1914,7 @@ function showSettingsPanel() {
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = false;
   elements.profilesPanel.hidden = true;
+  elements.achievementsPanel.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
@@ -1892,10 +1925,23 @@ function showProfilesPanel() {
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
   elements.profilesPanel.hidden = false;
+  elements.achievementsPanel.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
   renderProfilesPanel();
+}
+
+function showAchievementsPanel() {
+  elements.mainMenu.hidden = true;
+  elements.aiPanel.hidden = true;
+  elements.settingsPanel.hidden = true;
+  elements.profilesPanel.hidden = true;
+  elements.achievementsPanel.hidden = false;
+  elements.onlinePanel.hidden = true;
+  elements.rulesPanel.hidden = true;
+  elements.gameScreen.hidden = true;
+  renderAchievementsPanel();
 }
 
 function enterGameScreen(mode, roomCode = null) {
@@ -1903,6 +1949,7 @@ function enterGameScreen(mode, roomCode = null) {
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
   elements.profilesPanel.hidden = true;
+  elements.achievementsPanel.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = false;
@@ -2187,6 +2234,90 @@ function refreshProfileHeader() {
   elements.menuProfileSwitchBtn.textContent = `Profile ${activeProfileSlot}: ${profile.name}`;
 }
 
+function createAchievementSnapshot(currentState, mode) {
+  return {
+    mode,
+    phase: currentState.phase,
+    roundNumber: Number(currentState.roundNumber) || 0,
+    turnNumber: Number(currentState.turnNumber) || 0,
+    winner: currentState.winner || null,
+    gameWinner: currentState.gameWinner || null,
+    gameWinnerReason: currentState.gameWinnerReason || null,
+    logLength: Array.isArray(currentState.log) ? currentState.log.length : 0,
+  };
+}
+
+function resetAchievementTracking() {
+  previousAchievementSnapshot = createAchievementSnapshot(state, currentLocalMode);
+}
+
+function syncAchievementSummaryToProfile() {
+  const unlockedCount = Array.isArray(achievementState.unlockedIds)
+    ? achievementState.unlockedIds.length
+    : 0;
+  setProfileAchievementProgress(activeProfileSlot, unlockedCount, ACHIEVEMENT_CATALOG.length);
+}
+
+function evaluateAchievementsIfNeeded() {
+  const result = evaluateAchievementProgress(
+    achievementState,
+    previousAchievementSnapshot,
+    state,
+    currentLocalMode,
+  );
+
+  const previousUnlockedCount = Array.isArray(achievementState.unlockedIds)
+    ? achievementState.unlockedIds.length
+    : 0;
+  const nextUnlockedCount = Array.isArray(result.nextState.unlockedIds)
+    ? result.nextState.unlockedIds.length
+    : 0;
+  const metricsChanged = JSON.stringify(result.nextState.metrics) !== JSON.stringify(achievementState.metrics);
+
+  previousAchievementSnapshot = result.nextSnapshot;
+  if (!metricsChanged && previousUnlockedCount === nextUnlockedCount) {
+    return;
+  }
+
+  achievementState = result.nextState;
+  saveAchievementState(activeProfileSlot, achievementState);
+  syncAchievementSummaryToProfile();
+  if (!elements.achievementsPanel.hidden) {
+    renderAchievementsPanel();
+  }
+}
+
+function renderAchievementsPanel() {
+  const unlockedSet = new Set(achievementState.unlockedIds || []);
+  const unlockedCount = unlockedSet.size;
+  elements.achievementsSummary.textContent = `${unlockedCount}/${ACHIEVEMENT_CATALOG.length} unlocked`;
+  elements.achievementsList.innerHTML = "";
+
+  ACHIEVEMENT_CATALOG.forEach((achievement) => {
+    const card = document.createElement("article");
+    const unlocked = unlockedSet.has(achievement.id);
+    card.className = `achievement-card ${unlocked ? "unlocked" : "locked"}`;
+
+    const title = document.createElement("h3");
+    title.textContent = achievement.title;
+    card.appendChild(title);
+
+    const desc = document.createElement("p");
+    desc.textContent = achievement.description;
+    card.appendChild(desc);
+
+    const metricValue = Number(achievementState.metrics?.[achievement.metricKey]) || 0;
+    const progress = document.createElement("p");
+    progress.className = "achievement-progress";
+    progress.textContent = unlocked
+      ? "Unlocked"
+      : `Progress: ${Math.min(metricValue, achievement.required)}/${achievement.required}`;
+    card.appendChild(progress);
+
+    elements.achievementsList.appendChild(card);
+  });
+}
+
 function renderProfilesPanel() {
   const profiles = getProfileSlots();
   elements.profilesList.innerHTML = "";
@@ -2246,6 +2377,7 @@ function activateProfileSlot(slot) {
   persistState();
   activeProfileSlot = targetSlot;
   touchProfileSlot(activeProfileSlot);
+  achievementState = loadAchievementState(activeProfileSlot);
 
   const passplayState = getSavedStateForMode(MODE_PASSPLAY, activeProfileSlot);
   state = restoreState(passplayState || createInitialState(getLocalGameOptions()), getLocalGameOptions());
@@ -2255,6 +2387,8 @@ function activateProfileSlot(slot) {
     1: state.currentPlayer === 1,
     2: state.currentPlayer === 2,
   };
+  resetAchievementTracking();
+  syncAchievementSummaryToProfile();
 
   refreshProfileHeader();
   render();

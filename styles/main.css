@@ -371,6 +371,48 @@ body[data-theme="dark"] .menu-logo {
   width: 100%;
 }
 
+.achievements-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 0.6rem;
+  margin: 0.85rem 0;
+}
+
+.achievement-card {
+  border: 1px solid rgba(36, 51, 71, 0.2);
+  border-radius: 12px;
+  padding: 0.62rem;
+  background: rgba(252, 253, 255, 0.76);
+  display: grid;
+  gap: 0.34rem;
+}
+
+.achievement-card h3 {
+  margin: 0;
+  font-size: 0.98rem;
+  font-family: "Cinzel", Georgia, serif;
+}
+
+.achievement-card p {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 0.9rem;
+  line-height: 1.3;
+}
+
+.achievement-card.unlocked {
+  border-color: rgba(31, 110, 49, 0.45);
+  background: linear-gradient(180deg, rgba(225, 247, 232, 0.92), rgba(238, 252, 242, 0.88));
+}
+
+.achievement-card.locked {
+  opacity: 0.9;
+}
+
+.achievement-progress {
+  font-weight: 600;
+}
+
 .settings-rune-picker h3 {
   margin: 0;
   font-size: 0.98rem;
@@ -451,6 +493,16 @@ body[data-theme="dark"] .settings-rune-list {
 body[data-theme="dark"] .profile-slot-card {
   border-color: rgba(220, 230, 241, 0.28);
   background: rgba(16, 22, 29, 0.78);
+}
+
+body[data-theme="dark"] .achievement-card {
+  border-color: rgba(220, 230, 241, 0.28);
+  background: rgba(16, 22, 29, 0.78);
+}
+
+body[data-theme="dark"] .achievement-card.unlocked {
+  border-color: rgba(102, 216, 141, 0.55);
+  background: linear-gradient(180deg, rgba(22, 55, 33, 0.92), rgba(17, 45, 26, 0.88));
 }
 
 body[data-theme="dark"] .profile-slot-card.active {
