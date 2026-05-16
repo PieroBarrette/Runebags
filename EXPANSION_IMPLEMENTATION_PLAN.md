@@ -73,6 +73,7 @@ Status update:
 - Added shop SFX cosmetics (buy/equip) with multiple sound profiles.
 - Added toast VFX feedback for rewards, unlocks, purchases, and equips.
 - Added first-game tutorial suggestion toast per profile (one-time).
+- Added Puzzle Mode scaffold: puzzle menu panel, deterministic puzzle catalog/loader, per-profile puzzle progress, and first-solve rewards.
 
 ### M4
 - Puzzle mode with deterministic scenario loader.
