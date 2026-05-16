@@ -452,6 +452,131 @@ body[data-theme="dark"] .menu-logo {
   margin: 0.7rem 0 0.4rem;
 }
 
+.campaign-layout {
+  margin-top: 0.7rem;
+  display: grid;
+  grid-template-columns: 1.35fr 0.9fr;
+  gap: 0.8rem;
+  align-items: start;
+}
+
+.campaign-tree-wrap {
+  position: relative;
+  min-height: 680px;
+  border: 1px solid rgba(36, 51, 71, 0.22);
+  border-radius: 14px;
+  background:
+    radial-gradient(800px 420px at 40% -12%, rgba(102, 153, 206, 0.14), transparent 65%),
+    linear-gradient(180deg, rgba(249, 251, 255, 0.92), rgba(237, 243, 251, 0.9));
+  overflow: hidden;
+}
+
+.campaign-map-links {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.campaign-map-links .campaign-link {
+  stroke: rgba(49, 79, 112, 0.32);
+  stroke-width: 2;
+}
+
+.campaign-map-links .campaign-link.unlocked {
+  stroke: rgba(63, 128, 196, 0.58);
+}
+
+.campaign-tree {
+  position: relative;
+  min-height: 680px;
+}
+
+.campaign-node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 140px;
+  border-radius: 12px;
+  border: 1px solid rgba(36, 51, 71, 0.24);
+  background: rgba(252, 253, 255, 0.94);
+  padding: 0.45rem;
+  display: grid;
+  gap: 0.2rem;
+  text-align: left;
+}
+
+.campaign-node h4 {
+  margin: 0;
+  font-size: 0.84rem;
+  font-family: "Cinzel", Georgia, serif;
+}
+
+.campaign-node small {
+  color: var(--text-soft);
+  font-size: 0.75rem;
+}
+
+.campaign-node button {
+  margin-top: 0.2rem;
+}
+
+.campaign-node.locked {
+  opacity: 0.58;
+}
+
+.campaign-node.completed {
+  border-color: rgba(31, 110, 49, 0.46);
+  background: linear-gradient(180deg, rgba(226, 247, 233, 0.95), rgba(239, 252, 243, 0.93));
+}
+
+.campaign-node.elite {
+  border-color: rgba(153, 104, 34, 0.44);
+}
+
+.campaign-node.shop {
+  border-color: rgba(33, 106, 133, 0.46);
+}
+
+.campaign-node.remove {
+  border-color: rgba(108, 52, 128, 0.42);
+}
+
+.campaign-node.boss {
+  border-color: rgba(156, 58, 50, 0.55);
+  background: linear-gradient(180deg, rgba(255, 235, 233, 0.96), rgba(255, 245, 244, 0.94));
+}
+
+.campaign-side {
+  border: 1px solid rgba(36, 51, 71, 0.22);
+  border-radius: 14px;
+  background: rgba(252, 253, 255, 0.88);
+  padding: 0.6rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.campaign-side h3 {
+  margin: 0;
+  font-family: "Cinzel", Georgia, serif;
+}
+
+.campaign-action-panel {
+  border: 1px solid rgba(36, 51, 71, 0.2);
+  border-radius: 12px;
+  background: rgba(246, 250, 255, 0.9);
+  padding: 0.5rem;
+}
+
+.campaign-action-panel h3 {
+  margin: 0 0 0.45rem;
+}
+
+.campaign-action-body {
+  display: grid;
+  gap: 0.45rem;
+}
+
 .puzzle-difficulty-tag {
   display: inline-flex;
   align-items: center;
@@ -708,6 +833,45 @@ body[data-theme="dark"] .achievement-card.unlocked {
 body[data-theme="dark"] .achievement-card.campaign-boss {
   border-color: rgba(228, 113, 106, 0.54);
   background: linear-gradient(180deg, rgba(72, 26, 24, 0.9), rgba(58, 19, 18, 0.86));
+}
+
+body[data-theme="dark"] .campaign-tree-wrap {
+  border-color: rgba(220, 230, 241, 0.28);
+  background:
+    radial-gradient(800px 420px at 40% -12%, rgba(60, 97, 138, 0.24), transparent 65%),
+    linear-gradient(180deg, rgba(20, 28, 37, 0.92), rgba(15, 22, 29, 0.9));
+}
+
+body[data-theme="dark"] .campaign-node {
+  border-color: rgba(220, 230, 241, 0.32);
+  background: rgba(19, 26, 35, 0.95);
+}
+
+body[data-theme="dark"] .campaign-node.completed {
+  border-color: rgba(102, 216, 141, 0.55);
+  background: linear-gradient(180deg, rgba(23, 60, 37, 0.94), rgba(17, 47, 29, 0.92));
+}
+
+body[data-theme="dark"] .campaign-node.boss {
+  border-color: rgba(228, 113, 106, 0.58);
+  background: linear-gradient(180deg, rgba(82, 29, 26, 0.92), rgba(61, 22, 20, 0.9));
+}
+
+body[data-theme="dark"] .campaign-side,
+body[data-theme="dark"] .campaign-action-panel {
+  border-color: rgba(220, 230, 241, 0.28);
+  background: rgba(16, 22, 29, 0.82);
+}
+
+@media (max-width: 980px) {
+  .campaign-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .campaign-tree-wrap,
+  .campaign-tree {
+    min-height: 620px;
+  }
 }
 
 body[data-theme="dark"] .profile-slot-card.active {

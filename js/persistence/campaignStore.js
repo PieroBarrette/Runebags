@@ -1,6 +1,23 @@
 import { CAMPAIGN_NODES, CAMPAIGN_START_NODE_ID, getCampaignNodeById } from "../campaign/campaignCatalog.js";
+import { getRuneById } from "../runes/runeCatalog.js";
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
+
+function sanitizeLoadoutRunes(candidate) {
+  const list = Array.isArray(candidate) ? candidate : [];
+  return list
+    .map((entry) => {
+      const runeId = String(entry?.runeId || "").trim();
+      const rune = getRuneById(runeId);
+      if (!rune || rune.type !== "special") {
+        return null;
+      }
+
+      const level = Math.max(1, Math.min(Number(entry?.level) || 1, Number(rune.maxLevel) || 1));
+      return { runeId, level };
+    })
+    .filter(Boolean);
+}
 
 function getKey(profileSlot) {
   const slot = Number(profileSlot);
@@ -16,6 +33,10 @@ function createDefaultState() {
     unlockedNodeIds: [CAMPAIGN_START_NODE_ID],
     completedNodeIds: [],
     completedBossCount: 0,
+    loadoutRunes: [],
+    pendingRewardNodeId: null,
+    pendingRewardChoices: [],
+    shopOfferByNode: {},
     startedAt: null,
     updatedAt: Date.now(),
   };
@@ -37,6 +58,17 @@ function sanitizeState(raw) {
     return node?.type === "boss" ? count + 1 : count;
   }, 0);
 
+  const shopOfferByNode = source.shopOfferByNode && typeof source.shopOfferByNode === "object"
+    ? source.shopOfferByNode
+    : {};
+  const sanitizedShopOffers = {};
+  Object.entries(shopOfferByNode).forEach(([nodeId, offer]) => {
+    if (!getCampaignNodeById(nodeId)) {
+      return;
+    }
+    sanitizedShopOffers[nodeId] = sanitizeLoadoutRunes(offer).slice(0, 5);
+  });
+
   return {
     schemaVersion: SCHEMA_VERSION,
     started: Boolean(source.started),
@@ -44,6 +76,12 @@ function sanitizeState(raw) {
     unlockedNodeIds,
     completedNodeIds,
     completedBossCount,
+    loadoutRunes: sanitizeLoadoutRunes(source.loadoutRunes),
+    pendingRewardNodeId: getCampaignNodeById(source.pendingRewardNodeId)
+      ? String(source.pendingRewardNodeId)
+      : null,
+    pendingRewardChoices: sanitizeLoadoutRunes(source.pendingRewardChoices).slice(0, 3),
+    shopOfferByNode: sanitizedShopOffers,
     startedAt: Number(source.startedAt) || null,
     updatedAt: Number(source.updatedAt) || Date.now(),
   };
@@ -119,6 +157,95 @@ export function completeCampaignNode(state, nodeId) {
     next.startedAt = Date.now();
   }
 
+  if (next.pendingRewardNodeId === node.id) {
+    next.pendingRewardNodeId = null;
+    next.pendingRewardChoices = [];
+  }
+
+  return next;
+}
+
+export function setCampaignPendingReward(state, nodeId, choices) {
+  const next = sanitizeState(state);
+  if (!getCampaignNodeById(nodeId)) {
+    return next;
+  }
+
+  next.pendingRewardNodeId = nodeId;
+  next.pendingRewardChoices = sanitizeLoadoutRunes(choices).slice(0, 3);
+  return next;
+}
+
+export function claimCampaignRewardChoice(state, nodeId, rewardIndex) {
+  const next = sanitizeState(state);
+  if (next.pendingRewardNodeId !== nodeId) {
+    return next;
+  }
+
+  const index = Number(rewardIndex);
+  if (!Number.isInteger(index) || index < 0 || index >= next.pendingRewardChoices.length) {
+    return next;
+  }
+
+  const picked = next.pendingRewardChoices[index];
+  next.loadoutRunes = [...next.loadoutRunes, picked];
+  next.pendingRewardNodeId = null;
+  next.pendingRewardChoices = [];
+  return next;
+}
+
+export function setCampaignShopOffer(state, nodeId, offerRunes) {
+  const next = sanitizeState(state);
+  if (!getCampaignNodeById(nodeId)) {
+    return next;
+  }
+
+  next.shopOfferByNode[nodeId] = sanitizeLoadoutRunes(offerRunes).slice(0, 5);
+  return next;
+}
+
+export function addCampaignLoadoutRune(state, runeEntry) {
+  const next = sanitizeState(state);
+  const additions = sanitizeLoadoutRunes([runeEntry]);
+  if (!additions.length) {
+    return next;
+  }
+  next.loadoutRunes = [...next.loadoutRunes, additions[0]];
+  return next;
+}
+
+export function removeCampaignLoadoutRune(state, index) {
+  const next = sanitizeState(state);
+  const target = Number(index);
+  if (!Number.isInteger(target) || target < 0 || target >= next.loadoutRunes.length) {
+    return next;
+  }
+
+  next.loadoutRunes = next.loadoutRunes.filter((_, i) => i !== target);
+  return next;
+}
+
+export function combineCampaignLoadoutRune(state, runeId) {
+  const next = sanitizeState(state);
+  const id = String(runeId || "").trim();
+  const runeMeta = getRuneById(id);
+  if (!runeMeta || !runeMeta.supportsLevels || (runeMeta.maxLevel || 1) < 2) {
+    return next;
+  }
+
+  const levelOneIndexes = [];
+  next.loadoutRunes.forEach((entry, index) => {
+    if (entry.runeId === id && entry.level === 1) {
+      levelOneIndexes.push(index);
+    }
+  });
+  if (levelOneIndexes.length < 2) {
+    return next;
+  }
+
+  const removeSet = new Set(levelOneIndexes.slice(0, 2));
+  const remaining = next.loadoutRunes.filter((_, index) => !removeSet.has(index));
+  next.loadoutRunes = [...remaining, { runeId: id, level: 2 }];
   return next;
 }
 

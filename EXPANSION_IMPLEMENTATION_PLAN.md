@@ -76,6 +76,12 @@ Status update:
 - Added Puzzle Mode scaffold: puzzle menu panel, deterministic puzzle catalog/loader, per-profile puzzle progress, and first-solve rewards.
 - Expanded Puzzle Mode to 20 curated puzzles with difficulty tags and menu filters.
 - Added Campaign map prototype scaffold with branching nodes, 3 boss milestones, per-profile run persistence, and node completion rewards.
+- Campaign nodes now launch playable encounter scenarios with win/fail outcomes, restart flow, and progression rewards on clear.
+- Campaign upgraded to a branching Slay-the-Spire style tree with combat, elite, shop, remove, and boss nodes.
+- Encounter pacing now follows node type (combat: 1-round pace, elite: multi-round pace, bosses: longer act fights).
+- Campaign clears now offer a choose-1-from-3 rune reward, and run loadout persists across nodes.
+- Shop/remove campaign nodes are now slower run-management actions separate from normal match shop flow.
+- Active campaign encounters auto-resume on profile entry/profile switch when a save is present.
 
 ### M4
 - Puzzle mode with deterministic scenario loader.

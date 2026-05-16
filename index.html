@@ -71,7 +71,22 @@
     <section id="campaign-panel" class="panel menu-panel" hidden>
       <h2>Campaign Map</h2>
       <p id="campaign-summary" class="settings-note">Run not started.</p>
-      <div id="campaign-map" class="achievements-list"></div>
+      <section class="campaign-layout" aria-label="Campaign run layout">
+        <div class="campaign-tree-wrap">
+          <svg id="campaign-map-links" class="campaign-map-links" viewBox="0 0 1000 720" preserveAspectRatio="none" aria-hidden="true"></svg>
+          <div id="campaign-map" class="campaign-tree"></div>
+        </div>
+        <aside class="campaign-side">
+          <h3>Run Loadout</h3>
+          <p id="campaign-loadout-summary" class="settings-note">No bonus runes yet.</p>
+          <div id="campaign-loadout-list" class="achievements-list"></div>
+
+          <div id="campaign-action-panel" class="campaign-action-panel" hidden>
+            <h3 id="campaign-action-title">Node Action</h3>
+            <div id="campaign-action-body" class="campaign-action-body"></div>
+          </div>
+        </aside>
+      </section>
       <div class="menu-actions compact">
         <button id="campaign-start-btn" class="menu-btn" type="button">Start / Continue Run</button>
         <button id="campaign-reset-btn" class="menu-btn secondary" type="button">Reset Run</button>
