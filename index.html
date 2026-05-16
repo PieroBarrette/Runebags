@@ -69,12 +69,11 @@
     </section>
 
     <section id="campaign-panel" class="panel menu-panel" hidden>
-      <h2>Campaign Map</h2>
+      <h2>Campaign Run</h2>
       <p id="campaign-summary" class="settings-note">Run not started.</p>
       <section class="campaign-layout" aria-label="Campaign run layout">
-        <div class="campaign-tree-wrap">
-          <svg id="campaign-map-links" class="campaign-map-links" viewBox="0 0 1000 720" preserveAspectRatio="none" aria-hidden="true"></svg>
-          <div id="campaign-map" class="campaign-tree"></div>
+        <div class="campaign-run-wrap">
+          <div id="campaign-map" class="campaign-run-list"></div>
         </div>
         <aside class="campaign-side">
           <h3>Run Loadout</h3>
@@ -327,6 +326,7 @@
             <div class="shop-actions-row">
               <button id="shop-remove-btn" type="button">Remove 1 Rune</button>
               <button id="shop-combine-btn" type="button">Combine 2 Runes</button>
+              <button id="shop-reroll-btn" type="button" hidden>Reroll Offer</button>
             </div>
             <div id="shop-bag" class="shop-bag"></div>
           </div>

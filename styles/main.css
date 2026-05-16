@@ -455,52 +455,38 @@ body[data-theme="dark"] .menu-logo {
 .campaign-layout {
   margin-top: 0.7rem;
   display: grid;
-  grid-template-columns: 1.35fr 0.9fr;
+  grid-template-columns: 1.15fr 0.9fr;
   gap: 0.8rem;
   align-items: start;
 }
 
-.campaign-tree-wrap {
+.campaign-run-wrap {
   position: relative;
-  min-height: 680px;
+  min-height: 640px;
   border: 1px solid rgba(36, 51, 71, 0.22);
   border-radius: 14px;
   background:
-    radial-gradient(800px 420px at 40% -12%, rgba(102, 153, 206, 0.14), transparent 65%),
+    radial-gradient(680px 320px at 35% -8%, rgba(102, 153, 206, 0.12), transparent 65%),
     linear-gradient(180deg, rgba(249, 251, 255, 0.92), rgba(237, 243, 251, 0.9));
   overflow: hidden;
 }
 
-.campaign-map-links {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-
-.campaign-map-links .campaign-link {
-  stroke: rgba(49, 79, 112, 0.32);
-  stroke-width: 2;
-}
-
-.campaign-map-links .campaign-link.unlocked {
-  stroke: rgba(63, 128, 196, 0.58);
-}
-
-.campaign-tree {
-  position: relative;
-  min-height: 680px;
+.campaign-run-list {
+  min-height: 640px;
+  max-height: 640px;
+  overflow-y: auto;
+  padding: 0.65rem;
+  display: grid;
+  align-content: start;
+  gap: 0.5rem;
 }
 
 .campaign-node {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  width: 140px;
+  width: 100%;
   border-radius: 12px;
   border: 1px solid rgba(36, 51, 71, 0.24);
   background: rgba(252, 253, 255, 0.94);
-  padding: 0.45rem;
+  padding: 0.55rem;
   display: grid;
   gap: 0.2rem;
   text-align: left;
@@ -518,7 +504,7 @@ body[data-theme="dark"] .menu-logo {
 }
 
 .campaign-node button {
-  margin-top: 0.2rem;
+  margin-top: 0.32rem;
 }
 
 .campaign-node.locked {
@@ -545,6 +531,11 @@ body[data-theme="dark"] .menu-logo {
 .campaign-node.boss {
   border-color: rgba(156, 58, 50, 0.55);
   background: linear-gradient(180deg, rgba(255, 235, 233, 0.96), rgba(255, 245, 244, 0.94));
+}
+
+.campaign-node.final-boss {
+  border-color: rgba(136, 28, 20, 0.7);
+  background: linear-gradient(180deg, rgba(255, 224, 220, 0.98), rgba(255, 238, 236, 0.96));
 }
 
 .campaign-side {
@@ -835,10 +826,10 @@ body[data-theme="dark"] .achievement-card.campaign-boss {
   background: linear-gradient(180deg, rgba(72, 26, 24, 0.9), rgba(58, 19, 18, 0.86));
 }
 
-body[data-theme="dark"] .campaign-tree-wrap {
+body[data-theme="dark"] .campaign-run-wrap {
   border-color: rgba(220, 230, 241, 0.28);
   background:
-    radial-gradient(800px 420px at 40% -12%, rgba(60, 97, 138, 0.24), transparent 65%),
+    radial-gradient(680px 320px at 35% -8%, rgba(60, 97, 138, 0.24), transparent 65%),
     linear-gradient(180deg, rgba(20, 28, 37, 0.92), rgba(15, 22, 29, 0.9));
 }
 
@@ -857,6 +848,11 @@ body[data-theme="dark"] .campaign-node.boss {
   background: linear-gradient(180deg, rgba(82, 29, 26, 0.92), rgba(61, 22, 20, 0.9));
 }
 
+body[data-theme="dark"] .campaign-node.final-boss {
+  border-color: rgba(255, 126, 118, 0.68);
+  background: linear-gradient(180deg, rgba(102, 24, 20, 0.94), rgba(78, 18, 15, 0.92));
+}
+
 body[data-theme="dark"] .campaign-side,
 body[data-theme="dark"] .campaign-action-panel {
   border-color: rgba(220, 230, 241, 0.28);
@@ -868,9 +864,10 @@ body[data-theme="dark"] .campaign-action-panel {
     grid-template-columns: 1fr;
   }
 
-  .campaign-tree-wrap,
-  .campaign-tree {
-    min-height: 620px;
+  .campaign-run-wrap,
+  .campaign-run-list {
+    min-height: 500px;
+    max-height: 500px;
   }
 }
 

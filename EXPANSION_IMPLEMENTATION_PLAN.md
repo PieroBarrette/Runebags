@@ -3,7 +3,7 @@
 This plan is implementation-oriented and keeps js/main.js as a compatibility shell while feature systems move into dedicated modules.
 
 ## Decisions Locked
-- Campaign style: branching roguelike node map.
+- Campaign style: linear Balatro-style sequence (no tree/branches).
 - Storage: localStorage only (no backend DB).
 - Economy scope: points wallet is per profile slot.
 - Online cosmetics: host board skin is shared; each player keeps personal rune/sfx/fx cosmetics.
@@ -82,6 +82,19 @@ Status update:
 - Campaign clears now offer a choose-1-from-3 rune reward, and run loadout persists across nodes.
 - Shop/remove campaign nodes are now slower run-management actions separate from normal match shop flow.
 - Active campaign encounters auto-resume on profile entry/profile switch when a save is present.
+- Campaign UI simplified from map graph to a linear progression list.
+- Campaign run sequence now follows: opening shop, then for each ante: normal combat (3), shop, elite (5), shop, boss (7), repeated 8 times with final boss at 10.
+- Campaign combats now run as multi-round supply fights without between-round shops.
+- Enemy combat bags now come from predefined templates by type (combat/elite/boss/final-boss), randomly selected per run seed.
+- Campaign shop nodes now use the real in-game shop phase UI and rules (remove/combine/add), then convert resulting bag specials back into run loadout.
+- Campaign is now ironman: failure resets the run to opening shop.
+- Bosses now have randomized names from a pool and ante-specific opening constraints; final boss has its own name pool and hard edge-opener constraint.
+- Campaign run victory now ends immediately with a victory reward popup and run reset.
+- Campaign shop rerolls added: rerolls are earned from run round-point performance (current formula: 1 reroll point = 1 reroll, persistent through run).
+- Economy semantics split:
+-   Run reroll points: earned during run combats from round-point performance, spent only on campaign shop rerolls, carry through the run.
+-   Wallet points: profile currency awarded only once at run end (victory or defeat payout), never during intermediate campaign nodes.
+- Boss constraints now randomize from a per-run constraint pool for roguelike variety.
 
 ### M4
 - Puzzle mode with deterministic scenario loader.

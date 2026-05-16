@@ -1,42 +1,53 @@
 import { createInitialState } from "../core/gameState.js";
 import { createRuneInstance } from "../runes/runeCatalog.js";
 
-const CAMPAIGN_ENCOUNTERS = {
-  "node-001": { objective: "Win this opener with a horizontal connect.", recommendedColumn: 3, columns: { 0: [1], 1: [1], 2: [1], 5: [2] } },
-  "node-002": { objective: "Secure a quick lane finish in the crypt.", recommendedColumn: 2, columns: { 2: [1, 1, 1], 4: [2, 2] } },
-  "node-004": { objective: "Elite duel: convert pressure into a vertical finish.", recommendedColumn: 4, columns: { 2: [1, 1], 3: [2, 2, 1], 4: [2, 1] } },
-  "node-006": { objective: "Single-round precision clash before the boss.", recommendedColumn: 3, columns: { 0: [1], 1: [1], 2: [1], 5: [2, 2] } },
-  "node-008": { objective: "Defeat The Binder through sustained rounds.", recommendedColumn: 4, columns: { 0: [1], 1: [2, 1], 2: [2, 2, 1], 3: [2, 2, 2], 5: [1] } },
-  "node-009": { objective: "Act II opens with a fast center race.", recommendedColumn: 3, columns: { 1: [1], 2: [1], 4: [1], 0: [2, 2] } },
-  "node-010": { objective: "Elite vault clash: maintain a stable lane.", recommendedColumn: 5, columns: { 5: [1, 1], 4: [2, 2, 1], 3: [2, 1] } },
-  "node-012": { objective: "Single-round drift duel.", recommendedColumn: 2, columns: { 0: [1], 1: [1], 3: [1], 5: [2] } },
-  "node-013": { objective: "Defeat The Echo Seer over multiple rounds.", recommendedColumn: 1, columns: { 4: [1], 3: [2, 1], 2: [2, 2, 1], 1: [2, 2, 2], 6: [1] } },
-  "node-015": { objective: "Final elite guard before the Crown.", recommendedColumn: 4, columns: { 2: [1, 1], 3: [2, 2, 1], 4: [2, 1], 5: [2] } },
-  "node-017": { objective: "Defeat The Hollow Crown in a long attrition battle.", recommendedColumn: 2, columns: { 0: [1], 1: [2, 1], 2: [2, 2, 1], 3: [2, 2, 2], 4: [1], 6: [2] } },
+const ENEMY_BAG_POOLS = {
+  combat: [
+    ["uruz", "ansuz", "ehwaz", "basic", "basic", "basic"],
+    ["raido", "mannaz", "sowelu", "basic", "basic", "basic"],
+    ["fehu", "gebo", "perth", "basic", "basic", "basic"],
+    ["teiwaz", "raido", "ansuz", "basic", "basic", "basic"],
+  ],
+  elite: [
+    ["ehwaz", "ehwaz", "mannaz", "perth", "basic", "basic", "basic"],
+    ["teiwaz", "thurisa", "sowelu", "raido", "basic", "basic", "basic"],
+    ["fehu", "fehu", "ansuz", "mannaz", "basic", "basic", "basic"],
+  ],
+  boss: [
+    ["thurisa", "teiwaz", "mannaz", "perth", "sowelu", "basic", "basic", "basic"],
+    ["ehwaz", "ehwaz", "raido", "teiwaz", "ansuz", "basic", "basic", "basic"],
+    ["fehu", "fehu", "gebo", "thurisa", "perth", "basic", "basic", "basic"],
+  ],
+  "final-boss": [
+    ["thurisa", "thurisa", "teiwaz", "teiwaz", "mannaz", "perth", "sowelu", "basic", "basic"],
+    ["ehwaz", "ehwaz", "fehu", "fehu", "raido", "thurisa", "perth", "basic", "basic"],
+  ],
 };
 
-export function getCampaignEncounterByNodeId(nodeId) {
-  return CAMPAIGN_ENCOUNTERS[nodeId] || null;
-}
-
-function applyColumnStacks(state, columns) {
-  for (const [colKey, stack] of Object.entries(columns || {})) {
-    const col = Number(colKey);
-    if (!Number.isInteger(col) || col < 0 || col >= state.columns || !Array.isArray(stack)) {
-      continue;
-    }
-
-    stack.forEach((owner, depth) => {
-      const row = state.rows - 1 - depth;
-      if (row < 0) {
-        return;
-      }
-      state.board[row][col] = owner === 2 ? 2 : owner === 3 ? 3 : 1;
-    });
+function hashString(input) {
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
   }
+  return hash >>> 0;
 }
 
-function buildCampaignBag(loadoutRunes) {
+function seededPickIndex(seed, length) {
+  if (length <= 1) {
+    return 0;
+  }
+  const value = Math.abs(Number(seed) || 0) % length;
+  return value;
+}
+
+function createBagFromIds(ids) {
+  return ids
+    .map((id) => createRuneInstance(id, 1))
+    .filter(Boolean);
+}
+
+function buildPlayerCampaignBag(loadoutRunes) {
   const bag = [];
   for (let i = 0; i < 4; i += 1) {
     const basic = createRuneInstance("basic", 1);
@@ -46,7 +57,7 @@ function buildCampaignBag(loadoutRunes) {
   }
 
   (Array.isArray(loadoutRunes) ? loadoutRunes : []).forEach((entry) => {
-    const rune = createRuneInstance(entry.runeId, entry.level);
+    const rune = createRuneInstance(entry?.runeId, Number(entry?.level) || 1);
     if (rune) {
       bag.push(rune);
     }
@@ -55,14 +66,58 @@ function buildCampaignBag(loadoutRunes) {
   return bag;
 }
 
+function getEncounterType(node) {
+  if (!node) {
+    return "combat";
+  }
+  if (node.type === "elite" || node.type === "boss" || node.type === "final-boss") {
+    return node.type;
+  }
+  return "combat";
+}
+
+function getObjective(nodeType, ante) {
+  if (nodeType === "elite") {
+    return `Elite encounter (Ante ${ante}): survive pressure over 5 supply points.`;
+  }
+  if (nodeType === "boss") {
+    return `Boss encounter (Ante ${ante}): harder constraints over 7 supply points.`;
+  }
+  if (nodeType === "final-boss") {
+    return "Final boss: severe constraints over 10 supply points.";
+  }
+  return `Normal encounter (Ante ${ante}): win over 3 supply points.`;
+}
+
+function applyOpeningPressure(state, nodeType) {
+  if (nodeType === "elite") {
+    state.nextTurnConstraints[1] = [2, 3, 4];
+    return;
+  }
+  if (nodeType === "boss") {
+    state.nextTurnConstraints[1] = [3];
+    return;
+  }
+  if (nodeType === "final-boss") {
+    state.nextTurnConstraints[1] = [2, 3, 4];
+    // Slight opening disadvantage for the player in the final boss.
+    state.board[state.rows - 1][3] = 2;
+  }
+}
+
+export function getCampaignEncounterByNodeId(nodeId) {
+  return nodeId ? { id: nodeId } : null;
+}
+
 export function buildCampaignEncounterState(node, campaignState, options = {}) {
-  const encounter = getCampaignEncounterByNodeId(node?.id);
   const state = createInitialState(options);
+  const nodeType = getEncounterType(node);
+  const ante = Math.max(1, Number(node?.ante) || 1);
 
   state.phase = "round";
   state.roundNumber = 1;
   state.turnNumber = 1;
-  state.pointPoolRemaining = Math.max(1, Number(node?.roundPointPool) || 1);
+  state.pointPoolRemaining = Math.max(1, Number(node?.roundPointPool) || 3);
   state.tieRemovedPoints = 0;
   state.winner = null;
   state.winningLine = null;
@@ -80,18 +135,21 @@ export function buildCampaignEncounterState(node, campaignState, options = {}) {
     }
   }
 
-  applyColumnStacks(state, encounter?.columns || {});
+  const seedBase = Number(campaignState?.startedAt) || Date.now();
+  const pools = ENEMY_BAG_POOLS[nodeType] || ENEMY_BAG_POOLS.combat;
+  const poolIndex = seededPickIndex(hashString(`${seedBase}-${node?.id || "node"}`), pools.length);
+  const enemyBagIds = pools[poolIndex] || pools[0] || [];
 
-  const activeRune = createRuneInstance("basic", 1);
-  const opponentRune = createRuneInstance("basic", 1);
+  const playerBasic = createRuneInstance("basic", 1);
+  const enemyBasic = createRuneInstance("basic", 1);
 
-  state.players[1].hand = activeRune ? [activeRune] : [];
-  state.players[1].bag = buildCampaignBag(campaignState?.loadoutRunes || []);
+  state.players[1].hand = playerBasic ? [playerBasic] : [];
+  state.players[1].bag = buildPlayerCampaignBag(campaignState?.loadoutRunes || []);
   state.players[1].discard = [];
   state.players[1].selectedRuneInstanceId = null;
 
-  state.players[2].hand = opponentRune ? [opponentRune] : [];
-  state.players[2].bag = [];
+  state.players[2].hand = enemyBasic ? [enemyBasic] : [];
+  state.players[2].bag = createBagFromIds(enemyBagIds);
   state.players[2].discard = [];
   state.players[2].selectedRuneInstanceId = null;
 
@@ -99,15 +157,25 @@ export function buildCampaignEncounterState(node, campaignState, options = {}) {
   state.players[2].points = 0;
   state.currentPlayer = 1;
 
-  const objective = encounter?.objective || node?.description || `Clear encounter: ${node?.title || "Unknown node"}`;
-  const recommendedColumn = Number.isInteger(encounter?.recommendedColumn) ? encounter.recommendedColumn : 3;
+  applyOpeningPressure(state, nodeType);
+
+  const bossName = nodeType === "boss" || nodeType === "final-boss"
+    ? String(campaignState?.bossNameByNode?.[node?.id] || "Unnamed Boss").trim()
+    : "";
+
+  const objective = getObjective(nodeType, ante);
+  const recommendedColumn = nodeType === "combat" ? 3 : 4;
 
   state.log = [
-    `Campaign encounter: ${node?.title || "Unknown node"}`,
+    `Campaign encounter: ${node?.title || "Encounter"}${bossName ? ` vs ${bossName}` : ""}`,
     objective,
-    `Round pool: ${state.pointPoolRemaining}`,
-    `Hint: column ${recommendedColumn + 1}`,
+    `Supply points: ${state.pointPoolRemaining}`,
+    `Opponent template: ${poolIndex + 1}/${pools.length}`,
   ];
+
+  if (nodeType === "boss" || nodeType === "final-boss") {
+    state.log.unshift(`Boss pressure active: ${bossName} constrains your opening turn.`);
+  }
 
   return {
     state,

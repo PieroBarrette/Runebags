@@ -1,222 +1,74 @@
-export const CAMPAIGN_NODES = [
-  {
-    id: "node-001",
-    title: "Broken Trail",
-    tier: 0,
-    lane: 1,
-    act: 1,
-    type: "combat",
-    description: "Opening skirmish through fractured runestones.",
-    roundPointPool: 1,
-    rewardPoints: 35,
-    nextIds: ["node-002", "node-003"],
-  },
-  {
-    id: "node-002",
-    title: "Shallow Crypt",
-    tier: 1,
-    lane: 0,
-    act: 1,
-    type: "combat",
-    description: "Quick lane duel through old crypt stones.",
-    roundPointPool: 1,
-    rewardPoints: 40,
-    nextIds: ["node-004", "node-005"],
-  },
-  {
-    id: "node-003",
-    title: "Rune Vendor",
-    tier: 1,
-    lane: 2,
-    act: 1,
-    type: "shop",
-    description: "Slow shop stop: add up to 2 from 5, with combine options.",
-    roundPointPool: 0,
-    rewardPoints: 0,
-    nextIds: ["node-005"],
-  },
-  {
-    id: "node-004",
-    title: "Frozen Span",
-    tier: 2,
-    lane: 0,
-    act: 1,
-    type: "elite",
-    description: "Elite encounter with sustained pressure.",
-    roundPointPool: 3,
-    rewardPoints: 70,
-    nextIds: ["node-006"],
-  },
-  {
-    id: "node-005",
-    title: "Ash Purge",
-    tier: 2,
-    lane: 2,
-    act: 1,
-    type: "remove",
-    description: "Remove one rune from your campaign loadout.",
-    roundPointPool: 0,
-    rewardPoints: 0,
-    nextIds: ["node-006", "node-007"],
-  },
-  {
-    id: "node-006",
-    title: "Whisper Duel",
-    tier: 3,
-    lane: 0,
-    act: 1,
-    type: "combat",
-    description: "Single-round precision clash before the act boss.",
-    roundPointPool: 1,
-    rewardPoints: 50,
-    nextIds: ["node-008"],
-  },
-  {
-    id: "node-007",
-    title: "Old Market",
-    tier: 3,
-    lane: 2,
-    act: 1,
-    type: "shop",
-    description: "Slow shop stop: add up to 2 from 5, with combine options.",
-    roundPointPool: 0,
-    rewardPoints: 0,
-    nextIds: ["node-008"],
-  },
-  {
-    id: "node-008",
-    title: "The Binder",
-    tier: 4,
-    lane: 1,
-    act: 1,
-    type: "boss",
-    description: "Act boss: lock pressure across multiple rounds.",
-    roundPointPool: 4,
-    rewardPoints: 120,
-    nextIds: ["node-009", "node-010"],
-  },
-  {
-    id: "node-009",
-    title: "Cinder Path",
-    tier: 5,
-    lane: 0,
-    act: 2,
-    type: "combat",
-    description: "Fast opening for act two.",
-    roundPointPool: 1,
-    rewardPoints: 55,
-    nextIds: ["node-011", "node-012"],
-  },
-  {
-    id: "node-010",
-    title: "Vault Elite",
-    tier: 5,
-    lane: 2,
-    act: 2,
-    type: "elite",
-    description: "Elite duel through reinforced rune lines.",
-    roundPointPool: 3,
-    rewardPoints: 85,
-    nextIds: ["node-012"],
-  },
-  {
-    id: "node-011",
-    title: "Rune Vendor II",
-    tier: 6,
-    lane: 0,
-    act: 2,
-    type: "shop",
-    description: "Slow shop stop: add up to 2 from 5, with combine options.",
-    roundPointPool: 0,
-    rewardPoints: 0,
-    nextIds: ["node-013"],
-  },
-  {
-    id: "node-012",
-    title: "Hollow Drift",
-    tier: 6,
-    lane: 2,
-    act: 2,
-    type: "combat",
-    description: "Single-round drift clash.",
-    roundPointPool: 1,
-    rewardPoints: 60,
-    nextIds: ["node-013", "node-014"],
-  },
-  {
-    id: "node-013",
-    title: "Echo Seer",
-    tier: 7,
-    lane: 1,
-    act: 2,
-    type: "boss",
-    description: "Act boss: mirrored pressure over several rounds.",
-    roundPointPool: 5,
-    rewardPoints: 145,
-    nextIds: ["node-015", "node-016"],
-  },
-  {
-    id: "node-014",
-    title: "Ash Purge II",
-    tier: 7,
-    lane: 3,
-    act: 2,
-    type: "remove",
-    description: "Remove one rune from your campaign loadout.",
-    roundPointPool: 0,
-    rewardPoints: 0,
-    nextIds: ["node-016"],
-  },
-  {
-    id: "node-015",
-    title: "Crown Vanguard",
-    tier: 8,
-    lane: 1,
-    act: 3,
-    type: "elite",
-    description: "Final elite guard before the Crown.",
-    roundPointPool: 3,
-    rewardPoints: 95,
-    nextIds: ["node-017"],
-  },
-  {
-    id: "node-016",
-    title: "Last Market",
-    tier: 8,
-    lane: 3,
-    act: 3,
-    type: "shop",
-    description: "Slow final shop: add up to 2 from 5, with combine options.",
-    roundPointPool: 0,
-    rewardPoints: 0,
-    nextIds: ["node-017"],
-  },
-  {
-    id: "node-017",
-    title: "The Hollow Crown",
-    tier: 9,
-    lane: 2,
-    act: 3,
-    type: "boss",
-    description: "Final act boss: long attrition with heavy pressure.",
-    roundPointPool: 6,
-    rewardPoints: 220,
-    nextIds: [],
-  },
+const ANTE_COUNT = 8;
+
+const STEP_DEFS = [
+  { key: "combat", label: "Normal Combat", type: "combat", roundPointPool: 3, rewardPoints: 35 },
+  { key: "shop-a", label: "Shop", type: "shop", roundPointPool: 0, rewardPoints: 0 },
+  { key: "elite", label: "Elite Combat", type: "elite", roundPointPool: 5, rewardPoints: 65 },
+  { key: "shop-b", label: "Shop", type: "shop", roundPointPool: 0, rewardPoints: 0 },
+  { key: "boss", label: "Boss Combat", type: "boss", roundPointPool: 7, rewardPoints: 110 },
 ];
 
-export const CAMPAIGN_START_NODE_ID = "node-001";
+function createStartShopNode() {
+  return {
+    id: "start-shop",
+    title: "Opening Shop",
+    type: "shop",
+    ante: 0,
+    step: "start-shop",
+    description: "Open your run by tuning your bag before ante 1.",
+    roundPointPool: 0,
+    rewardPoints: 0,
+    nextIds: ["ante-01-combat"],
+  };
+}
+
+function createAnteNode(ante, stepIndex, stepDef, nextId) {
+  const isFinalBoss = ante === ANTE_COUNT && stepDef.key === "boss";
+  const type = isFinalBoss ? "final-boss" : stepDef.type;
+  const id = `ante-${String(ante).padStart(2, "0")}-${stepDef.key}`;
+  const title = isFinalBoss ? "Final Boss" : `Ante ${ante} ${stepDef.label}`;
+  const pool = type === "final-boss" ? 10 : stepDef.roundPointPool;
+
+  return {
+    id,
+    title,
+    type,
+    ante,
+    step: stepDef.key,
+    stepIndex,
+    description: isFinalBoss
+      ? "Final showdown. Hard constraints and 10-point supply."
+      : `${stepDef.label} for ante ${ante}.`,
+    roundPointPool: pool,
+    rewardPoints: type === "final-boss" ? 220 : stepDef.rewardPoints,
+    nextIds: nextId ? [nextId] : [],
+  };
+}
+
+function buildLinearNodes() {
+  const nodes = [createStartShopNode()];
+
+  for (let ante = 1; ante <= ANTE_COUNT; ante += 1) {
+    for (let i = 0; i < STEP_DEFS.length; i += 1) {
+      const stepDef = STEP_DEFS[i];
+      const nextInAnte = STEP_DEFS[i + 1];
+      const isLastStep = i === STEP_DEFS.length - 1;
+      const nextId = nextInAnte
+        ? `ante-${String(ante).padStart(2, "0")}-${nextInAnte.key}`
+        : ante < ANTE_COUNT
+          ? `ante-${String(ante + 1).padStart(2, "0")}-${STEP_DEFS[0].key}`
+          : null;
+
+      nodes.push(createAnteNode(ante, i, stepDef, isLastStep ? nextId : nextId));
+    }
+  }
+
+  return nodes;
+}
+
+export const CAMPAIGN_NODES = buildLinearNodes();
+export const CAMPAIGN_START_NODE_ID = "start-shop";
 
 export function getCampaignNodeById(id) {
   return CAMPAIGN_NODES.find((node) => node.id === id) || null;
-}
-
-export function getCampaignEdges() {
-  const edges = [];
-  CAMPAIGN_NODES.forEach((node) => {
-    node.nextIds.forEach((nextId) => {
-      edges.push({ fromId: node.id, toId: nextId });
-    });
-  });
-  return edges;
 }

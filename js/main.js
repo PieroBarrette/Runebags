@@ -67,24 +67,24 @@ import {
   markPuzzleSolved,
   savePuzzleState,
 } from "./persistence/puzzleStore.js";
-import { CAMPAIGN_NODES, getCampaignEdges, getCampaignNodeById } from "./campaign/campaignCatalog.js";
+import { CAMPAIGN_NODES, getCampaignNodeById } from "./campaign/campaignCatalog.js";
 import {
-  addCampaignLoadoutRune,
+  addCampaignCombatPoints,
+  addCampaignPerformancePoints,
   claimCampaignRewardChoice,
-  combineCampaignLoadoutRune,
   completeCampaignNode,
   getCampaignCompletion,
   loadCampaignState,
-  removeCampaignLoadoutRune,
   resetCampaignRun,
   saveCampaignState,
+  setCampaignBossName,
   setCampaignPendingReward,
-  setCampaignShopOffer,
+  spendCampaignReroll,
   startCampaignRun,
 } from "./persistence/campaignStore.js";
 import { buildCampaignEncounterState, getCampaignEncounterByNodeId } from "./campaign/campaignEncounterBuilder.js";
 import { createOnlineController } from "./online/onlineController.js";
-import { getRuneById, RUNE_CATALOG } from "./runes/runeCatalog.js";
+import { createRuneInstance, getRuneById, RUNE_CATALOG } from "./runes/runeCatalog.js";
 import { createSfxEngine } from "./audio/sfxEngine.js";
 
 const THEME_STORAGE_KEY = "runebags-theme-v1";
@@ -114,6 +114,27 @@ const RUNES_WITH_LEVEL_PREFIX = new Set([
   "teiwaz",
   "thurisa",
 ]);
+const CAMPAIGN_BOSS_NAME_POOL = [
+  "The Glass Regent",
+  "Ash Bishop",
+  "The Wire Saint",
+  "Crow-King Eidar",
+  "Ivory Usurper",
+  "The Hollow Marshal",
+  "Nettle Tyrant",
+  "The Seventh Seal",
+];
+const CAMPAIGN_FINAL_BOSS_NAME_POOL = ["The Last Crown", "The Void Arbiter", "The Pale Monarch"];
+const CAMPAIGN_BOSS_CONSTRAINT_POOL = [
+  "center-only",
+  "center-flanks",
+  "left-half",
+  "right-half",
+  "even-columns",
+  "odd-columns",
+  "no-center",
+  "edges-only",
+];
 
 const elements = {
   profileEntryScreen: document.getElementById("profile-entry-screen"),
@@ -131,7 +152,6 @@ const elements = {
   puzzleBackBtn: document.getElementById("puzzle-back-btn"),
   campaignPanel: document.getElementById("campaign-panel"),
   campaignSummary: document.getElementById("campaign-summary"),
-  campaignMapLinks: document.getElementById("campaign-map-links"),
   campaignMap: document.getElementById("campaign-map"),
   campaignLoadoutSummary: document.getElementById("campaign-loadout-summary"),
   campaignLoadoutList: document.getElementById("campaign-loadout-list"),
@@ -248,6 +268,7 @@ const elements = {
   shopSwitchPlayer: document.getElementById("shop-switch-player"),
   shopRemoveBtn: document.getElementById("shop-remove-btn"),
   shopCombineBtn: document.getElementById("shop-combine-btn"),
+  shopRerollBtn: document.getElementById("shop-reroll-btn"),
   fxToastLayer: document.getElementById("fx-toast-layer"),
 };
 
@@ -297,6 +318,7 @@ let campaignOutcomeHandled = false;
 let campaignActiveActionNodeId = null;
 let campaignActiveActionType = null;
 let campaignSelectedShopAddIndexes = new Set();
+let campaignInShopNode = false;
 let puzzleDifficultyFilter = "all";
 let puzzleStatusFilter = "all";
 
@@ -728,8 +750,13 @@ function bindEvents() {
     campaignState = startCampaignRun(campaignState);
     saveCampaignState(activeProfileSlot, campaignState);
     syncCampaignSummaryToProfile();
+    const nextNode = getNextCampaignPlayableNode();
+    if (nextNode) {
+      resolveCampaignNode(nextNode.id);
+      return;
+    }
     renderCampaignPanel();
-    showToast("Campaign run ready. Choose a path.", "info");
+    showToast("Campaign run ready.", "info");
   });
 
   elements.campaignResetBtn.addEventListener("click", () => {
@@ -833,37 +860,6 @@ function bindEvents() {
       return;
     }
 
-    const removeBtn = event.target.closest("button[data-campaign-remove-index]");
-    if (removeBtn) {
-      const index = Number(removeBtn.dataset.campaignRemoveIndex);
-      removeRuneFromCampaignLoadout(index);
-      return;
-    }
-
-    const combineBtn = event.target.closest("button[data-campaign-combine-rune]");
-    if (combineBtn) {
-      const runeId = String(combineBtn.dataset.campaignCombineRune || "");
-      combineRuneInCampaignLoadout(runeId);
-      return;
-    }
-
-    const addBtn = event.target.closest("button[data-campaign-shop-add]");
-    if (addBtn) {
-      const offerIndex = Number(addBtn.dataset.campaignShopAdd);
-      toggleCampaignShopAdd(offerIndex);
-      return;
-    }
-
-    const shopDoneBtn = event.target.closest("button[data-campaign-shop-complete]");
-    if (shopDoneBtn) {
-      completeCampaignShopNode();
-      return;
-    }
-
-    const removeDoneBtn = event.target.closest("button[data-campaign-remove-complete]");
-    if (removeDoneBtn) {
-      completeCampaignRemoveNode();
-    }
   };
 
   elements.campaignMap.addEventListener("click", handleCampaignPanelClick);
@@ -1189,9 +1185,14 @@ function bindEvents() {
       return;
     }
 
-    if (currentLocalMode === MODE_CAMPAIGN && activeCampaignNodeId) {
+    if (currentLocalMode === MODE_CAMPAIGN && activeCampaignNodeId && !campaignInShopNode) {
       showCampaignPanel();
       setStatus("Choose your next campaign node.");
+      return;
+    }
+
+    if (currentLocalMode === MODE_CAMPAIGN && campaignInShopNode && state.phase === "shop") {
+      completeCampaignShopNodeFromState();
       return;
     }
 
@@ -1265,6 +1266,13 @@ function bindEvents() {
     }
 
     if (currentLocalMode === MODE_CAMPAIGN && activeCampaignNodeId) {
+      if (campaignInShopNode) {
+        const node = getCampaignNodeById(activeCampaignNodeId);
+        if (node?.type === "shop") {
+          openCampaignShopNode(node);
+          return;
+        }
+      }
       startCampaignEncounterByNode(activeCampaignNodeId, { restart: true });
       return;
     }
@@ -1366,6 +1374,26 @@ function bindEvents() {
     persistState();
     render();
     scheduleAiTurnIfNeeded();
+  });
+
+  elements.shopRerollBtn.addEventListener("click", () => {
+    if (!campaignInShopNode || currentLocalMode !== MODE_CAMPAIGN || state.phase !== "shop") {
+      return;
+    }
+
+    const available = getCampaignAvailableRerolls();
+    if (available <= 0) {
+      setStatus("No rerolls left for this run.");
+      return;
+    }
+
+    rerollCampaignShopOffer();
+    campaignState = spendCampaignReroll(campaignState, 1);
+    saveCampaignState(activeProfileSlot, campaignState);
+    syncCampaignSummaryToProfile();
+    persistState();
+    render();
+    showToast(`Shop rerolled (${getCampaignAvailableRerolls()} left).`, "info");
   });
 
   elements.shopBag.addEventListener("click", (event) => {
@@ -1701,6 +1729,7 @@ function startCampaignEncounterByNode(nodeId, options = {}) {
   }
 
   campaignState = startCampaignRun(campaignState);
+  const bossName = ensureCampaignBossName(node);
   saveCampaignState(activeProfileSlot, campaignState);
 
   const encounter = buildCampaignEncounterState(node, campaignState, getLocalGameOptions());
@@ -1708,6 +1737,7 @@ function startCampaignEncounterByNode(nodeId, options = {}) {
   currentLocalMode = MODE_CAMPAIGN;
   activeCampaignNodeId = node.id;
   campaignOutcomeHandled = false;
+  campaignInShopNode = false;
   campaignActiveActionNodeId = null;
   campaignActiveActionType = null;
   campaignSelectedShopAddIndexes = new Set();
@@ -1718,18 +1748,36 @@ function startCampaignEncounterByNode(nodeId, options = {}) {
   };
   resetAchievementTracking();
   resetRewardTracking();
+  applyCampaignBossConstraintForActiveNode();
   persistState();
   enterGameScreen("campaign");
 
   const restartPrefix = restart ? "Encounter restarted. " : "Encounter started. ";
   setStatus(`${restartPrefix}${encounter.objective} Hint: column ${encounter.recommendedColumn + 1}.`);
-  showToast(`${node.title}: ${encounter.objective}`, "info");
+  showToast(`${bossName ? `${bossName} - ` : ""}${node.title}: ${encounter.objective}`, "info");
   render();
 }
 
 function normalizeCampaignEndStateIfNeeded() {
   if (currentLocalMode !== MODE_CAMPAIGN || state.phase !== "round-end") {
     return;
+  }
+
+  const node = getCampaignNodeById(activeCampaignNodeId);
+  if (campaignInShopNode || !node) {
+    return;
+  }
+
+  applyCampaignBossConstraintForActiveNode();
+
+  if ((state.pointPoolRemaining || 0) > 0) {
+    const shopStep = enterShopPhase(state);
+    if (!shopStep.error && state.phase === "shop") {
+      startRoundFromShop(state);
+      applyCampaignBossConstraintForActiveNode();
+      state.log.unshift("Campaign continues immediately: no between-round shop.");
+      return;
+    }
   }
 
   state.phase = "game-over";
@@ -1758,13 +1806,32 @@ function evaluateCampaignProgressIfNeeded() {
   const completedSet = new Set(campaignState.completedNodeIds || []);
   const solved = state.gameWinner === 1;
   if (!solved) {
-    showToast(`Encounter failed: ${node.title}. Retry when ready.`, "warn");
-    setStatus("Encounter failed. Use Restart Encounter or Back to Campaign.");
+    const defeatPayout = getCampaignRunPayout("defeat", campaignState);
+    if (defeatPayout > 0) {
+      addProfileWalletPoints(activeProfileSlot, defeatPayout);
+      refreshProfileHeader();
+    }
+
+    const failedTitle = node.type === "final-boss" ? "final boss" : node.title;
+    campaignState = resetCampaignRun();
+    saveCampaignState(activeProfileSlot, campaignState);
+    syncCampaignSummaryToProfile();
+    clearModeSave(MODE_CAMPAIGN, activeProfileSlot);
+    campaignInShopNode = false;
+    activeCampaignNodeId = null;
+    showToast(`Run lost at ${failedTitle}. End payout: +${defeatPayout}.`, "warn");
+    setStatus(`Run failed. End payout: +${defeatPayout}. Start again from opening shop.`);
+    showCampaignPanel();
     return;
   }
 
   const wasCompleted = completedSet.has(node.id);
   campaignState = completeCampaignNode(campaignState, node.id);
+  const earnedCombatPoints = Math.max(0, Number(state.players?.[1]?.points) || 0);
+  if (!wasCompleted && (node.type === "combat" || node.type === "elite" || node.type === "boss" || node.type === "final-boss")) {
+    campaignState = addCampaignCombatPoints(campaignState, earnedCombatPoints);
+    campaignState = addCampaignPerformancePoints(campaignState, Math.max(0, Number(node.rewardPoints) || 0));
+  }
 
   if (!wasCompleted && (node.type === "combat" || node.type === "elite" || node.type === "boss")) {
     const rewardChoices = generateCampaignRewardChoices(3);
@@ -1775,18 +1842,28 @@ function evaluateCampaignProgressIfNeeded() {
   syncCampaignSummaryToProfile();
 
   if (!wasCompleted) {
-    const reward = Math.max(0, Number(node.rewardPoints) || 0);
-    if (reward > 0) {
-      addProfileWalletPoints(activeProfileSlot, reward);
-      refreshProfileHeader();
-      pulseElement(elements.menuProfileSwitchBtn, "ui-pulse");
-      showToast(`Campaign cleared: ${node.title} (+${reward} pts)`, "reward");
-    } else {
-      showToast(`Campaign cleared: ${node.title}`, "reward");
-    }
+    showToast(`Campaign cleared: ${node.title}`, "reward");
 
     if (campaignState.pendingRewardChoices?.length > 0) {
       showToast("Pick 1 rune from 3 to improve your run.", "info");
+    }
+
+    if (node.type === "final-boss") {
+      const victoryPayout = getCampaignRunPayout("victory", campaignState);
+      addProfileWalletPoints(activeProfileSlot, victoryPayout);
+      refreshProfileHeader();
+      pulseElement(elements.menuProfileSwitchBtn, "ui-pulse");
+      elements.rewardPopupBody.textContent = `Run Cleared! Final boss defeated. End payout: +${victoryPayout} wallet points. Reroll points earned: ${campaignState.runCombatPoints}.`;
+      elements.rewardPopup.hidden = false;
+      rewardPopupShownForGame = true;
+
+      campaignState = resetCampaignRun();
+      saveCampaignState(activeProfileSlot, campaignState);
+      syncCampaignSummaryToProfile();
+      clearModeSave(MODE_CAMPAIGN, activeProfileSlot);
+      campaignInShopNode = false;
+      activeCampaignNodeId = null;
+      showToast("Run victory! Campaign reset for a fresh run.", "reward");
     }
   } else {
     showToast(`Encounter replay cleared: ${node.title}`, "info");
@@ -1996,7 +2073,7 @@ function updateTopStatus() {
 }
 
 function renderShopPanel() {
-  if (currentLocalMode === MODE_CAMPAIGN) {
+  if (currentLocalMode === MODE_CAMPAIGN && !campaignInShopNode) {
     const inEncounterEnd = state.phase === "game-over";
     elements.shopPanel.hidden = true;
     elements.boardEl.hidden = false;
@@ -2004,6 +2081,7 @@ function renderShopPanel() {
     elements.shopSwitchPlayer.hidden = true;
     elements.shopRemoveBtn.hidden = true;
     elements.shopCombineBtn.hidden = true;
+    elements.shopRerollBtn.hidden = true;
     elements.phaseBtn.hidden = !inEncounterEnd;
     elements.phaseBtn.textContent = "Back to Campaign";
     return;
@@ -2027,6 +2105,7 @@ function renderShopPanel() {
   elements.boardEl.hidden = inShop;
   elements.shopInstruction.hidden = !inShop;
   elements.shopSwitchPlayer.hidden = !inShop || online.isOnlineActive() || aiConfig.enabled;
+  elements.shopRerollBtn.hidden = !inShop || !campaignInShopNode;
 
   elements.phaseBtn.hidden = state.phase === "round" || state.phase === "game-over";
   if (online.isOnlineActive() && state.phase === "shop") {
@@ -2036,6 +2115,10 @@ function renderShopPanel() {
     elements.phaseBtn.textContent = playerReady ? "Cancel Ready" : "Shop Ready";
   } else {
     elements.phaseBtn.textContent = state.phase === "shop" ? "Start Next Round" : "Start Shop Phase";
+  }
+
+  if (campaignInShopNode && state.phase === "shop") {
+    elements.phaseBtn.textContent = "Finish Campaign Shop";
   }
 
   if (!inShop) {
@@ -2055,6 +2138,14 @@ function renderShopPanel() {
     elements.shopInstruction.textContent = `Shop your own bag and offer, then click Shop Ready. Black is ${blackReady}, White is ${whiteReady}.`;
   } else {
     elements.shopInstruction.textContent = "Shop: remove once, combine pair, add up to 2 from offer.";
+  }
+
+  if (campaignInShopNode) {
+    const available = getCampaignAvailableRerolls();
+    elements.shopInstruction.textContent = `Campaign shop: normal rules apply. Rerolls left: ${available}.`;
+    elements.shopSwitchPlayer.hidden = true;
+    elements.shopRerollBtn.disabled = available <= 0;
+    elements.shopRerollBtn.textContent = `Reroll Offer (${available})`;
   }
 
   const playerId = online.isOnlineActive() && waitingRoomState.playerId
@@ -2874,7 +2965,7 @@ function updateTopButtons() {
   }
 
   if (currentLocalMode === MODE_CAMPAIGN && activeCampaignNodeId) {
-    elements.newGameBtn.textContent = "Restart Encounter";
+    elements.newGameBtn.textContent = campaignInShopNode ? "Restart Shop" : "Restart Encounter";
     return;
   }
 
@@ -2975,6 +3066,7 @@ function persistState() {
     saveModeSave(MODE_CAMPAIGN, {
       state,
       nodeId: activeCampaignNodeId,
+      campaignInShopNode,
       updatedAt: Date.now(),
     }, activeProfileSlot);
     return;
@@ -3020,6 +3112,7 @@ function tryResumeCampaignEncounter() {
   currentLocalMode = MODE_CAMPAIGN;
   activeCampaignNodeId = node.id;
   campaignOutcomeHandled = false;
+  campaignInShopNode = Boolean(saved?.campaignInShopNode);
   campaignActiveActionNodeId = null;
   campaignActiveActionType = null;
   campaignSelectedShopAddIndexes = new Set();
@@ -3031,7 +3124,7 @@ function tryResumeCampaignEncounter() {
   resetAchievementTracking();
   resetRewardTracking();
   enterGameScreen("campaign");
-  setStatus(`Campaign resumed: ${node.title}.`);
+  setStatus(campaignInShopNode ? `Campaign shop resumed: ${node.title}.` : `Campaign resumed: ${node.title}.`);
   return true;
 }
 
@@ -3373,13 +3466,14 @@ function resolveCampaignNode(nodeId) {
     return;
   }
 
-  if (node.type === "shop") {
-    openCampaignShopNode(node);
+  const nextNode = getNextCampaignPlayableNode();
+  if (nextNode && nextNode.id !== node.id) {
+    showToast("Follow the campaign sequence in order.", "warn");
     return;
   }
 
-  if (node.type === "remove") {
-    openCampaignRemoveNode(node);
+  if (node.type === "shop") {
+    openCampaignShopNode(node);
     return;
   }
 
@@ -3390,8 +3484,21 @@ function renderCampaignPanel() {
   const completion = getCampaignCompletion(campaignState);
   const unlocked = new Set(campaignState.unlockedNodeIds || []);
   const completed = new Set(campaignState.completedNodeIds || []);
-  elements.campaignSummary.textContent = `Completed ${completion.completed}/${completion.total} (${completion.percent}%) | Bosses defeated: ${completion.bosses}/3`;
   const pendingReward = Array.isArray(campaignState.pendingRewardChoices) && campaignState.pendingRewardChoices.length > 0;
+  const nextNode = getNextCampaignPlayableNode();
+  const ante = Math.max(1, Number(nextNode?.ante) || 1);
+  const bossClears = CAMPAIGN_NODES.reduce((count, node) => {
+    if (!completed.has(node.id)) {
+      return count;
+    }
+    if (node.type === "boss" || node.type === "final-boss") {
+      return count + 1;
+    }
+    return count;
+  }, 0);
+
+  const rerolls = getCampaignAvailableRerolls();
+  elements.campaignSummary.textContent = `Completed ${completion.completed}/${completion.total} (${completion.percent}%) | Ante ${Math.min(ante, 8)}/8 | Bosses defeated: ${bossClears}/8 | Rerolls: ${rerolls}`;
   if (pendingReward) {
     elements.campaignSummary.textContent += " | Reward pick pending";
   }
@@ -3400,52 +3507,39 @@ function renderCampaignPanel() {
   renderCampaignNodeActionPanel();
 
   elements.campaignMap.innerHTML = "";
-  elements.campaignMapLinks.innerHTML = "";
-
-  const positions = getCampaignNodePositions(CAMPAIGN_NODES);
-  const edges = getCampaignEdges();
-
-  edges.forEach((edge) => {
-    const from = positions.get(edge.fromId);
-    const to = positions.get(edge.toId);
-    if (!from || !to) {
-      return;
+  const displayNodes = CAMPAIGN_NODES.filter((node) => {
+    if (node.id === "start-shop" && !completed.has(node.id)) {
+      return true;
     }
-
-    const path = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    path.setAttribute("x1", String(from.x));
-    path.setAttribute("y1", String(from.y));
-    path.setAttribute("x2", String(to.x));
-    path.setAttribute("y2", String(to.y));
-    path.setAttribute("class", `campaign-link ${unlocked.has(edge.toId) ? "unlocked" : ""}`.trim());
-    elements.campaignMapLinks.appendChild(path);
+    return Number(node.ante) === ante;
   });
 
-  CAMPAIGN_NODES.forEach((node) => {
+  displayNodes.forEach((node) => {
     const isUnlocked = unlocked.has(node.id);
     const isCompleted = completed.has(node.id);
-    const pos = positions.get(node.id);
+    const isNext = nextNode?.id === node.id;
 
     const card = document.createElement("article");
     card.className = `campaign-node ${node.type} ${isCompleted ? "completed" : ""} ${isUnlocked ? "unlocked" : "locked"}`.trim();
-    if (pos) {
-      card.style.left = `${pos.x}px`;
-      card.style.top = `${pos.y}px`;
-    }
 
     const title = document.createElement("h4");
-    title.textContent = node.title;
+    const antePrefix = node.ante > 0 ? `Ante ${node.ante} - ` : "";
+    const bossName = (node.type === "boss" || node.type === "final-boss")
+      ? String(campaignState.bossNameByNode?.[node.id] || "")
+      : "";
+    title.textContent = `${antePrefix}${node.title}${bossName ? ` (${bossName})` : ""}`;
     card.appendChild(title);
 
     const detail = document.createElement("small");
-    detail.textContent = `${getCampaignNodeTypeLabel(node.type)} | Pool ${Math.max(0, Number(node.roundPointPool) || 0)} | ${isCompleted ? "Cleared" : isUnlocked ? "Unlocked" : "Locked"}`;
+    const status = isCompleted ? "Cleared" : isNext ? "Current" : isUnlocked ? "Unlocked" : "Locked";
+    detail.textContent = `${getCampaignNodeTypeLabel(node.type)} | Supply ${Math.max(0, Number(node.roundPointPool) || 0)} | ${status}`;
     card.appendChild(detail);
 
     const resolveBtn = document.createElement("button");
     resolveBtn.type = "button";
     resolveBtn.className = "menu-btn";
     resolveBtn.dataset.campaignNodeStart = node.id;
-    resolveBtn.disabled = !isUnlocked || Boolean(pendingReward && campaignState.pendingRewardNodeId !== node.id);
+    resolveBtn.disabled = !isUnlocked || !isNext || Boolean(pendingReward && campaignState.pendingRewardNodeId !== node.id);
     resolveBtn.textContent = getCampaignNodeActionLabel(node, isCompleted);
     card.appendChild(resolveBtn);
 
@@ -3453,37 +3547,10 @@ function renderCampaignPanel() {
   });
 }
 
-function getCampaignNodePositions(nodes) {
-  const positions = new Map();
-  const tierGroups = new Map();
-  nodes.forEach((node) => {
-    const tier = Math.max(0, Number(node.tier) || 0);
-    const list = tierGroups.get(tier) || [];
-    list.push(node);
-    tierGroups.set(tier, list);
-  });
-
-  const tiers = [...tierGroups.keys()].sort((a, b) => a - b);
-  const tierGap = 72;
-  const laneGap = 220;
-  const top = 56;
-  const left = 120;
-
-  tiers.forEach((tier) => {
-    const tierNodes = (tierGroups.get(tier) || []).sort((a, b) => (a.lane || 0) - (b.lane || 0));
-    tierNodes.forEach((node) => {
-      const lane = Math.max(0, Number(node.lane) || 0);
-      positions.set(node.id, {
-        x: left + lane * laneGap,
-        y: top + tier * tierGap,
-      });
-    });
-  });
-
-  return positions;
-}
-
 function getCampaignNodeTypeLabel(type) {
+  if (type === "final-boss") {
+    return "Final Boss";
+  }
   if (type === "boss") {
     return "Boss";
   }
@@ -3501,12 +3568,30 @@ function getCampaignNodeTypeLabel(type) {
 
 function getCampaignNodeActionLabel(node, isCompleted) {
   if (node.type === "shop") {
-    return isCompleted ? "Reopen Shop" : "Open Shop";
+    return isCompleted ? "Completed" : "Open Shop";
   }
-  if (node.type === "remove") {
-    return isCompleted ? "Reopen Remove" : "Open Remove";
+  return isCompleted ? "Completed" : "Start Encounter";
+}
+
+function getCampaignAvailableRerolls() {
+  const combatPoints = Math.max(0, Number(campaignState.runCombatPoints) || 0);
+  const spent = Math.max(0, Number(campaignState.runRerollsSpent) || 0);
+  return Math.max(0, combatPoints - spent);
+}
+
+function getCampaignRunPayout(outcome, stateSnapshot = campaignState) {
+  const base = Math.max(0, Number(stateSnapshot?.runPerformancePoints) || 0);
+  const rerollPoints = Math.max(0, Number(stateSnapshot?.runCombatPoints) || 0);
+  if (outcome === "victory") {
+    return base + rerollPoints * 8 + 250;
   }
-  return isCompleted ? "Replay Encounter" : "Start Encounter";
+  return Math.max(0, Math.round(base * 0.35 + rerollPoints * 4));
+}
+
+function getNextCampaignPlayableNode() {
+  const unlocked = new Set(campaignState.unlockedNodeIds || []);
+  const completed = new Set(campaignState.completedNodeIds || []);
+  return CAMPAIGN_NODES.find((node) => unlocked.has(node.id) && !completed.has(node.id)) || null;
 }
 
 function renderCampaignLoadout() {
@@ -3524,7 +3609,7 @@ function renderCampaignLoadout() {
     return;
   }
 
-  loadout.forEach((entry, index) => {
+  loadout.forEach((entry) => {
     const rune = getRuneById(entry.runeId);
     const card = document.createElement("article");
     card.className = "achievement-card unlocked";
@@ -3537,26 +3622,11 @@ function renderCampaignLoadout() {
     desc.textContent = rune?.description || "Campaign loadout rune.";
     card.appendChild(desc);
 
-    const actions = document.createElement("div");
-    actions.className = "menu-actions compact";
-
-    const removeBtn = document.createElement("button");
-    removeBtn.type = "button";
-    removeBtn.className = "menu-btn secondary";
-    removeBtn.dataset.campaignRemoveIndex = String(index);
-    removeBtn.textContent = "Remove";
-    removeBtn.disabled = campaignActiveActionType !== "remove";
-    actions.appendChild(removeBtn);
-
-    card.appendChild(actions);
     elements.campaignLoadoutList.appendChild(card);
   });
 }
 
 function renderCampaignNodeActionPanel() {
-  const pendingNodeId = campaignActiveActionNodeId;
-  const pendingType = campaignActiveActionType;
-
   const pendingRewards = Array.isArray(campaignState.pendingRewardChoices)
     ? campaignState.pendingRewardChoices
     : [];
@@ -3596,261 +3666,194 @@ function renderCampaignNodeActionPanel() {
     });
     return;
   }
-
-  if (!pendingNodeId || !pendingType) {
-    elements.campaignActionPanel.hidden = true;
-    elements.campaignActionBody.innerHTML = "";
-    return;
-  }
-
-  const node = getCampaignNodeById(pendingNodeId);
-  if (!node) {
-    elements.campaignActionPanel.hidden = true;
-    return;
-  }
-
-  elements.campaignActionPanel.hidden = false;
-  elements.campaignActionTitle.textContent = `${node.title} - ${getCampaignNodeTypeLabel(node.type)}`;
-  elements.campaignActionBody.innerHTML = "";
-
-  if (pendingType === "shop") {
-    renderCampaignShopAction(node);
-    return;
-  }
-
-  if (pendingType === "remove") {
-    renderCampaignRemoveAction(node);
-    return;
-  }
-}
-
-function renderCampaignShopAction(node) {
-  const offer = getCampaignShopOffer(node.id);
-  const selected = [...campaignSelectedShopAddIndexes];
-
-  const info = document.createElement("p");
-  info.className = "settings-note";
-  info.textContent = `Slow shop: pick up to 2 from 5. Selected: ${selected.length}/2`;
-  elements.campaignActionBody.appendChild(info);
-
-  offer.forEach((entry, index) => {
-    const rune = getRuneById(entry.runeId);
-    const card = document.createElement("article");
-    card.className = "achievement-card unlocked";
-
-    const title = document.createElement("h3");
-    title.textContent = rune ? `${rune.name} L${entry.level}` : entry.runeId;
-    card.appendChild(title);
-
-    const desc = document.createElement("p");
-    desc.textContent = rune?.description || "Campaign shop offer.";
-    card.appendChild(desc);
-
-    const actions = document.createElement("div");
-    actions.className = "menu-actions compact";
-    const addBtn = document.createElement("button");
-    addBtn.type = "button";
-    addBtn.className = "menu-btn";
-    addBtn.dataset.campaignShopAdd = String(index);
-    const picked = campaignSelectedShopAddIndexes.has(index);
-    addBtn.textContent = picked ? "Selected" : "Add Rune";
-    addBtn.disabled = !picked && campaignSelectedShopAddIndexes.size >= 2;
-    actions.appendChild(addBtn);
-    card.appendChild(actions);
-
-    elements.campaignActionBody.appendChild(card);
-  });
-
-  const combineWrap = document.createElement("div");
-  combineWrap.className = "menu-actions compact";
-  getCampaignCombinableRuneIds().forEach((runeId) => {
-    const rune = getRuneById(runeId);
-    const combineBtn = document.createElement("button");
-    combineBtn.type = "button";
-    combineBtn.className = "menu-btn secondary";
-    combineBtn.dataset.campaignCombineRune = runeId;
-    combineBtn.textContent = `Combine ${rune?.name || runeId}`;
-    combineWrap.appendChild(combineBtn);
-  });
-  if (combineWrap.children.length > 0) {
-    elements.campaignActionBody.appendChild(combineWrap);
-  }
-
-  const doneWrap = document.createElement("div");
-  doneWrap.className = "menu-actions compact";
-  const doneBtn = document.createElement("button");
-  doneBtn.type = "button";
-  doneBtn.className = "menu-btn";
-  doneBtn.dataset.campaignShopComplete = "1";
-  doneBtn.textContent = "Complete Shop Node";
-  doneWrap.appendChild(doneBtn);
-  elements.campaignActionBody.appendChild(doneWrap);
-}
-
-function renderCampaignRemoveAction() {
-  const info = document.createElement("p");
-  info.className = "settings-note";
-  info.textContent = "Remove one rune from your loadout, then complete this node.";
-  elements.campaignActionBody.appendChild(info);
-
-  const doneWrap = document.createElement("div");
-  doneWrap.className = "menu-actions compact";
-  const doneBtn = document.createElement("button");
-  doneBtn.type = "button";
-  doneBtn.className = "menu-btn";
-  doneBtn.dataset.campaignRemoveComplete = "1";
-  doneBtn.textContent = "Complete Remove Node";
-  doneWrap.appendChild(doneBtn);
-  elements.campaignActionBody.appendChild(doneWrap);
-}
-
-function getCampaignShopOffer(nodeId) {
-  const existing = campaignState.shopOfferByNode?.[nodeId];
-  if (Array.isArray(existing) && existing.length > 0) {
-    return existing;
-  }
-
-  const source = [...SELECTABLE_RUNES];
-  const picks = [];
-  while (source.length > 0 && picks.length < 5) {
-    const index = Math.floor(Math.random() * source.length);
-    const rune = source.splice(index, 1)[0];
-    if (!rune) {
-      continue;
-    }
-    picks.push({ runeId: rune.id, level: 1 });
-  }
-
-  campaignState = setCampaignShopOffer(campaignState, nodeId, picks);
-  saveCampaignState(activeProfileSlot, campaignState);
-  return campaignState.shopOfferByNode?.[nodeId] || [];
 }
 
 function openCampaignShopNode(node) {
-  campaignActiveActionNodeId = node.id;
-  campaignActiveActionType = "shop";
-  campaignSelectedShopAddIndexes = new Set();
-  getCampaignShopOffer(node.id);
-  renderCampaignPanel();
-}
-
-function openCampaignRemoveNode(node) {
-  campaignActiveActionNodeId = node.id;
-  campaignActiveActionType = "remove";
-  campaignSelectedShopAddIndexes = new Set();
-  renderCampaignPanel();
-}
-
-function toggleCampaignShopAdd(offerIndex) {
-  if (campaignActiveActionType !== "shop" || !campaignActiveActionNodeId) {
-    return;
+  if (online.isOnlineActive()) {
+    online.leaveRoom();
   }
 
-  const index = Number(offerIndex);
-  const offer = getCampaignShopOffer(campaignActiveActionNodeId);
-  if (!Number.isInteger(index) || index < 0 || index >= offer.length) {
-    return;
-  }
-
-  if (campaignSelectedShopAddIndexes.has(index)) {
-    campaignSelectedShopAddIndexes.delete(index);
-  } else if (campaignSelectedShopAddIndexes.size < 2) {
-    campaignSelectedShopAddIndexes.add(index);
-  }
-
-  renderCampaignPanel();
-}
-
-function completeCampaignShopNode() {
-  if (campaignActiveActionType !== "shop" || !campaignActiveActionNodeId) {
-    return;
-  }
-
-  const node = getCampaignNodeById(campaignActiveActionNodeId);
-  if (!node) {
-    return;
-  }
-
-  const offer = getCampaignShopOffer(node.id);
-  const indexes = [...campaignSelectedShopAddIndexes];
-  indexes.forEach((index) => {
-    const entry = offer[index];
-    if (entry) {
-      campaignState = addCampaignLoadoutRune(campaignState, entry);
-    }
-  });
-
-  campaignState = completeCampaignNode(campaignState, node.id);
+  campaignState = startCampaignRun(campaignState);
   saveCampaignState(activeProfileSlot, campaignState);
-  syncCampaignSummaryToProfile();
+
+  setAiSettings(aiConfig, false, aiConfig.playerId, aiConfig.depth);
+  currentLocalMode = MODE_CAMPAIGN;
+  activeCampaignNodeId = node.id;
+  campaignOutcomeHandled = false;
+  campaignInShopNode = true;
   campaignActiveActionNodeId = null;
   campaignActiveActionType = null;
   campaignSelectedShopAddIndexes = new Set();
-  showToast(`${node.title} complete.`, "reward");
-  renderCampaignPanel();
+
+  const shopState = createInitialState(getLocalGameOptions());
+  shopState.phase = "shop";
+  shopState.roundNumber = 1;
+  shopState.currentPlayer = 1;
+  shopState.shop.currentPlayer = 1;
+  shopState.shop.players[1].ready = false;
+  shopState.shop.players[2].ready = false;
+  shopState.players[1].bag = buildCampaignPlayerBag(campaignState.loadoutRunes || []);
+  shopState.players[1].discard = [];
+  shopState.players[1].hand = [];
+
+  state = restoreState(shopState, getLocalGameOptions());
+  handVisibility = { 1: true, 2: false };
+  resetAchievementTracking();
+  resetRewardTracking();
+  persistState();
+  enterGameScreen("campaign");
+  setStatus(`Campaign shop: ${node.title}`);
+  showToast("Campaign shop started.", "info");
+  render();
 }
 
-function completeCampaignRemoveNode() {
-  if (campaignActiveActionType !== "remove" || !campaignActiveActionNodeId) {
+function completeCampaignShopNodeFromState() {
+  if (!campaignInShopNode || currentLocalMode !== MODE_CAMPAIGN || state.phase !== "shop" || !activeCampaignNodeId) {
     return;
   }
 
-  const node = getCampaignNodeById(campaignActiveActionNodeId);
-  if (!node) {
+  const node = getCampaignNodeById(activeCampaignNodeId);
+  if (!node || node.type !== "shop") {
     return;
   }
 
+  campaignState = {
+    ...campaignState,
+    loadoutRunes: extractCampaignLoadoutFromBag(state.players?.[1]?.bag || []),
+  };
   campaignState = completeCampaignNode(campaignState, node.id);
   saveCampaignState(activeProfileSlot, campaignState);
   syncCampaignSummaryToProfile();
-  campaignActiveActionNodeId = null;
-  campaignActiveActionType = null;
+  campaignInShopNode = false;
+  clearModeSave(MODE_CAMPAIGN, activeProfileSlot);
   showToast(`${node.title} complete.`, "reward");
-  renderCampaignPanel();
+  showCampaignPanel();
 }
 
-function removeRuneFromCampaignLoadout(index) {
-  if (campaignActiveActionType !== "remove") {
+function extractCampaignLoadoutFromBag(bag) {
+  return (Array.isArray(bag) ? bag : [])
+    .filter((rune) => rune?.type === "special")
+    .map((rune) => ({
+      runeId: rune.id,
+      level: Math.max(1, Number(rune.level) || 1),
+    }));
+}
+
+function buildCampaignPlayerBag(loadoutRunes) {
+  const bag = [];
+  for (let i = 0; i < 4; i += 1) {
+    const basic = createRuneInstance("basic", 1);
+    if (basic) {
+      bag.push(basic);
+    }
+  }
+
+  (Array.isArray(loadoutRunes) ? loadoutRunes : []).forEach((entry) => {
+    const rune = createRuneInstance(entry?.runeId, entry?.level);
+    if (rune) {
+      bag.push(rune);
+    }
+  });
+
+  return bag;
+}
+
+function rerollCampaignShopOffer() {
+  const playerId = 1;
+  const data = state.shop?.players?.[playerId];
+  const player = state.players?.[playerId];
+  if (!data || !player) {
     return;
   }
 
-  const before = campaignState.loadoutRunes?.length || 0;
-  campaignState = removeCampaignLoadoutRune(campaignState, index);
-  const after = campaignState.loadoutRunes?.length || 0;
-  if (after < before) {
-    saveCampaignState(activeProfileSlot, campaignState);
-    showToast("Rune removed from loadout.", "warn");
-    renderCampaignPanel();
+  data.offer.forEach((rune) => player.shopSupply.push(rune));
+  data.offer = [];
+  const drawCount = 5;
+  for (let i = 0; i < drawCount && player.shopSupply.length > 0; i += 1) {
+    const index = Math.floor(Math.random() * player.shopSupply.length);
+    const [drawn] = player.shopSupply.splice(index, 1);
+    if (drawn) {
+      data.offer.push(drawn);
+    }
   }
 }
 
-function combineRuneInCampaignLoadout(runeId) {
-  const before = campaignState.loadoutRunes?.length || 0;
-  campaignState = combineCampaignLoadoutRune(campaignState, runeId);
-  const after = campaignState.loadoutRunes?.length || 0;
-  if (after <= before) {
-    saveCampaignState(activeProfileSlot, campaignState);
-    showToast("Runes combined to L2.", "reward");
-    renderCampaignPanel();
+function ensureCampaignBossName(node) {
+  if (!node || (node.type !== "boss" && node.type !== "final-boss")) {
+    return "";
   }
+
+  const existing = String(campaignState.bossNameByNode?.[node.id] || "").trim();
+  if (existing) {
+    return existing;
+  }
+
+  const pool = node.type === "final-boss" ? CAMPAIGN_FINAL_BOSS_NAME_POOL : CAMPAIGN_BOSS_NAME_POOL;
+  const used = new Set(Object.values(campaignState.bossNameByNode || {}));
+  const available = pool.filter((name) => !used.has(name));
+  const source = available.length ? available : pool;
+  const picked = source[Math.floor(Math.random() * source.length)] || "Unknown Boss";
+  campaignState = setCampaignBossName(campaignState, node.id, picked);
+  saveCampaignState(activeProfileSlot, campaignState);
+  return picked;
 }
 
-function getCampaignCombinableRuneIds() {
-  const counts = new Map();
-  (campaignState.loadoutRunes || []).forEach((entry) => {
-    if (entry.level !== 1) {
-      return;
-    }
-    const rune = getRuneById(entry.runeId);
-    if (!rune?.supportsLevels || (rune.maxLevel || 1) < 2) {
-      return;
-    }
-    counts.set(entry.runeId, (counts.get(entry.runeId) || 0) + 1);
-  });
+function applyCampaignBossConstraintForActiveNode() {
+  const node = getCampaignNodeById(activeCampaignNodeId);
+  if (!node || (node.type !== "boss" && node.type !== "final-boss")) {
+    return;
+  }
 
-  return [...counts.entries()]
-    .filter(([, count]) => count >= 2)
-    .map(([runeId]) => runeId);
+  const ruleId = getCampaignBossConstraintId(node);
+  if (ruleId === "center-only") {
+    state.nextTurnConstraints[1] = [3];
+    state.log.unshift("Boss constraint: first turn must be center column.");
+    return;
+  }
+  if (ruleId === "center-flanks") {
+    state.nextTurnConstraints[1] = [2, 4];
+    state.log.unshift("Boss constraint: first turn must be a central flank.");
+    return;
+  }
+  if (ruleId === "left-half") {
+    state.nextTurnConstraints[1] = [0, 1, 2, 3];
+    state.log.unshift("Boss constraint: first turn must be on the left half.");
+    return;
+  }
+  if (ruleId === "right-half") {
+    state.nextTurnConstraints[1] = [3, 4, 5, 6];
+    state.log.unshift("Boss constraint: first turn must be on the right half.");
+    return;
+  }
+  if (ruleId === "even-columns") {
+    state.nextTurnConstraints[1] = [0, 2, 4, 6];
+    state.log.unshift("Boss constraint: first turn must use an even column.");
+    return;
+  }
+  if (ruleId === "odd-columns") {
+    state.nextTurnConstraints[1] = [1, 3, 5];
+    state.log.unshift("Boss constraint: first turn must use an odd column.");
+    return;
+  }
+  if (ruleId === "no-center") {
+    state.nextTurnConstraints[1] = [0, 1, 2, 4, 5, 6];
+    state.log.unshift("Boss constraint: center column is sealed for your opener.");
+    return;
+  }
+  state.nextTurnConstraints[1] = [0, 6];
+  state.log.unshift("Final boss constraint: opener must be on an edge.");
+}
+
+function getCampaignBossConstraintId(node) {
+  const seed = Number(campaignState.startedAt) || Date.now();
+  const raw = `${seed}-${node.id}`;
+  let hash = 2166136261;
+  for (let i = 0; i < raw.length; i += 1) {
+    hash ^= raw.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  const index = Math.abs(hash >>> 0) % CAMPAIGN_BOSS_CONSTRAINT_POOL.length;
+  return CAMPAIGN_BOSS_CONSTRAINT_POOL[index];
 }
 
 function claimCampaignNodeReward(nodeId, rewardIndex) {
@@ -4030,6 +4033,7 @@ function activateProfileSlot(slot, options = {}) {
   puzzleOutcomeHandled = false;
   activeCampaignNodeId = null;
   campaignOutcomeHandled = false;
+  campaignInShopNode = false;
   applySelectedCosmetics();
 
   const passplayState = getSavedStateForMode(MODE_PASSPLAY, activeProfileSlot);

@@ -37,6 +37,10 @@ function createDefaultState() {
     pendingRewardNodeId: null,
     pendingRewardChoices: [],
     shopOfferByNode: {},
+    bossNameByNode: {},
+    runCombatPoints: 0,
+    runPerformancePoints: 0,
+    runRerollsSpent: 0,
     startedAt: null,
     updatedAt: Date.now(),
   };
@@ -55,7 +59,7 @@ function sanitizeState(raw) {
 
   const completedBossCount = completedNodeIds.reduce((count, id) => {
     const node = getCampaignNodeById(id);
-    return node?.type === "boss" ? count + 1 : count;
+    return node?.type === "boss" || node?.type === "final-boss" ? count + 1 : count;
   }, 0);
 
   const shopOfferByNode = source.shopOfferByNode && typeof source.shopOfferByNode === "object"
@@ -67,6 +71,22 @@ function sanitizeState(raw) {
       return;
     }
     sanitizedShopOffers[nodeId] = sanitizeLoadoutRunes(offer).slice(0, 5);
+  });
+
+  const bossNameByNode = source.bossNameByNode && typeof source.bossNameByNode === "object"
+    ? source.bossNameByNode
+    : {};
+  const sanitizedBossNames = {};
+  Object.entries(bossNameByNode).forEach(([nodeId, name]) => {
+    const node = getCampaignNodeById(nodeId);
+    if (!node || (node.type !== "boss" && node.type !== "final-boss")) {
+      return;
+    }
+    const safeName = String(name || "").trim();
+    if (!safeName) {
+      return;
+    }
+    sanitizedBossNames[nodeId] = safeName.slice(0, 36);
   });
 
   return {
@@ -82,6 +102,10 @@ function sanitizeState(raw) {
       : null,
     pendingRewardChoices: sanitizeLoadoutRunes(source.pendingRewardChoices).slice(0, 3),
     shopOfferByNode: sanitizedShopOffers,
+    bossNameByNode: sanitizedBossNames,
+    runCombatPoints: Math.max(0, Number(source.runCombatPoints) || 0),
+    runPerformancePoints: Math.max(0, Number(source.runPerformancePoints) || 0),
+    runRerollsSpent: Math.max(0, Number(source.runRerollsSpent) || 0),
     startedAt: Number(source.startedAt) || null,
     updatedAt: Number(source.updatedAt) || Date.now(),
   };
@@ -150,7 +174,7 @@ export function completeCampaignNode(state, nodeId) {
 
   next.completedBossCount = next.completedNodeIds.reduce((count, id) => {
     const entry = getCampaignNodeById(id);
-    return entry?.type === "boss" ? count + 1 : count;
+    return entry?.type === "boss" || entry?.type === "final-boss" ? count + 1 : count;
   }, 0);
 
   if (!next.startedAt) {
@@ -201,6 +225,43 @@ export function setCampaignShopOffer(state, nodeId, offerRunes) {
   }
 
   next.shopOfferByNode[nodeId] = sanitizeLoadoutRunes(offerRunes).slice(0, 5);
+  return next;
+}
+
+export function setCampaignBossName(state, nodeId, bossName) {
+  const next = sanitizeState(state);
+  const node = getCampaignNodeById(nodeId);
+  if (!node || (node.type !== "boss" && node.type !== "final-boss")) {
+    return next;
+  }
+
+  const safeName = String(bossName || "").trim();
+  if (!safeName) {
+    return next;
+  }
+
+  next.bossNameByNode[nodeId] = safeName.slice(0, 36);
+  return next;
+}
+
+export function addCampaignCombatPoints(state, amount) {
+  const next = sanitizeState(state);
+  const gain = Math.max(0, Number(amount) || 0);
+  next.runCombatPoints += gain;
+  return next;
+}
+
+export function addCampaignPerformancePoints(state, amount) {
+  const next = sanitizeState(state);
+  const gain = Math.max(0, Number(amount) || 0);
+  next.runPerformancePoints += gain;
+  return next;
+}
+
+export function spendCampaignReroll(state, amount = 1) {
+  const next = sanitizeState(state);
+  const spend = Math.max(0, Number(amount) || 0);
+  next.runRerollsSpent += spend;
   return next;
 }
 
