@@ -69,7 +69,8 @@ This plan is implementation-oriented and keeps js/main.js as a compatibility she
 
 Status update:
 - Implemented profile shop for board and rune cosmetics with buy/equip actions.
-- Added achievement-gated cosmetics (unlock achievement + points spend).
+- Cosmetics are points-only purchases (achievements grant points only).
+- Added shop SFX cosmetics (buy/equip) with multiple sound profiles.
 - Added toast VFX feedback for rewards, unlocks, purchases, and equips.
 - Added first-game tutorial suggestion toast per profile (one-time).
 

@@ -44,7 +44,7 @@ import {
   touchProfileSlot,
   updateProfileName,
 } from "./persistence/profileStore.js";
-import { ACHIEVEMENT_CATALOG, getAchievementById } from "./progression/achievementCatalog.js";
+import { ACHIEVEMENT_CATALOG } from "./progression/achievementCatalog.js";
 import { evaluateAchievementProgress } from "./progression/achievementEngine.js";
 import { loadAchievementState, saveAchievementState } from "./persistence/achievementStore.js";
 import { calculateGameReward, createRewardSnapshot } from "./progression/rewardEngine.js";
@@ -657,12 +657,6 @@ function bindEvents() {
       const id = String(buyBtn.dataset.cosmeticBuy || "");
       const cosmetic = getCosmeticById(id);
       if (!cosmetic) {
-        return;
-      }
-
-      const lock = getCosmeticLockRequirement(cosmetic);
-      if (lock) {
-        showToast(`Locked: unlock '${lock.title}' first.`, "warn");
         return;
       }
 
@@ -2479,8 +2473,16 @@ function refreshProfileHeader() {
 function applySelectedCosmetics() {
   const boardSkin = cosmeticState?.selected?.board || "board-classic";
   const runeSkin = cosmeticState?.selected?.rune || "rune-classic";
+  const sfxSkin = cosmeticState?.selected?.sfx || "sfx-classic";
   document.body.dataset.boardSkin = boardSkin;
   document.body.dataset.runeSkin = runeSkin;
+
+  const profile = sfxSkin === "sfx-arcane"
+    ? "arcane"
+    : sfxSkin === "sfx-anvil"
+      ? "anvil"
+      : "classic";
+  sfx.setProfile(profile);
 }
 
 function showToast(message, type = "info") {
@@ -2624,7 +2626,8 @@ function evaluateAchievementsIfNeeded() {
     if (achievementBonusTotal > 0) {
       addProfileWalletPoints(activeProfileSlot, achievementBonusTotal);
       setStatus(`Achievement reward: +${achievementBonusTotal} profile points.`);
-      showToast(`Unlocked: ${unlockedNames.join(", ")} (+${achievementBonusTotal} pts)`, "reward");
+      const unlockPrefix = state.phase === "game-over" ? "Game finished - " : "";
+      showToast(`${unlockPrefix}Unlocked: ${unlockedNames.join(", ")} (+${achievementBonusTotal} pts)`, "reward");
       pulseElement(elements.menuProfileSwitchBtn, "ui-pulse");
       refreshProfileHeader();
     }
@@ -2673,19 +2676,10 @@ function renderShopPanelMenu() {
   const wallet = getProfileWalletPoints(activeProfileSlot);
   elements.shopWalletSummary.textContent = `Wallet: ${wallet} pts`;
   elements.shopCosmeticsList.innerHTML = "";
-  const unlockedSet = new Set(achievementState?.unlockedIds || []);
 
   COSMETIC_CATALOG.forEach((cosmetic) => {
     const card = document.createElement("article");
-    const requiredAchievement = cosmetic.unlockAchievementId
-      ? getAchievementById(cosmetic.unlockAchievementId)
-      : null;
-    const isAchievementLocked = Boolean(
-      requiredAchievement
-      && !unlockedSet.has(requiredAchievement.id)
-      && cosmetic.price > 0,
-    );
-    card.className = `achievement-card ${isAchievementLocked ? "locked" : "unlocked"}`;
+    card.className = "achievement-card unlocked";
 
     const title = document.createElement("h3");
     title.textContent = cosmetic.title;
@@ -2695,19 +2689,8 @@ function renderShopPanelMenu() {
     desc.textContent = `${cosmetic.description} Price: ${cosmetic.price} pts.`;
     card.appendChild(desc);
 
-    if (requiredAchievement) {
-      const lockNote = document.createElement("p");
-      lockNote.className = "achievement-progress";
-      lockNote.textContent = unlockedSet.has(requiredAchievement.id)
-        ? `Achievement gate: ${requiredAchievement.title} unlocked`
-        : `Achievement gate: unlock '${requiredAchievement.title}'`;
-      card.appendChild(lockNote);
-    }
-
     const isItemOwned = isOwned(cosmeticState, cosmetic.id);
-    const isEquipped = cosmetic.type === "board"
-      ? cosmeticState.selected.board === cosmetic.id
-      : cosmeticState.selected.rune === cosmetic.id;
+    const isEquipped = isCosmeticEquipped(cosmetic);
 
     const actionWrap = document.createElement("div");
     actionWrap.className = "menu-actions compact";
@@ -2717,12 +2700,8 @@ function renderShopPanelMenu() {
       buyBtn.type = "button";
       buyBtn.className = "menu-btn";
       buyBtn.dataset.cosmeticBuy = cosmetic.id;
-      buyBtn.disabled = isAchievementLocked || wallet < cosmetic.price;
-      buyBtn.textContent = isAchievementLocked
-        ? "Locked by Achievement"
-        : wallet < cosmetic.price
-          ? "Not Enough Points"
-          : `Buy (${cosmetic.price})`;
+      buyBtn.disabled = wallet < cosmetic.price;
+      buyBtn.textContent = wallet < cosmetic.price ? "Not Enough Points" : `Buy (${cosmetic.price})`;
       actionWrap.appendChild(buyBtn);
     } else {
       const equipBtn = document.createElement("button");
@@ -2739,18 +2718,24 @@ function renderShopPanelMenu() {
   });
 }
 
-function getCosmeticLockRequirement(cosmetic) {
-  if (!cosmetic?.unlockAchievementId || cosmetic.price <= 0) {
-    return null;
+function isCosmeticEquipped(cosmetic) {
+  if (!cosmetic || !cosmeticState?.selected) {
+    return false;
   }
 
-  const achievement = getAchievementById(cosmetic.unlockAchievementId);
-  if (!achievement) {
-    return null;
+  if (cosmetic.type === "board") {
+    return cosmeticState.selected.board === cosmetic.id;
   }
 
-  const unlockedSet = new Set(achievementState?.unlockedIds || []);
-  return unlockedSet.has(achievement.id) ? null : achievement;
+  if (cosmetic.type === "rune") {
+    return cosmeticState.selected.rune === cosmetic.id;
+  }
+
+  if (cosmetic.type === "sfx") {
+    return cosmeticState.selected.sfx === cosmetic.id;
+  }
+
+  return false;
 }
 
 function renderProfileEntryScreen() {

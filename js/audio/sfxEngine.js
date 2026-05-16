@@ -199,11 +199,224 @@ function createWoodFeltProfile(context, destination, eventName) {
   }
 }
 
+function createArcaneProfile(context, destination, eventName) {
+  const t0 = now(context);
+
+  if (eventName === "ui-click") {
+    createTone(context, destination, {
+      type: "sine",
+      frequency: 560,
+      endFrequency: 480,
+      start: t0,
+      duration: 0.085,
+      gain: 0.03,
+      attack: 0.003,
+      release: 0.06,
+    });
+    return;
+  }
+
+  if (eventName === "move") {
+    createTone(context, destination, {
+      type: "triangle",
+      frequency: 360,
+      endFrequency: 260,
+      start: t0,
+      duration: 0.12,
+      gain: 0.055,
+      attack: 0.004,
+      release: 0.08,
+    });
+    return;
+  }
+
+  if (eventName === "round-win") {
+    createTone(context, destination, {
+      type: "sine",
+      frequency: 392,
+      start: t0,
+      duration: 0.12,
+      gain: 0.045,
+      release: 0.08,
+    });
+    createTone(context, destination, {
+      type: "sine",
+      frequency: 494,
+      start: t0 + 0.08,
+      duration: 0.14,
+      gain: 0.047,
+      release: 0.09,
+    });
+    createTone(context, destination, {
+      type: "sine",
+      frequency: 587,
+      start: t0 + 0.16,
+      duration: 0.16,
+      gain: 0.05,
+      release: 0.1,
+    });
+    return;
+  }
+
+  if (eventName === "round-draw") {
+    createTone(context, destination, {
+      type: "sine",
+      frequency: 330,
+      start: t0,
+      duration: 0.11,
+      gain: 0.032,
+      release: 0.08,
+    });
+    createTone(context, destination, {
+      type: "sine",
+      frequency: 294,
+      start: t0 + 0.08,
+      duration: 0.14,
+      gain: 0.032,
+      release: 0.09,
+    });
+    return;
+  }
+
+  if (eventName === "game-win") {
+    createTone(context, destination, {
+      type: "triangle",
+      frequency: 392,
+      start: t0,
+      duration: 0.15,
+      gain: 0.05,
+      release: 0.1,
+    });
+    createTone(context, destination, {
+      type: "triangle",
+      frequency: 523,
+      start: t0 + 0.12,
+      duration: 0.18,
+      gain: 0.053,
+      release: 0.11,
+    });
+    createTone(context, destination, {
+      type: "triangle",
+      frequency: 659,
+      start: t0 + 0.24,
+      duration: 0.23,
+      gain: 0.055,
+      release: 0.13,
+    });
+  }
+}
+
+function createAnvilProfile(context, destination, eventName) {
+  const t0 = now(context);
+
+  if (eventName === "ui-click") {
+    createTone(context, destination, {
+      type: "square",
+      frequency: 180,
+      endFrequency: 140,
+      start: t0,
+      duration: 0.06,
+      gain: 0.028,
+      attack: 0.001,
+      release: 0.045,
+    });
+    return;
+  }
+
+  if (eventName === "move") {
+    createTone(context, destination, {
+      type: "square",
+      frequency: 145,
+      endFrequency: 115,
+      start: t0,
+      duration: 0.11,
+      gain: 0.07,
+      attack: 0.001,
+      release: 0.08,
+    });
+    createFilteredNoise(context, destination, {
+      start: t0,
+      duration: 0.06,
+      gain: 0.014,
+      lowpass: 1000,
+    });
+    return;
+  }
+
+  if (eventName === "round-win") {
+    createTone(context, destination, {
+      type: "square",
+      frequency: 185,
+      start: t0,
+      duration: 0.12,
+      gain: 0.05,
+      release: 0.08,
+    });
+    createTone(context, destination, {
+      type: "square",
+      frequency: 220,
+      start: t0 + 0.08,
+      duration: 0.14,
+      gain: 0.052,
+      release: 0.09,
+    });
+    createTone(context, destination, {
+      type: "square",
+      frequency: 277,
+      start: t0 + 0.17,
+      duration: 0.16,
+      gain: 0.054,
+      release: 0.1,
+    });
+    return;
+  }
+
+  if (eventName === "round-draw") {
+    createTone(context, destination, {
+      type: "square",
+      frequency: 165,
+      start: t0,
+      duration: 0.09,
+      gain: 0.035,
+      release: 0.07,
+    });
+    return;
+  }
+
+  if (eventName === "game-win") {
+    createTone(context, destination, {
+      type: "square",
+      frequency: 196,
+      start: t0,
+      duration: 0.14,
+      gain: 0.052,
+      release: 0.1,
+    });
+    createTone(context, destination, {
+      type: "square",
+      frequency: 262,
+      start: t0 + 0.13,
+      duration: 0.18,
+      gain: 0.054,
+      release: 0.11,
+    });
+    createTone(context, destination, {
+      type: "square",
+      frequency: 330,
+      start: t0 + 0.28,
+      duration: 0.21,
+      gain: 0.056,
+      release: 0.12,
+    });
+  }
+}
+
 export function createSfxEngine() {
   let audioContext = null;
   let masterGain = null;
   let enabled = true;
   let volume = DEFAULT_VOLUME;
+  let profile = "classic";
   let lastUiClickAt = 0;
   let resumePromise = null;
 
@@ -254,6 +467,29 @@ export function createSfxEngine() {
     return volume;
   }
 
+  function setProfile(nextProfile) {
+    const safe = String(nextProfile || "classic").toLowerCase();
+    profile = safe === "arcane" || safe === "anvil" ? safe : "classic";
+  }
+
+  function getProfile() {
+    return profile;
+  }
+
+  function playWithProfile(eventName) {
+    if (profile === "arcane") {
+      createArcaneProfile(audioContext, masterGain, eventName);
+      return;
+    }
+
+    if (profile === "anvil") {
+      createAnvilProfile(audioContext, masterGain, eventName);
+      return;
+    }
+
+    createWoodFeltProfile(audioContext, masterGain, eventName);
+  }
+
   function ensureRunningContext() {
     if (!ensureContext()) {
       return Promise.resolve(false);
@@ -298,7 +534,7 @@ export function createSfxEngine() {
     }
 
     if (audioContext.state === "running") {
-      createWoodFeltProfile(audioContext, masterGain, eventName);
+      playWithProfile(eventName);
       return;
     }
 
@@ -306,7 +542,7 @@ export function createSfxEngine() {
       if (!running || !enabled || !audioContext || !masterGain) {
         return;
       }
-      createWoodFeltProfile(audioContext, masterGain, eventName);
+      playWithProfile(eventName);
     });
   }
 
@@ -315,6 +551,8 @@ export function createSfxEngine() {
     isEnabled,
     setVolume,
     getVolume,
+    setProfile,
+    getProfile,
     unlockFromGesture,
     play,
   };

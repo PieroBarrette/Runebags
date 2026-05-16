@@ -11,10 +11,11 @@ function getKey(profileSlot) {
 function createDefaultState() {
   return {
     schemaVersion: SCHEMA_VERSION,
-    ownedIds: ["board-classic", "rune-classic"],
+    ownedIds: ["board-classic", "rune-classic", "sfx-classic"],
     selected: {
       board: "board-classic",
       rune: "rune-classic",
+      sfx: "sfx-classic",
     },
     updatedAt: Date.now(),
   };
@@ -27,10 +28,12 @@ function sanitizeState(raw) {
   // Ensure baseline cosmetics are always available.
   ownedSet.add("board-classic");
   ownedSet.add("rune-classic");
+  ownedSet.add("sfx-classic");
 
   const selected = source.selected && typeof source.selected === "object" ? source.selected : {};
   const selectedBoard = ownedSet.has(selected.board) ? selected.board : "board-classic";
   const selectedRune = ownedSet.has(selected.rune) ? selected.rune : "rune-classic";
+  const selectedSfx = ownedSet.has(selected.sfx) ? selected.sfx : "sfx-classic";
 
   return {
     schemaVersion: SCHEMA_VERSION,
@@ -38,6 +41,7 @@ function sanitizeState(raw) {
     selected: {
       board: selectedBoard,
       rune: selectedRune,
+      sfx: selectedSfx,
     },
     updatedAt: Number(source.updatedAt) || Date.now(),
   };
@@ -87,6 +91,8 @@ export function selectCosmetic(cosmeticState, cosmetic) {
     next.selected.board = cosmetic.id;
   } else if (cosmetic.type === "rune") {
     next.selected.rune = cosmetic.id;
+  } else if (cosmetic.type === "sfx") {
+    next.selected.sfx = cosmetic.id;
   }
 
   return next;
