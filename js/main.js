@@ -47,6 +47,17 @@ const SELECTABLE_RUNES = RUNE_CATALOG.filter(
   (rune) => rune.type === "special" && rune.id !== "inguz" && rune.id !== "jera",
 );
 const SELECTABLE_RUNE_IDS = SELECTABLE_RUNES.map((rune) => rune.id);
+const RUNES_WITH_LEVEL_PREFIX = new Set([
+  "ehwaz",
+  "fehu",
+  "gebo",
+  "mannaz",
+  "perth",
+  "raido",
+  "sowelu",
+  "teiwaz",
+  "thurisa",
+]);
 
 const elements = {
   mainMenu: document.getElementById("main-menu"),
@@ -1422,10 +1433,11 @@ function renderRuneList(container, runes, playerId, highlightIds, options = {}) 
 
     const icon = document.createElement("div");
     icon.className = "rune-chip";
-    if (rune.id === "neutral") {
+    const displayOwner = getRuneDisplayOwner(playerId, rune);
+    if (displayOwner === 3) {
       icon.classList.add("neutral");
     } else {
-      icon.classList.add(playerId === 1 ? "black" : "white");
+      icon.classList.add(displayOwner === 1 ? "black" : "white");
     }
 
     if (rune.icon) {
@@ -1441,7 +1453,10 @@ function renderRuneList(container, runes, playerId, highlightIds, options = {}) 
     title.textContent = rune.name;
 
     const subtitle = document.createElement("small");
-    subtitle.textContent = `L${rune.level} - ${rune.description}`;
+    const shouldShowLevelPrefix = RUNES_WITH_LEVEL_PREFIX.has(rune.id) && (rune.maxLevel || 1) >= 2;
+    subtitle.textContent = shouldShowLevelPrefix
+      ? `L${rune.level} - ${rune.description}`
+      : rune.description;
 
     if (rune.shopEffect) {
       const effect = document.createElement("small");
@@ -1459,6 +1474,18 @@ function renderRuneList(container, runes, playerId, highlightIds, options = {}) 
     card.appendChild(textWrap);
     container.appendChild(card);
   });
+}
+
+function getRuneDisplayOwner(playerId, rune) {
+  if (rune.id === "neutral") {
+    return 3;
+  }
+
+  if (rune.capturedOwner === 1 || rune.capturedOwner === 2) {
+    return rune.capturedOwner;
+  }
+
+  return playerId;
 }
 
 function updateMeta() {

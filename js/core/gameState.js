@@ -927,7 +927,7 @@ function hasCombinablePair(state, playerId) {
 }
 
 function applyShopEffectIfAny(state, playerId, rune) {
-  if (!["algiz", "gebo", "raido", "teiwaz", "nauthiz", "dagaz"].includes(rune.id)) {
+  if (!["algiz", "gebo", "raido", "teiwaz", "nauthiz"].includes(rune.id)) {
     return;
   }
 
@@ -1020,23 +1020,10 @@ function getLegalColumnsForRune(state, playerId, rune) {
     : getAvailableColumns(state.board);
   const allowedColumns = getAllowedColumns(rune, state.columns);
   const constrainedColumns = getConstrainedColumns(state, playerId, availableColumns);
-  const blockedForAlgiz = rune.id === "algiz"
-    ? new Set(availableColumns.filter((col) => columnContainsLaguz(state, col)))
-    : null;
   return availableColumns.filter(
     (col) => allowedColumns.includes(col)
-      && constrainedColumns.includes(col)
-      && (!blockedForAlgiz || !blockedForAlgiz.has(col)),
+      && constrainedColumns.includes(col),
   );
-}
-
-function columnContainsLaguz(state, column) {
-  for (let row = 0; row < state.rows; row += 1) {
-    if (cellHasPassiveRuneId(state, row, column, "laguz")) {
-      return true;
-    }
-  }
-  return false;
 }
 
 function canPlayerPlay(state, playerId) {
@@ -1090,7 +1077,10 @@ function getConstrainedColumns(state, playerId, availableColumns) {
 }
 
 function insertRuneFromBottom(state, column, playerId, rune) {
-  const startRow = 0;
+  const startRow = getLowestLaguzBarrierRow(state, column) + 1;
+  if (startRow >= state.rows) {
+    return null;
+  }
 
   let hasEmptyInSegment = false;
   for (let row = startRow; row < state.rows; row += 1) {
@@ -1130,6 +1120,16 @@ function applyRuneEffect(state, rune, move, playerId) {
   const notes = [];
   let extraTurn = false;
   let pendingAction = null;
+
+  if (rune.id === "dagaz") {
+    if (state.neutralSupply > 0) {
+      state.players[playerId].bag.push(createRuneInstance("neutral", 1));
+      state.neutralSupply -= 1;
+      notes.push("Dagaz corruption added 1 neutral rune to owner bag.");
+    } else {
+      notes.push("Dagaz corruption could not add a neutral rune (supply empty).");
+    }
+  }
 
   const copiedOnPlayRune = resolveDagazOnPlayRune(state, rune, move);
   const effectRune = copiedOnPlayRune || rune;
@@ -1488,12 +1488,34 @@ function moveTopRuneFromColumnToColumn(state, sourceCol, targetCol) {
 function getAlgizAvailableColumns(state) {
   const columns = [];
   for (let col = 0; col < state.columns; col += 1) {
-    if (state.board[0][col] === EMPTY) {
+    if (canInsertAlgizInColumn(state, col)) {
       columns.push(col);
     }
   }
 
   return columns;
+}
+
+function canInsertAlgizInColumn(state, column) {
+  const laguzBarrierRow = getLowestLaguzBarrierRow(state, column);
+  for (let row = laguzBarrierRow + 1; row < state.rows; row += 1) {
+    if (state.board[row][column] === EMPTY) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function getLowestLaguzBarrierRow(state, column) {
+  let barrierRow = -1;
+  for (let row = 0; row < state.rows; row += 1) {
+    if (cellHasPassiveRuneId(state, row, column, "laguz")) {
+      barrierRow = row;
+    }
+  }
+
+  return barrierRow;
 }
 
 function getNauthizFloorRow(state, column) {
@@ -1931,7 +1953,7 @@ function settleRound(state) {
       }
 
       if (!kenazFieldActive && owner !== NEUTRAL_OWNER && cellHasPassiveRuneId(state, row, col, "isa")) {
-        preservedIsa.push({ owner, level: rune.level, col });
+        preservedIsa.push({ owner, runeId: rune.id, level: rune.level, col });
         continue;
       }
 
@@ -1964,7 +1986,7 @@ function settleRound(state) {
     const placement = dropToken(state.board, isa.col, isa.owner);
     if (placement) {
       state.boardRunes[placement.row][placement.col] = {
-        id: "isa",
+        id: isa.runeId,
         level: isa.level,
         ethereal: false,
         neutral: false,

@@ -6,6 +6,18 @@ export function renderHands(state, elements, handVisibility, forcedVisible) {
   elements.player2Panel.classList.toggle("active-player", state.currentPlayer === 2);
 }
 
+const RUNES_WITH_LEVEL_PREFIX = new Set([
+  "ehwaz",
+  "fehu",
+  "gebo",
+  "mannaz",
+  "perth",
+  "raido",
+  "sowelu",
+  "teiwaz",
+  "thurisa",
+]);
+
 function renderPlayerHand(state, playerId, elements, isVisible, isForcedVisible) {
   const player = state.players[playerId];
   const handEl = playerId === 1 ? elements.player1Hand : elements.player2Hand;
@@ -39,10 +51,11 @@ function renderPlayerHand(state, playerId, elements, isVisible, isForcedVisible)
 
     const icon = document.createElement("div");
     icon.className = "rune-chip";
-    if (rune.id === "neutral") {
+    const displayOwner = getRuneDisplayOwner(playerId, rune);
+    if (displayOwner === 3) {
       icon.classList.add("neutral");
     } else {
-      icon.classList.add(playerId === 1 ? "black" : "white");
+      icon.classList.add(displayOwner === 1 ? "black" : "white");
     }
 
     if (rune.icon) {
@@ -58,7 +71,10 @@ function renderPlayerHand(state, playerId, elements, isVisible, isForcedVisible)
     title.textContent = rune.name;
 
     const subtitle = document.createElement("small");
-    subtitle.textContent = `L${rune.level} - ${rune.description}`;
+    const shouldShowLevelPrefix = RUNES_WITH_LEVEL_PREFIX.has(rune.id) && (rune.maxLevel || 1) >= 2;
+    subtitle.textContent = shouldShowLevelPrefix
+      ? `L${rune.level} - ${rune.description}`
+      : rune.description;
 
     textWrap.appendChild(title);
     textWrap.appendChild(subtitle);
@@ -67,4 +83,16 @@ function renderPlayerHand(state, playerId, elements, isVisible, isForcedVisible)
     button.appendChild(textWrap);
     handEl.appendChild(button);
   });
+}
+
+function getRuneDisplayOwner(playerId, rune) {
+  if (rune.id === "neutral") {
+    return 3;
+  }
+
+  if (rune.capturedOwner === 1 || rune.capturedOwner === 2) {
+    return rune.capturedOwner;
+  }
+
+  return playerId;
 }
