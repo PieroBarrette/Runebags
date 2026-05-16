@@ -802,8 +802,11 @@ function bindEvents() {
 
     const startScoutedBtn = event.target.closest("button[data-campaign-start-selected]");
     if (startScoutedBtn) {
-      if (campaignScoutedNodeId) {
+      const nextNode = getNextCampaignPlayableNode();
+      if (campaignScoutedNodeId && nextNode && campaignScoutedNodeId === nextNode.id) {
         startCampaignEncounterByNode(campaignScoutedNodeId);
+      } else {
+        showToast("You can only start the next encounter in sequence.", "warn");
       }
       return;
     }
@@ -3368,6 +3371,13 @@ function renderCampaignLoadout() {
 function renderCampaignNodeActionPanel() {
   const scouted = getCampaignNodeById(campaignScoutedNodeId);
   if (!scouted || scouted.type === "shop") {
+    elements.campaignActionPanel.hidden = true;
+    elements.campaignActionBody.innerHTML = "";
+    return;
+  }
+
+  const nextNode = getNextCampaignPlayableNode();
+  if (!nextNode || scouted.id !== nextNode.id) {
     elements.campaignActionPanel.hidden = true;
     elements.campaignActionBody.innerHTML = "";
     return;
