@@ -144,11 +144,18 @@ h2 {
 }
 
 .menu-screen {
+  position: relative;
   min-height: 78vh;
   display: grid;
   place-content: center;
   gap: 1rem;
   text-align: center;
+}
+
+.menu-utility {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
 }
 
 .menu-logo {
@@ -326,6 +333,44 @@ body[data-theme="dark"] .menu-logo {
   text-align: left;
 }
 
+.profiles-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.65rem;
+  margin: 0.95rem 0;
+}
+
+.profile-slot-card {
+  border: 1px solid rgba(36, 51, 71, 0.2);
+  border-radius: 12px;
+  background: rgba(252, 253, 255, 0.74);
+  padding: 0.6rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.profile-slot-card.active {
+  border-color: rgba(32, 51, 74, 0.56);
+  box-shadow: inset 0 0 0 1px rgba(32, 51, 74, 0.2);
+}
+
+.profile-slot-card h3 {
+  margin: 0;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 1rem;
+}
+
+.profile-slot-name {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.profile-slot-name input {
+  width: 100%;
+}
+
 .settings-rune-picker h3 {
   margin: 0;
   font-size: 0.98rem;
@@ -401,6 +446,16 @@ body[data-theme="dark"] .settings-select {
 body[data-theme="dark"] .settings-rune-list {
   border-color: rgba(220, 230, 241, 0.28);
   background: rgba(16, 22, 29, 0.78);
+}
+
+body[data-theme="dark"] .profile-slot-card {
+  border-color: rgba(220, 230, 241, 0.28);
+  background: rgba(16, 22, 29, 0.78);
+}
+
+body[data-theme="dark"] .profile-slot-card.active {
+  border-color: rgba(240, 246, 255, 0.54);
+  box-shadow: inset 0 0 0 1px rgba(240, 246, 255, 0.18);
 }
 
 body[data-theme="dark"] .settings-rune-item:hover {

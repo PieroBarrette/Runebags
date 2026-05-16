@@ -29,6 +29,15 @@ import { renderBoard } from "./ui/boardView.js";
 import { renderHands } from "./ui/handView.js";
 import { renderLog } from "./ui/logView.js";
 import { clearModeSave, loadModeSave, saveModeSave } from "./persistence/localStore.js";
+import {
+  calculateProfileProgressPercent,
+  getActiveProfileSlot,
+  getProfileBySlot,
+  getProfileSlots,
+  setActiveProfileSlot,
+  touchProfileSlot,
+  updateProfileName,
+} from "./persistence/profileStore.js";
 import { createOnlineController } from "./online/onlineController.js";
 import { getRuneById, RUNE_CATALOG } from "./runes/runeCatalog.js";
 import { createSfxEngine } from "./audio/sfxEngine.js";
@@ -70,6 +79,8 @@ const elements = {
   aiStartBtn: document.getElementById("ai-start-btn"),
   aiBackBtn: document.getElementById("ai-back-btn"),
   menuOnlineBtn: document.getElementById("menu-online-btn"),
+  menuProfilesBtn: document.getElementById("menu-profiles-btn"),
+  menuProfileSwitchBtn: document.getElementById("menu-profile-switch-btn"),
   menuRulesBtn: document.getElementById("menu-rules-btn"),
   menuSettingsBtn: document.getElementById("menu-settings-btn"),
   settingsPanel: document.getElementById("settings-panel"),
@@ -79,6 +90,9 @@ const elements = {
   soundVolume: document.getElementById("sound-volume"),
   runeList: document.getElementById("settings-rune-list"),
   settingsBackBtn: document.getElementById("settings-back-btn"),
+  profilesPanel: document.getElementById("profiles-panel"),
+  profilesList: document.getElementById("profiles-list"),
+  profilesBackBtn: document.getElementById("profiles-back-btn"),
   onlinePanel: document.getElementById("online-panel"),
   onlineServerDot: document.getElementById("online-server-dot"),
   onlineServerText: document.getElementById("online-server-text"),
@@ -156,8 +170,9 @@ const elements = {
 };
 
 let selectedLocalRuneIds = loadRuneSelectionPreference();
+let activeProfileSlot = getActiveProfileSlot();
 let state = restoreState(
-  getSavedStateForMode(MODE_PASSPLAY) || createInitialState(getLocalGameOptions()),
+  getSavedStateForMode(MODE_PASSPLAY, activeProfileSlot) || createInitialState(getLocalGameOptions()),
   getLocalGameOptions(),
 );
 let currentLocalMode = MODE_PASSPLAY;
@@ -192,6 +207,7 @@ initializeAnimations();
 initializeSound();
 renderRuneSelectionSettings();
 bindSoundUnlockHandlers();
+refreshProfileHeader();
 render();
 initializeEntryMode();
 
@@ -247,7 +263,7 @@ function wireOnlineEvents() {
         playerId: snapshot.playerId,
         playerNames: snapshot.playerNames || null,
         updatedAt: Date.now(),
-      });
+      }, activeProfileSlot);
       if (!elements.onlinePanel.hidden) {
         setStatus(`Room ${activeRoomCode}: ${getDisplayPlayerName(snapshot.playerId)} connected.`);
       }
@@ -280,7 +296,7 @@ function wireOnlineEvents() {
         playerNames: snapshot.playerNames || null,
         state: snapshot.state,
         updatedAt: Date.now(),
-      });
+      }, activeProfileSlot);
       updateOnlineConnectionStatus();
     },
     queue: (snapshot) => {
@@ -334,13 +350,14 @@ function bindEvents() {
 
   elements.menuPassplayBtn.addEventListener("click", () => {
     persistState();
+    touchProfileSlot(activeProfileSlot);
     if (online.isOnlineActive()) {
       online.leaveRoom();
     }
 
     currentLocalMode = MODE_PASSPLAY;
     state = restoreState(
-      getSavedStateForMode(MODE_PASSPLAY) || createInitialState(getLocalGameOptions()),
+      getSavedStateForMode(MODE_PASSPLAY, activeProfileSlot) || createInitialState(getLocalGameOptions()),
       getLocalGameOptions(),
     );
     setAiSettings(aiConfig, false, aiConfig.playerId, aiConfig.depth);
@@ -356,11 +373,12 @@ function bindEvents() {
 
   elements.aiContinueBtn.addEventListener("click", () => {
     persistState();
+    touchProfileSlot(activeProfileSlot);
     if (online.isOnlineActive()) {
       online.leaveRoom();
     }
 
-    const savedAi = loadModeSave(MODE_AI);
+    const savedAi = loadModeSave(MODE_AI, activeProfileSlot);
     const canResumeAi = Boolean(savedAi?.state);
     if (!canResumeAi) {
       setStatus("No saved AI game found. Start a new game instead.");
@@ -387,6 +405,7 @@ function bindEvents() {
 
   elements.aiStartBtn.addEventListener("click", () => {
     persistState();
+    touchProfileSlot(activeProfileSlot);
     if (online.isOnlineActive()) {
       online.leaveRoom();
     }
@@ -424,7 +443,7 @@ function bindEvents() {
       activeRoomCode = session.roomCode;
       updateOnlineRoomUI(activeRoomCode);
     } else {
-      const savedOnline = loadModeSave(MODE_ONLINE);
+      const savedOnline = loadModeSave(MODE_ONLINE, activeProfileSlot);
       const savedRoomCode = String(savedOnline?.roomCode || "").toUpperCase();
       activeRoomCode = null;
       waitingRoomState = createWaitingRoomState();
@@ -519,8 +538,50 @@ function bindEvents() {
     showSettingsPanel();
   });
 
+  elements.menuProfilesBtn.addEventListener("click", () => {
+    showProfilesPanel();
+  });
+
+  elements.menuProfileSwitchBtn.addEventListener("click", () => {
+    showProfilesPanel();
+  });
+
   elements.settingsBackBtn.addEventListener("click", () => {
     showMainMenu();
+  });
+
+  elements.profilesBackBtn.addEventListener("click", () => {
+    showMainMenu();
+  });
+
+  elements.profilesList.addEventListener("click", (event) => {
+    const selectButton = event.target.closest("button[data-profile-select]");
+    if (selectButton) {
+      const slot = Number(selectButton.dataset.profileSelect);
+      activateProfileSlot(slot);
+      showMainMenu();
+      return;
+    }
+
+    const renameButton = event.target.closest("button[data-profile-rename]");
+    if (renameButton) {
+      const slot = Number(renameButton.dataset.profileRename);
+      const input = elements.profilesList.querySelector(`input[data-profile-name=\"${slot}\"]`);
+      if (!input) {
+        return;
+      }
+
+      const nextName = String(input.value || "").trim();
+      if (!nextName) {
+        window.alert("Profile name cannot be empty.");
+        input.focus();
+        return;
+      }
+
+      updateProfileName(slot, nextName);
+      refreshProfileHeader();
+      renderProfilesPanel();
+    }
   });
 
   elements.themeSelect.addEventListener("change", () => {
@@ -583,7 +644,7 @@ function bindEvents() {
       playerNames: waitingRoomState.playerNames || null,
       state,
       updatedAt: Date.now(),
-    });
+    }, activeProfileSlot);
     online.leaveRoom();
     activeRoomCode = null;
     waitingRoomState = createWaitingRoomState();
@@ -873,7 +934,7 @@ function bindEvents() {
         playerNames: waitingRoomState.playerNames || null,
         state,
         updatedAt: Date.now(),
-      });
+      }, activeProfileSlot);
       online.leaveRoom();
       activeRoomCode = null;
       waitingRoomState = createWaitingRoomState();
@@ -889,11 +950,12 @@ function bindEvents() {
     }
     handVisibility = { 1: false, 2: true };
     if (aiConfig.enabled || currentLocalMode === MODE_AI) {
-      clearModeSave(MODE_AI);
+      clearModeSave(MODE_AI, activeProfileSlot);
     } else {
-      clearModeSave(MODE_PASSPLAY);
+      clearModeSave(MODE_PASSPLAY, activeProfileSlot);
     }
     persistState();
+    touchProfileSlot(activeProfileSlot);
     setStatus("New game created.");
     render();
   });
@@ -1748,7 +1810,7 @@ function initializeEntryMode() {
     return;
   }
 
-  const savedOnline = loadModeSave(MODE_ONLINE);
+  const savedOnline = loadModeSave(MODE_ONLINE, activeProfileSlot);
   const savedRoomCode = String(savedOnline?.roomCode || "").toUpperCase();
   if (/^[A-Z2-9]{6}$/.test(savedRoomCode)) {
     activeRoomCode = savedRoomCode;
@@ -1763,20 +1825,23 @@ function showMainMenu() {
   elements.mainMenu.hidden = false;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
+  elements.profilesPanel.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
+  refreshProfileHeader();
 }
 
 function showAiPanel() {
   elements.mainMenu.hidden = true;
   elements.aiPanel.hidden = false;
   elements.settingsPanel.hidden = true;
+  elements.profilesPanel.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
 
-  const savedAi = loadModeSave(MODE_AI);
+  const savedAi = loadModeSave(MODE_AI, activeProfileSlot);
   if (savedAi?.ai?.playerId) {
     elements.aiSideSelect.value = String(savedAi.ai.playerId);
   }
@@ -1790,6 +1855,7 @@ function showOnlinePanel() {
   elements.mainMenu.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
+  elements.profilesPanel.hidden = true;
   elements.onlinePanel.hidden = false;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
@@ -1805,6 +1871,7 @@ function showRulesPanel() {
   elements.mainMenu.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
+  elements.profilesPanel.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = false;
   elements.gameScreen.hidden = true;
@@ -1814,15 +1881,28 @@ function showSettingsPanel() {
   elements.mainMenu.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = false;
+  elements.profilesPanel.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
+}
+
+function showProfilesPanel() {
+  elements.mainMenu.hidden = true;
+  elements.aiPanel.hidden = true;
+  elements.settingsPanel.hidden = true;
+  elements.profilesPanel.hidden = false;
+  elements.onlinePanel.hidden = true;
+  elements.rulesPanel.hidden = true;
+  elements.gameScreen.hidden = true;
+  renderProfilesPanel();
 }
 
 function enterGameScreen(mode, roomCode = null) {
   elements.mainMenu.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
+  elements.profilesPanel.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = false;
@@ -2072,7 +2152,7 @@ function persistState() {
       playerNames: waitingRoomState.playerNames || null,
       state,
       updatedAt: Date.now(),
-    });
+    }, activeProfileSlot);
     return;
   }
 
@@ -2084,22 +2164,100 @@ function persistState() {
         depth: aiConfig.depth,
       },
       updatedAt: Date.now(),
-    });
+    }, activeProfileSlot);
     return;
   }
 
   saveModeSave(MODE_PASSPLAY, {
     state,
     updatedAt: Date.now(),
-  });
+  }, activeProfileSlot);
 }
 
-function getSavedStateForMode(mode) {
-  const saved = loadModeSave(mode);
+function getSavedStateForMode(mode, profileSlot = activeProfileSlot) {
+  const saved = loadModeSave(mode, profileSlot);
   if (!saved || typeof saved !== "object") {
     return null;
   }
   return saved.state || null;
+}
+
+function refreshProfileHeader() {
+  const profile = getProfileBySlot(activeProfileSlot);
+  elements.menuProfileSwitchBtn.textContent = `Profile ${activeProfileSlot}: ${profile.name}`;
+}
+
+function renderProfilesPanel() {
+  const profiles = getProfileSlots();
+  elements.profilesList.innerHTML = "";
+
+  profiles.forEach((profile) => {
+    const card = document.createElement("article");
+    card.className = "profile-slot-card";
+    if (profile.slot === activeProfileSlot) {
+      card.classList.add("active");
+    }
+
+    const title = document.createElement("h3");
+    title.textContent = `Slot ${profile.slot}`;
+    card.appendChild(title);
+
+    const progress = document.createElement("p");
+    progress.className = "bag-meta";
+    progress.textContent = `Progress: ${calculateProfileProgressPercent(profile)}%`;
+    card.appendChild(progress);
+
+    const nameWrap = document.createElement("div");
+    nameWrap.className = "profile-slot-name";
+
+    const nameInput = document.createElement("input");
+    nameInput.type = "text";
+    nameInput.maxLength = 20;
+    nameInput.dataset.profileName = String(profile.slot);
+    nameInput.value = profile.name;
+    nameWrap.appendChild(nameInput);
+
+    const renameBtn = document.createElement("button");
+    renameBtn.type = "button";
+    renameBtn.className = "menu-btn secondary";
+    renameBtn.dataset.profileRename = String(profile.slot);
+    renameBtn.textContent = "Save Name";
+    nameWrap.appendChild(renameBtn);
+    card.appendChild(nameWrap);
+
+    const selectBtn = document.createElement("button");
+    selectBtn.type = "button";
+    selectBtn.className = "menu-btn";
+    selectBtn.dataset.profileSelect = String(profile.slot);
+    selectBtn.disabled = profile.slot === activeProfileSlot;
+    selectBtn.textContent = profile.slot === activeProfileSlot ? "Active" : "Select Slot";
+    card.appendChild(selectBtn);
+
+    elements.profilesList.appendChild(card);
+  });
+}
+
+function activateProfileSlot(slot) {
+  const targetSlot = setActiveProfileSlot(slot);
+  if (targetSlot === activeProfileSlot) {
+    return;
+  }
+
+  persistState();
+  activeProfileSlot = targetSlot;
+  touchProfileSlot(activeProfileSlot);
+
+  const passplayState = getSavedStateForMode(MODE_PASSPLAY, activeProfileSlot);
+  state = restoreState(passplayState || createInitialState(getLocalGameOptions()), getLocalGameOptions());
+  currentLocalMode = MODE_PASSPLAY;
+  setAiSettings(aiConfig, false, aiConfig.playerId, aiConfig.depth);
+  handVisibility = {
+    1: state.currentPlayer === 1,
+    2: state.currentPlayer === 2,
+  };
+
+  refreshProfileHeader();
+  render();
 }
 
 function getLocalGameOptions() {

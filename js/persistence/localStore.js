@@ -5,16 +5,28 @@ const STORAGE_KEYS = {
   online: "runebags-save-online-v2",
 };
 
-function getStorageKey(mode) {
+function getStorageKey(mode, profileSlot = null) {
+  if (profileSlot !== null && profileSlot !== undefined) {
+    const slot = Number(profileSlot);
+    if (Number.isInteger(slot) && slot >= 1 && slot <= 3) {
+      return `runebags-profile-${slot}-save-${mode}-v3`;
+    }
+  }
+
   return STORAGE_KEYS[mode] || STORAGE_KEYS.passplay;
 }
 
-export function saveModeSave(mode, payload) {
-  localStorage.setItem(getStorageKey(mode), JSON.stringify(payload));
+export function saveModeSave(mode, payload, profileSlot = null) {
+  localStorage.setItem(getStorageKey(mode, profileSlot), JSON.stringify(payload));
 }
 
-export function loadModeSave(mode) {
-  const raw = localStorage.getItem(getStorageKey(mode));
+export function loadModeSave(mode, profileSlot = null) {
+  let raw = localStorage.getItem(getStorageKey(mode, profileSlot));
+
+  if (!raw && profileSlot !== null && profileSlot !== undefined) {
+    raw = localStorage.getItem(getStorageKey(mode));
+  }
+
   if (!raw) {
     if (mode === "passplay") {
       return loadLegacyPassPlaySave();
@@ -29,8 +41,8 @@ export function loadModeSave(mode) {
   }
 }
 
-export function clearModeSave(mode) {
-  localStorage.removeItem(getStorageKey(mode));
+export function clearModeSave(mode, profileSlot = null) {
+  localStorage.removeItem(getStorageKey(mode, profileSlot));
 }
 
 function loadLegacyPassPlaySave() {

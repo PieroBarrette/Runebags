@@ -17,6 +17,9 @@
 <body>
   <main class="app-shell">
     <section id="main-menu" class="menu-screen">
+      <div class="menu-utility">
+        <button id="menu-profile-switch-btn" class="menu-btn secondary" type="button">Profile 1</button>
+      </div>
       <img class="menu-logo" src="./assets/RuneBags_Logo.svg" alt="RuneBags logo">
       <h1>RuneBags</h1>
       <p class="menu-subtitle">Runic tactics, hidden hands, and evolving rounds.</p>
@@ -24,6 +27,7 @@
         <button id="menu-ai-btn" class="menu-btn" type="button">Play Against AI</button>
         <button id="menu-passplay-btn" class="menu-btn" type="button">Pass &amp; Play</button>
         <button id="menu-online-btn" class="menu-btn" type="button">Play Online</button>
+        <button id="menu-profiles-btn" class="menu-btn" type="button">Profiles</button>
         <button id="menu-rules-btn" class="menu-btn" type="button">Rules</button>
         <button id="menu-settings-btn" class="menu-btn" type="button">Settings</button>
       </div>
@@ -77,6 +81,15 @@
       </section>
       <div class="menu-actions compact">
         <button id="settings-back-btn" class="menu-btn secondary" type="button">Back</button>
+      </div>
+    </section>
+
+    <section id="profiles-panel" class="panel menu-panel" hidden>
+      <h2>Profiles</h2>
+      <p class="settings-note">Choose one of 3 local save slots. Progress, points, and mode saves are isolated per slot.</p>
+      <div id="profiles-list" class="profiles-list"></div>
+      <div class="menu-actions compact">
+        <button id="profiles-back-btn" class="menu-btn secondary" type="button">Back</button>
       </div>
     </section>
 
