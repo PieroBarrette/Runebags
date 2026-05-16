@@ -73,6 +73,8 @@ const RUNES_WITH_LEVEL_PREFIX = new Set([
 ]);
 
 const elements = {
+  profileEntryScreen: document.getElementById("profile-entry-screen"),
+  profileEntryList: document.getElementById("profile-entry-list"),
   mainMenu: document.getElementById("main-menu"),
   menuAiBtn: document.getElementById("menu-ai-btn"),
   menuPassplayBtn: document.getElementById("menu-passplay-btn"),
@@ -208,6 +210,7 @@ let suppressBoardClickOnce = false;
 let activeFeedTab = "turn";
 let onlineChatMessages = [];
 let hasUnreadChat = false;
+let pendingEntryRoute = null;
 
 registerServiceWorker();
 
@@ -358,6 +361,36 @@ function wireOnlineEvents() {
 
 function bindEvents() {
   bindButtonSoundEvents();
+
+  elements.profileEntryList.addEventListener("click", (event) => {
+    const selectButton = event.target.closest("button[data-entry-profile-select]");
+    if (selectButton) {
+      const slot = Number(selectButton.dataset.entryProfileSelect);
+      activateProfileSlot(slot, { force: true });
+      continueAfterProfileEntry();
+      return;
+    }
+
+    const renameButton = event.target.closest("button[data-entry-profile-rename]");
+    if (renameButton) {
+      const slot = Number(renameButton.dataset.entryProfileRename);
+      const input = elements.profileEntryList.querySelector(`input[data-entry-profile-name=\"${slot}\"]`);
+      if (!input) {
+        return;
+      }
+
+      const nextName = String(input.value || "").trim();
+      if (!nextName) {
+        window.alert("Profile name cannot be empty.");
+        input.focus();
+        return;
+      }
+
+      updateProfileName(slot, nextName);
+      refreshProfileHeader();
+      renderProfileEntryScreen();
+    }
+  });
 
   elements.menuAiBtn.addEventListener("click", () => {
     showAiPanel();
@@ -1824,13 +1857,47 @@ function initializeEntryMode() {
   const room = url.searchParams.get("room");
 
   if (mode === "online" && room) {
-    activeRoomCode = room.toUpperCase();
+    const roomCode = room.toUpperCase();
+    pendingEntryRoute = {
+      mode: "online",
+      roomCode,
+    };
+  } else {
+    const savedOnline = loadModeSave(MODE_ONLINE, activeProfileSlot);
+    const savedRoomCode = String(savedOnline?.roomCode || "").toUpperCase();
+    if (/^[A-Z2-9]{6}$/.test(savedRoomCode)) {
+      activeRoomCode = savedRoomCode;
+      waitingRoomState.mode = "friend";
+      elements.onlineJoinCode.value = savedRoomCode;
+    }
+  }
+
+  showProfileEntryScreen();
+}
+
+function showProfileEntryScreen() {
+  elements.profileEntryScreen.hidden = false;
+  elements.mainMenu.hidden = true;
+  elements.aiPanel.hidden = true;
+  elements.settingsPanel.hidden = true;
+  elements.profilesPanel.hidden = true;
+  elements.achievementsPanel.hidden = true;
+  elements.onlinePanel.hidden = true;
+  elements.rulesPanel.hidden = true;
+  elements.gameScreen.hidden = true;
+  renderProfileEntryScreen();
+}
+
+function continueAfterProfileEntry() {
+  if (pendingEntryRoute?.mode === "online" && pendingEntryRoute.roomCode) {
+    activeRoomCode = pendingEntryRoute.roomCode;
     waitingRoomState = {
       ...createWaitingRoomState(),
       mode: "friend",
     };
     elements.onlineJoinCode.value = activeRoomCode;
     updateOnlineRoomUI(activeRoomCode);
+    pendingEntryRoute = null;
     showOnlinePanel();
     const pseudo = normalizePseudo(elements.onlinePseudo.value || online.getSession().displayName || "");
     elements.onlinePseudo.value = pseudo;
@@ -1838,18 +1905,12 @@ function initializeEntryMode() {
     return;
   }
 
-  const savedOnline = loadModeSave(MODE_ONLINE, activeProfileSlot);
-  const savedRoomCode = String(savedOnline?.roomCode || "").toUpperCase();
-  if (/^[A-Z2-9]{6}$/.test(savedRoomCode)) {
-    activeRoomCode = savedRoomCode;
-    waitingRoomState.mode = "friend";
-    elements.onlineJoinCode.value = savedRoomCode;
-  }
-
+  pendingEntryRoute = null;
   showMainMenu();
 }
 
 function showMainMenu() {
+  elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = false;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
@@ -1862,6 +1923,7 @@ function showMainMenu() {
 }
 
 function showAiPanel() {
+  elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
   elements.aiPanel.hidden = false;
   elements.settingsPanel.hidden = true;
@@ -1882,6 +1944,7 @@ function showAiPanel() {
 }
 
 function showOnlinePanel() {
+  elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
@@ -1899,6 +1962,7 @@ function showOnlinePanel() {
 }
 
 function showRulesPanel() {
+  elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
@@ -1910,6 +1974,7 @@ function showRulesPanel() {
 }
 
 function showSettingsPanel() {
+  elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = false;
@@ -1921,6 +1986,7 @@ function showSettingsPanel() {
 }
 
 function showProfilesPanel() {
+  elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
@@ -1933,6 +1999,7 @@ function showProfilesPanel() {
 }
 
 function showAchievementsPanel() {
+  elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
@@ -1945,6 +2012,7 @@ function showAchievementsPanel() {
 }
 
 function enterGameScreen(mode, roomCode = null) {
+  elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
@@ -2318,6 +2386,55 @@ function renderAchievementsPanel() {
   });
 }
 
+function renderProfileEntryScreen() {
+  const profiles = getProfileSlots();
+  elements.profileEntryList.innerHTML = "";
+
+  profiles.forEach((profile) => {
+    const card = document.createElement("article");
+    card.className = "profile-slot-card";
+    if (profile.slot === activeProfileSlot) {
+      card.classList.add("active");
+    }
+
+    const title = document.createElement("h3");
+    title.textContent = `Slot ${profile.slot}`;
+    card.appendChild(title);
+
+    const progress = document.createElement("p");
+    progress.className = "bag-meta";
+    progress.textContent = `Progress: ${calculateProfileProgressPercent(profile)}%`;
+    card.appendChild(progress);
+
+    const nameWrap = document.createElement("div");
+    nameWrap.className = "profile-slot-name";
+
+    const nameInput = document.createElement("input");
+    nameInput.type = "text";
+    nameInput.maxLength = 20;
+    nameInput.dataset.entryProfileName = String(profile.slot);
+    nameInput.value = profile.name;
+    nameWrap.appendChild(nameInput);
+
+    const renameBtn = document.createElement("button");
+    renameBtn.type = "button";
+    renameBtn.className = "menu-btn secondary";
+    renameBtn.dataset.entryProfileRename = String(profile.slot);
+    renameBtn.textContent = "Save Name";
+    nameWrap.appendChild(renameBtn);
+    card.appendChild(nameWrap);
+
+    const selectBtn = document.createElement("button");
+    selectBtn.type = "button";
+    selectBtn.className = "menu-btn";
+    selectBtn.dataset.entryProfileSelect = String(profile.slot);
+    selectBtn.textContent = profile.slot === activeProfileSlot ? "Enter with this profile" : "Enter with this slot";
+    card.appendChild(selectBtn);
+
+    elements.profileEntryList.appendChild(card);
+  });
+}
+
 function renderProfilesPanel() {
   const profiles = getProfileSlots();
   elements.profilesList.innerHTML = "";
@@ -2368,9 +2485,10 @@ function renderProfilesPanel() {
   });
 }
 
-function activateProfileSlot(slot) {
+function activateProfileSlot(slot, options = {}) {
+  const force = Boolean(options.force);
   const targetSlot = setActiveProfileSlot(slot);
-  if (targetSlot === activeProfileSlot) {
+  if (!force && targetSlot === activeProfileSlot) {
     return;
   }
 
