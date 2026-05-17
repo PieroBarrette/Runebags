@@ -793,9 +793,12 @@ function bindEvents() {
   });
 
   const handleCampaignPanelClick = (event) => {
-    const scoutBtn = event.target.closest("button[data-campaign-node-scout]");
-    if (scoutBtn) {
-      const nodeId = String(scoutBtn.dataset.campaignNodeScout || "");
+    const scoutNode = event.target.closest("[data-campaign-node-scout]");
+    if (scoutNode) {
+      if (scoutNode.dataset.disabled === "true") {
+        return;
+      }
+      const nodeId = String(scoutNode.dataset.campaignNodeScout || "");
       selectCampaignNodeForScout(nodeId);
       return;
     }
@@ -820,6 +823,20 @@ function bindEvents() {
   };
 
   elements.campaignMap.addEventListener("click", handleCampaignPanelClick);
+  elements.campaignMap.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+
+    const scoutNode = event.target.closest("[data-campaign-node-scout]");
+    if (!scoutNode || scoutNode.dataset.disabled === "true") {
+      return;
+    }
+
+    event.preventDefault();
+    const nodeId = String(scoutNode.dataset.campaignNodeScout || "");
+    selectCampaignNodeForScout(nodeId);
+  });
   elements.campaignActionBody.addEventListener("click", handleCampaignPanelClick);
   elements.campaignLoadoutList.addEventListener("click", handleCampaignPanelClick);
 
@@ -3291,9 +3308,22 @@ function renderCampaignPanel() {
   displayNodes.forEach((node) => {
     const isCompleted = completed.has(node.id);
     const isNext = nextNode?.id === node.id;
+    const isScouted = campaignScoutedNodeId === node.id;
 
     const card = document.createElement("article");
     card.className = `campaign-node ${node.type} ${isCompleted ? "completed" : ""}`.trim();
+    if (isScouted) {
+      card.classList.add("selected");
+    }
+
+    if (node.type !== "shop") {
+      card.dataset.campaignNodeScout = node.id;
+      if (isCompleted) {
+        card.dataset.disabled = "true";
+      } else {
+        card.tabIndex = 0;
+      }
+    }
 
     const title = document.createElement("h4");
     const antePrefix = node.ante > 0 ? `Ante ${node.ante} - ` : "";
@@ -3308,21 +3338,15 @@ function renderCampaignPanel() {
     detail.textContent = `${getCampaignNodeTypeLabel(node.type)} | Supply ${Math.max(0, Number(node.roundPointPool) || 0)} | ${status}`;
     card.appendChild(detail);
 
-    const resolveBtn = document.createElement("button");
-    resolveBtn.type = "button";
-    resolveBtn.className = "menu-btn";
     if (node.type === "shop") {
+      const resolveBtn = document.createElement("button");
+      resolveBtn.type = "button";
+      resolveBtn.className = "menu-btn";
       resolveBtn.dataset.campaignNodeStart = node.id;
-    } else {
-      resolveBtn.dataset.campaignNodeScout = node.id;
+      resolveBtn.disabled = !isNext || isCompleted;
+      resolveBtn.textContent = getCampaignNodeActionLabel(node, isCompleted);
+      card.appendChild(resolveBtn);
     }
-    resolveBtn.disabled = node.type === "shop"
-      ? (!isNext || isCompleted)
-      : isCompleted;
-    resolveBtn.textContent = node.type === "shop"
-      ? getCampaignNodeActionLabel(node, isCompleted)
-      : (isCompleted ? "Completed" : campaignScoutedNodeId === node.id ? "Selected" : "Scout Opponent");
-    card.appendChild(resolveBtn);
 
     elements.campaignMap.appendChild(card);
   });
@@ -3391,21 +3415,10 @@ function renderCampaignLoadout() {
   const preview = getCampaignOpponentPreview(scouted, campaignState);
   elements.campaignLoadoutSummary.textContent = `${getCampaignNodeTypeLabel(scouted.type)} preview | Template ${preview.poolIndex + 1}/${preview.poolCount}`;
 
-  preview.runeIds.forEach((runeId) => {
-    const rune = getRuneById(runeId);
-    const card = document.createElement("article");
-    card.className = "achievement-card unlocked";
-
-    const title = document.createElement("h3");
-    title.textContent = rune?.name || runeId;
-    card.appendChild(title);
-
-    const desc = document.createElement("p");
-    desc.textContent = rune?.description || "Opponent bag rune.";
-    card.appendChild(desc);
-
-    elements.campaignLoadoutList.appendChild(card);
-  });
+  const previewRunes = preview.runeIds
+    .map((runeId) => createRuneInstance(runeId, 1))
+    .filter(Boolean);
+  renderRuneList(elements.campaignLoadoutList, previewRunes, 2, [], { readOnly: true });
 
   renderCampaignNodeActionPanel();
 }
