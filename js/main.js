@@ -3639,6 +3639,7 @@ function renderProfileEntryScreen() {
 
     const nameInput = document.createElement("input");
     nameInput.type = "text";
+    nameInput.name = `entry-profile-name-${profile.slot}`;
     nameInput.maxLength = 20;
     nameInput.dataset.entryProfileName = String(profile.slot);
     nameInput.value = profile.name;
@@ -3688,6 +3689,7 @@ function renderProfilesPanel() {
 
     const nameInput = document.createElement("input");
     nameInput.type = "text";
+    nameInput.name = `profile-name-${profile.slot}`;
     nameInput.maxLength = 20;
     nameInput.dataset.profileName = String(profile.slot);
     nameInput.value = profile.name;
@@ -3821,6 +3823,7 @@ function renderRuneSelectionSettings() {
 
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
+    checkbox.name = `settings-rune-${rune.id}`;
     checkbox.className = "settings-rune-checkbox";
     checkbox.dataset.runeId = rune.id;
     checkbox.checked = selected.has(rune.id);

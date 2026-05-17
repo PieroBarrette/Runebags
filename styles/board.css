@@ -45,16 +45,18 @@ body[data-board-skin="board-frost"] .board::before {
     radial-gradient(circle at 82% 12%, rgba(173, 222, 255, 0.32), transparent 56%),
     repeating-linear-gradient(35deg, rgba(136, 205, 255, 0.08) 0 6px, rgba(228, 247, 255, 0.02) 6px 12px);
   animation: frost-board-shimmer 3.4s ease-in-out infinite alternate;
+}
 
 body[data-board-skin="board-frost"] .cell {
   background: rgba(225, 239, 252, 0.88);
   background: linear-gradient(165deg, rgba(230, 243, 255, 0.95), rgba(197, 225, 247, 0.86));
   border-color: rgba(134, 173, 209, 0.44);
+}
 
 body[data-board-skin="board-ember"] .board {
-  border-color: rgba(179, 112, 73, 0.5);
   border-color: rgba(210, 121, 74, 0.88);
   box-shadow: 0 10px 24px rgba(150, 75, 42, 0.34), inset 0 0 0 1px rgba(255, 196, 139, 0.75);
+}
 
 
 body[data-board-skin="board-ember"] .board::before {
@@ -64,12 +66,26 @@ body[data-board-skin="board-ember"] .board::before {
     radial-gradient(circle at 78% 80%, rgba(255, 133, 72, 0.24), transparent 60%),
     repeating-linear-gradient(150deg, rgba(255, 164, 92, 0.08) 0 8px, rgba(113, 40, 17, 0.06) 8px 16px);
   animation: ember-board-heat 2.8s ease-in-out infinite alternate;
+}
+
 body[data-board-skin="board-ember"] .cell {
   background: rgba(246, 232, 221, 0.9);
   border-color: rgba(175, 132, 102, 0.26);
   background: linear-gradient(168deg, rgba(254, 238, 216, 0.96), rgba(236, 197, 156, 0.86));
   border-color: rgba(181, 118, 77, 0.44);
+}
+
 .cell {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border: 1px solid rgba(120, 138, 161, 0.24);
+  border-right-width: 3px;
+  border-radius: 0;
+  background: rgba(231, 238, 247, 0.85);
+  cursor: pointer;
+  transition: transform 220ms ease;
+}
 
 body[data-board-skin="board-frost"] .cell.target-cell {
   background: rgba(147, 219, 255, 0.34);
@@ -99,11 +115,7 @@ body[data-board-skin="board-ember"] .cell.winning-cell {
 body[data-board-skin="board-ember"] .cell.forced-column {
   background: rgba(255, 149, 76, 0.2);
   box-shadow: inset 0 0 0 1px rgba(234, 126, 58, 0.82);
-  position: relative;
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  border: 1px solid rgba(120, 138, 161, 0.24);
-  border-right-width: 3px;
+}
 
 body[data-animations="on"][data-board-skin="board-frost"] .cell.anim-ansuz-drop .effect-fade-ghost,
 body[data-animations="on"][data-board-skin="board-frost"] .cell.anim-ansuz-drop .effect-fade-ghost-symbol,
@@ -117,10 +129,6 @@ body[data-animations="on"][data-board-skin="board-ember"] .cell.anim-ansuz-drop 
 body[data-animations="on"][data-board-skin="board-ember"] .cell.anim-gebo-drop .effect-fade-ghost,
 body[data-animations="on"][data-board-skin="board-ember"] .cell.anim-gebo-drop .effect-fade-ghost-symbol {
   animation: ember-fade-burn 500ms cubic-bezier(0.22, 0.82, 0.26, 1) forwards;
-  border-radius: 0;
-  background: rgba(231, 238, 247, 0.85);
-  cursor: pointer;
-  transition: transform 220ms ease;
 }
 
 body[data-animations="on"][data-rune-skin="rune-gilded"] .cell.anim-place .rune-symbol,
@@ -133,6 +141,7 @@ body[data-animations="on"][data-rune-skin="rune-obsidian"] .cell.anim-place .run
 body[data-animations="on"][data-rune-skin="rune-obsidian"] .cell.anim-nauthiz-place .rune-symbol,
 body[data-animations="on"][data-rune-skin="rune-obsidian"] .cell.anim-teiwaz-drop .rune-symbol {
   animation-name: rune-symbol-drop-in-obsidian;
+}
 
 .cell:nth-child(7n + 1) {
   border-left-width: 3px;
