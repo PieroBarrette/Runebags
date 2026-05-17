@@ -3226,7 +3226,12 @@ function renderCampaignPanel() {
   renderCampaignNodeActionPanel();
 
   elements.campaignMap.innerHTML = "";
-  const displayNodes = CAMPAIGN_NODES;
+  const displayNodes = CAMPAIGN_NODES.filter((node) => {
+    if (node.id === "start-shop" && !completed.has(node.id)) {
+      return true;
+    }
+    return Number(node.ante) === ante;
+  });
 
   displayNodes.forEach((node) => {
     const isCompleted = completed.has(node.id);
