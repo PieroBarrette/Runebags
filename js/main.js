@@ -1136,9 +1136,14 @@ function bindEvents() {
   });
 
   elements.phaseBtn.addEventListener("click", () => {
-    if (currentLocalMode === MODE_CAMPAIGN && activeCampaignNodeId && !campaignInShopNode) {
+    if (currentLocalMode === MODE_CAMPAIGN && activeCampaignNodeId && !campaignInShopNode && state.phase === "game-over") {
       showCampaignPanel();
       setStatus("Choose your next campaign node.");
+      return;
+    }
+
+    if (currentLocalMode === MODE_CAMPAIGN && activeCampaignNodeId && !campaignInShopNode && state.phase === "round-end") {
+      advanceCampaignEncounterRound();
       return;
     }
 
@@ -1714,16 +1719,54 @@ function normalizeCampaignEndStateIfNeeded() {
     return;
   }
 
+  if ((state.pointPoolRemaining || 0) > 0) {
+    applyCampaignBossConstraintForActiveNode();
+    return;
+  }
+
+  finalizeCampaignEncounterFromRoundEnd();
+  persistState();
+}
+
+function advanceCampaignEncounterRound() {
+  if (currentLocalMode !== MODE_CAMPAIGN || state.phase !== "round-end") {
+    return;
+  }
+
+  const node = getCampaignNodeById(activeCampaignNodeId);
+  if (!node || campaignInShopNode) {
+    return;
+  }
+
+  if ((state.pointPoolRemaining || 0) <= 0) {
+    finalizeCampaignEncounterFromRoundEnd();
+    persistState();
+    render();
+    return;
+  }
+
   applyCampaignBossConstraintForActiveNode();
 
-  if ((state.pointPoolRemaining || 0) > 0) {
-    const shopStep = enterShopPhase(state);
-    if (!shopStep.error && state.phase === "shop") {
-      startRoundFromShop(state);
+  const shopStep = enterShopPhase(state);
+  if (!shopStep.error && state.phase === "shop") {
+    const roundStep = startRoundFromShop(state);
+    if (!roundStep.error) {
       applyCampaignBossConstraintForActiveNode();
-      state.log.unshift("Campaign continues immediately: no between-round shop.");
-      return;
+      state.log.unshift("Campaign advanced to the next round.");
     }
+  }
+
+  if (state.phase === "round-end" && (state.pointPoolRemaining || 0) <= 0) {
+    finalizeCampaignEncounterFromRoundEnd();
+  }
+
+  persistState();
+  render();
+}
+
+function finalizeCampaignEncounterFromRoundEnd() {
+  if (currentLocalMode !== MODE_CAMPAIGN || state.phase !== "round-end") {
+    return;
   }
 
   state.phase = "game-over";
@@ -1864,12 +1907,21 @@ function updateTopStatus() {
   }
 
   if (state.phase === "round-end") {
+    const isCampaignEncounter = currentLocalMode === MODE_CAMPAIGN && activeCampaignNodeId && !campaignInShopNode;
     if (state.winner) {
       elements.turnPill.textContent = `Round Winner: ${getDisplayPlayerName(state.winner)}`;
-      elements.status.textContent = `Round ${state.roundNumber} won by ${getDisplayPlayerName(state.winner)}. Click Phase Action for shop.`;
+      elements.status.textContent = isCampaignEncounter
+        ? (state.pointPoolRemaining > 0
+          ? `Round ${state.roundNumber} won by ${getDisplayPlayerName(state.winner)}. Click Next Round to continue.`
+          : `Round ${state.roundNumber} won by ${getDisplayPlayerName(state.winner)}. Encounter complete.`)
+        : `Round ${state.roundNumber} won by ${getDisplayPlayerName(state.winner)}. Click Phase Action for shop.`;
     } else {
       elements.turnPill.textContent = `Round ${state.roundNumber}: Draw`;
-      elements.status.textContent = "Round draw. Click Phase Action for shop.";
+      elements.status.textContent = isCampaignEncounter
+        ? (state.pointPoolRemaining > 0
+          ? "Round draw. Click Next Round to continue."
+          : "Round draw. Encounter complete.")
+        : "Round draw. Click Phase Action for shop.";
     }
     return;
   }
@@ -1904,6 +1956,7 @@ function updateTopStatus() {
 function renderShopPanel() {
   if (currentLocalMode === MODE_CAMPAIGN && !campaignInShopNode) {
     const inEncounterEnd = state.phase === "game-over";
+    const inRoundTransition = state.phase === "round-end";
     elements.shopPanel.hidden = true;
     elements.boardEl.hidden = false;
     elements.shopInstruction.hidden = true;
@@ -1911,8 +1964,10 @@ function renderShopPanel() {
     elements.shopRemoveBtn.hidden = true;
     elements.shopCombineBtn.hidden = true;
     elements.shopRerollBtn.hidden = true;
-    elements.phaseBtn.hidden = !inEncounterEnd;
-    elements.phaseBtn.textContent = "Back to Campaign";
+    elements.phaseBtn.hidden = !(inEncounterEnd || inRoundTransition);
+    elements.phaseBtn.textContent = inEncounterEnd
+      ? "Back to Campaign"
+      : "Next Round";
     return;
   }
 
