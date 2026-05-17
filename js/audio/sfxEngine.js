@@ -205,13 +205,23 @@ function createArcaneProfile(context, destination, eventName) {
   if (eventName === "ui-click") {
     createTone(context, destination, {
       type: "sine",
-      frequency: 560,
-      endFrequency: 480,
+      frequency: 620,
+      endFrequency: 500,
       start: t0,
-      duration: 0.085,
-      gain: 0.03,
+      duration: 0.095,
+      gain: 0.032,
       attack: 0.003,
       release: 0.06,
+    });
+    createTone(context, destination, {
+      type: "sine",
+      frequency: 930,
+      endFrequency: 780,
+      start: t0 + 0.014,
+      duration: 0.075,
+      gain: 0.016,
+      attack: 0.002,
+      release: 0.045,
     });
     return;
   }
@@ -219,13 +229,23 @@ function createArcaneProfile(context, destination, eventName) {
   if (eventName === "move") {
     createTone(context, destination, {
       type: "triangle",
-      frequency: 360,
-      endFrequency: 260,
+      frequency: 420,
+      endFrequency: 280,
       start: t0,
-      duration: 0.12,
-      gain: 0.055,
+      duration: 0.15,
+      gain: 0.06,
       attack: 0.004,
-      release: 0.08,
+      release: 0.1,
+    });
+    createTone(context, destination, {
+      type: "sine",
+      frequency: 760,
+      endFrequency: 520,
+      start: t0 + 0.02,
+      duration: 0.13,
+      gain: 0.022,
+      attack: 0.003,
+      release: 0.09,
     });
     return;
   }
@@ -235,24 +255,32 @@ function createArcaneProfile(context, destination, eventName) {
       type: "sine",
       frequency: 392,
       start: t0,
-      duration: 0.12,
-      gain: 0.045,
-      release: 0.08,
+      duration: 0.16,
+      gain: 0.052,
+      release: 0.1,
     });
     createTone(context, destination, {
       type: "sine",
       frequency: 494,
-      start: t0 + 0.08,
-      duration: 0.14,
-      gain: 0.047,
-      release: 0.09,
+      start: t0 + 0.1,
+      duration: 0.18,
+      gain: 0.056,
+      release: 0.11,
     });
     createTone(context, destination, {
       type: "sine",
       frequency: 587,
-      start: t0 + 0.16,
+      start: t0 + 0.21,
+      duration: 0.2,
+      gain: 0.06,
+      release: 0.12,
+    });
+    createTone(context, destination, {
+      type: "triangle",
+      frequency: 784,
+      start: t0 + 0.24,
       duration: 0.16,
-      gain: 0.05,
+      gain: 0.022,
       release: 0.1,
     });
     return;
@@ -263,17 +291,25 @@ function createArcaneProfile(context, destination, eventName) {
       type: "sine",
       frequency: 330,
       start: t0,
-      duration: 0.11,
-      gain: 0.032,
+      duration: 0.14,
+      gain: 0.035,
       release: 0.08,
     });
     createTone(context, destination, {
       type: "sine",
       frequency: 294,
-      start: t0 + 0.08,
-      duration: 0.14,
-      gain: 0.032,
+      start: t0 + 0.11,
+      duration: 0.18,
+      gain: 0.035,
       release: 0.09,
+    });
+    createTone(context, destination, {
+      type: "sine",
+      frequency: 220,
+      start: t0 + 0.2,
+      duration: 0.12,
+      gain: 0.018,
+      release: 0.08,
     });
     return;
   }
@@ -283,24 +319,32 @@ function createArcaneProfile(context, destination, eventName) {
       type: "triangle",
       frequency: 392,
       start: t0,
-      duration: 0.15,
-      gain: 0.05,
-      release: 0.1,
+      duration: 0.2,
+      gain: 0.058,
+      release: 0.12,
     });
     createTone(context, destination, {
       type: "triangle",
       frequency: 523,
-      start: t0 + 0.12,
-      duration: 0.18,
-      gain: 0.053,
-      release: 0.11,
+      start: t0 + 0.16,
+      duration: 0.22,
+      gain: 0.062,
+      release: 0.13,
     });
     createTone(context, destination, {
       type: "triangle",
       frequency: 659,
-      start: t0 + 0.24,
-      duration: 0.23,
-      gain: 0.055,
+      start: t0 + 0.31,
+      duration: 0.27,
+      gain: 0.065,
+      release: 0.15,
+    });
+    createTone(context, destination, {
+      type: "sine",
+      frequency: 988,
+      start: t0 + 0.37,
+      duration: 0.22,
+      gain: 0.024,
       release: 0.13,
     });
   }
@@ -315,10 +359,16 @@ function createAnvilProfile(context, destination, eventName) {
       frequency: 180,
       endFrequency: 140,
       start: t0,
-      duration: 0.06,
-      gain: 0.028,
+      duration: 0.072,
+      gain: 0.03,
       attack: 0.001,
       release: 0.045,
+    });
+    createFilteredNoise(context, destination, {
+      start: t0,
+      duration: 0.04,
+      gain: 0.009,
+      lowpass: 1450,
     });
     return;
   }
@@ -327,18 +377,28 @@ function createAnvilProfile(context, destination, eventName) {
     createTone(context, destination, {
       type: "square",
       frequency: 145,
-      endFrequency: 115,
+      endFrequency: 108,
       start: t0,
-      duration: 0.11,
-      gain: 0.07,
+      duration: 0.14,
+      gain: 0.078,
+      attack: 0.001,
+      release: 0.1,
+    });
+    createTone(context, destination, {
+      type: "triangle",
+      frequency: 230,
+      endFrequency: 170,
+      start: t0 + 0.012,
+      duration: 0.12,
+      gain: 0.025,
       attack: 0.001,
       release: 0.08,
     });
     createFilteredNoise(context, destination, {
       start: t0,
-      duration: 0.06,
-      gain: 0.014,
-      lowpass: 1000,
+      duration: 0.08,
+      gain: 0.02,
+      lowpass: 1200,
     });
     return;
   }
@@ -348,25 +408,31 @@ function createAnvilProfile(context, destination, eventName) {
       type: "square",
       frequency: 185,
       start: t0,
-      duration: 0.12,
-      gain: 0.05,
-      release: 0.08,
-    });
-    createTone(context, destination, {
-      type: "square",
-      frequency: 220,
-      start: t0 + 0.08,
       duration: 0.14,
-      gain: 0.052,
+      gain: 0.054,
       release: 0.09,
     });
     createTone(context, destination, {
       type: "square",
-      frequency: 277,
-      start: t0 + 0.17,
+      frequency: 220,
+      start: t0 + 0.11,
       duration: 0.16,
-      gain: 0.054,
+      gain: 0.057,
       release: 0.1,
+    });
+    createTone(context, destination, {
+      type: "square",
+      frequency: 277,
+      start: t0 + 0.22,
+      duration: 0.18,
+      gain: 0.06,
+      release: 0.11,
+    });
+    createFilteredNoise(context, destination, {
+      start: t0 + 0.03,
+      duration: 0.12,
+      gain: 0.012,
+      lowpass: 1800,
     });
     return;
   }
@@ -376,8 +442,16 @@ function createAnvilProfile(context, destination, eventName) {
       type: "square",
       frequency: 165,
       start: t0,
-      duration: 0.09,
-      gain: 0.035,
+      duration: 0.11,
+      gain: 0.038,
+      release: 0.08,
+    });
+    createTone(context, destination, {
+      type: "triangle",
+      frequency: 132,
+      start: t0 + 0.09,
+      duration: 0.1,
+      gain: 0.018,
       release: 0.07,
     });
     return;
@@ -388,25 +462,31 @@ function createAnvilProfile(context, destination, eventName) {
       type: "square",
       frequency: 196,
       start: t0,
-      duration: 0.14,
-      gain: 0.052,
-      release: 0.1,
-    });
-    createTone(context, destination, {
-      type: "square",
-      frequency: 262,
-      start: t0 + 0.13,
-      duration: 0.18,
-      gain: 0.054,
+      duration: 0.17,
+      gain: 0.058,
       release: 0.11,
     });
     createTone(context, destination, {
       type: "square",
-      frequency: 330,
-      start: t0 + 0.28,
+      frequency: 262,
+      start: t0 + 0.17,
       duration: 0.21,
-      gain: 0.056,
+      gain: 0.062,
       release: 0.12,
+    });
+    createTone(context, destination, {
+      type: "square",
+      frequency: 330,
+      start: t0 + 0.35,
+      duration: 0.24,
+      gain: 0.066,
+      release: 0.13,
+    });
+    createFilteredNoise(context, destination, {
+      start: t0 + 0.02,
+      duration: 0.14,
+      gain: 0.015,
+      lowpass: 2100,
     });
   }
 }

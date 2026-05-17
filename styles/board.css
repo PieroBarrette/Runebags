@@ -4,12 +4,13 @@
 }
 
 .board {
-  --board-anim-duration: 500ms;
-  --algiz-anim-duration: 780ms;
-  --ansuz-anim-duration: 860ms;
-  --gebo-anim-duration: 860ms;
-  --columns: 7;
-  --rows: 6;
+  --board-anim-duration: 650ms;
+  --algiz-anim-duration: 1120ms;
+  --ansuz-anim-duration: 1180ms;
+  --gebo-anim-duration: 1180ms;
+  position: relative;
+  border-radius: 10px;
+  border: 1px solid rgba(35, 50, 72, 0.22);
   display: grid;
   grid-template-columns: repeat(var(--columns), minmax(46px, 1fr));
   gap: 0;
@@ -18,37 +19,120 @@
   overflow: hidden;
 }
 
-body[data-board-skin="board-frost"] .board {
-  border-color: rgba(115, 170, 220, 0.45);
-  box-shadow: inset 0 0 0 1px rgba(197, 230, 255, 0.45);
+.board::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 0;
 }
+
+.board > * {
+  position: relative;
+  z-index: 1;
+}
+
+body[data-board-skin="board-frost"] .board {
+  border-color: rgba(132, 196, 250, 0.88);
+  box-shadow: 0 10px 22px rgba(63, 122, 177, 0.3), inset 0 0 0 1px rgba(220, 241, 255, 0.86);
+}
+
+body[data-board-skin="board-frost"] .board::before {
+  opacity: 1;
+  background:
+    radial-gradient(circle at 20% 25%, rgba(235, 248, 255, 0.66), transparent 60%),
+    radial-gradient(circle at 82% 12%, rgba(173, 222, 255, 0.32), transparent 56%),
+    repeating-linear-gradient(35deg, rgba(136, 205, 255, 0.08) 0 6px, rgba(228, 247, 255, 0.02) 6px 12px);
+  animation: frost-board-shimmer 3.4s ease-in-out infinite alternate;
 
 body[data-board-skin="board-frost"] .cell {
   background: rgba(225, 239, 252, 0.88);
-  border-color: rgba(129, 160, 191, 0.26);
-}
+  background: linear-gradient(165deg, rgba(230, 243, 255, 0.95), rgba(197, 225, 247, 0.86));
+  border-color: rgba(134, 173, 209, 0.44);
 
 body[data-board-skin="board-ember"] .board {
   border-color: rgba(179, 112, 73, 0.5);
-  box-shadow: inset 0 0 0 1px rgba(243, 187, 148, 0.42);
-}
+  border-color: rgba(210, 121, 74, 0.88);
+  box-shadow: 0 10px 24px rgba(150, 75, 42, 0.34), inset 0 0 0 1px rgba(255, 196, 139, 0.75);
 
+
+body[data-board-skin="board-ember"] .board::before {
+  opacity: 1;
+  background:
+    radial-gradient(circle at 18% 20%, rgba(255, 216, 166, 0.42), transparent 58%),
+    radial-gradient(circle at 78% 80%, rgba(255, 133, 72, 0.24), transparent 60%),
+    repeating-linear-gradient(150deg, rgba(255, 164, 92, 0.08) 0 8px, rgba(113, 40, 17, 0.06) 8px 16px);
+  animation: ember-board-heat 2.8s ease-in-out infinite alternate;
 body[data-board-skin="board-ember"] .cell {
   background: rgba(246, 232, 221, 0.9);
   border-color: rgba(175, 132, 102, 0.26);
+  background: linear-gradient(168deg, rgba(254, 238, 216, 0.96), rgba(236, 197, 156, 0.86));
+  border-color: rgba(181, 118, 77, 0.44);
+.cell {
+
+body[data-board-skin="board-frost"] .cell.target-cell {
+  background: rgba(147, 219, 255, 0.34);
+  outline-color: rgba(99, 196, 255, 0.95);
 }
 
-.cell {
+body[data-board-skin="board-frost"] .cell.winning-cell {
+  background: rgba(174, 234, 255, 0.34);
+  box-shadow: inset 0 0 0 2px rgba(89, 190, 249, 0.92), 0 0 13px rgba(94, 183, 230, 0.35);
+}
+
+body[data-board-skin="board-frost"] .cell.forced-column {
+  background: rgba(120, 188, 255, 0.24);
+  box-shadow: inset 0 0 0 1px rgba(99, 178, 255, 0.9);
+}
+
+body[data-board-skin="board-ember"] .cell.target-cell {
+  background: rgba(255, 167, 105, 0.32);
+  outline-color: rgba(245, 131, 63, 0.9);
+}
+
+body[data-board-skin="board-ember"] .cell.winning-cell {
+  background: rgba(255, 170, 87, 0.31);
+  box-shadow: inset 0 0 0 2px rgba(240, 124, 53, 0.92), 0 0 14px rgba(224, 102, 39, 0.36);
+}
+
+body[data-board-skin="board-ember"] .cell.forced-column {
+  background: rgba(255, 149, 76, 0.2);
+  box-shadow: inset 0 0 0 1px rgba(234, 126, 58, 0.82);
   position: relative;
   width: 100%;
   aspect-ratio: 1 / 1;
   border: 1px solid rgba(120, 138, 161, 0.24);
   border-right-width: 3px;
+
+body[data-animations="on"][data-board-skin="board-frost"] .cell.anim-ansuz-drop .effect-fade-ghost,
+body[data-animations="on"][data-board-skin="board-frost"] .cell.anim-ansuz-drop .effect-fade-ghost-symbol,
+body[data-animations="on"][data-board-skin="board-frost"] .cell.anim-gebo-drop .effect-fade-ghost,
+body[data-animations="on"][data-board-skin="board-frost"] .cell.anim-gebo-drop .effect-fade-ghost-symbol {
+  animation: frost-fade-snap 500ms cubic-bezier(0.22, 0.82, 0.26, 1) forwards;
+}
+
+body[data-animations="on"][data-board-skin="board-ember"] .cell.anim-ansuz-drop .effect-fade-ghost,
+body[data-animations="on"][data-board-skin="board-ember"] .cell.anim-ansuz-drop .effect-fade-ghost-symbol,
+body[data-animations="on"][data-board-skin="board-ember"] .cell.anim-gebo-drop .effect-fade-ghost,
+body[data-animations="on"][data-board-skin="board-ember"] .cell.anim-gebo-drop .effect-fade-ghost-symbol {
+  animation: ember-fade-burn 500ms cubic-bezier(0.22, 0.82, 0.26, 1) forwards;
   border-radius: 0;
   background: rgba(231, 238, 247, 0.85);
   cursor: pointer;
-  transition: transform 120ms ease;
+  transition: transform 220ms ease;
 }
+
+body[data-animations="on"][data-rune-skin="rune-gilded"] .cell.anim-place .rune-symbol,
+body[data-animations="on"][data-rune-skin="rune-gilded"] .cell.anim-nauthiz-place .rune-symbol,
+body[data-animations="on"][data-rune-skin="rune-gilded"] .cell.anim-teiwaz-drop .rune-symbol {
+  animation-name: rune-symbol-drop-in-gilded;
+}
+
+body[data-animations="on"][data-rune-skin="rune-obsidian"] .cell.anim-place .rune-symbol,
+body[data-animations="on"][data-rune-skin="rune-obsidian"] .cell.anim-nauthiz-place .rune-symbol,
+body[data-animations="on"][data-rune-skin="rune-obsidian"] .cell.anim-teiwaz-drop .rune-symbol {
+  animation-name: rune-symbol-drop-in-obsidian;
 
 .cell:nth-child(7n + 1) {
   border-left-width: 3px;
@@ -144,6 +228,54 @@ body:not([data-theme="dark"]) .cell.p2.has-piece::before {
   filter: grayscale(1) brightness(0.24) drop-shadow(0 1px 2px rgba(255, 255, 255, 0.55));
 }
 
+body[data-rune-skin="rune-gilded"] .cell.p1.has-piece::before {
+  box-shadow: inset 0 0 0 1px rgba(255, 222, 152, 0.44), 0 0 7px rgba(230, 182, 72, 0.44);
+}
+
+body[data-rune-skin="rune-gilded"] .cell.p2.has-piece::before {
+  box-shadow: inset 0 0 0 1px rgba(171, 123, 28, 0.5), 0 0 7px rgba(230, 182, 72, 0.35);
+}
+
+body[data-rune-skin="rune-gilded"] .cell.p1 .rune-symbol,
+body[data-rune-skin="rune-gilded"] .effect-fade-ghost.p1 .effect-fade-ghost-symbol,
+body[data-rune-skin="rune-gilded"] .effect-lift-ghost.p1 .effect-lift-ghost-symbol {
+  filter: invert(1) sepia(0.26) saturate(1.3) brightness(1.23) contrast(1.1)
+    drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45))
+    drop-shadow(0 0 4px rgba(230, 182, 72, 0.55));
+}
+
+body[data-rune-skin="rune-gilded"] .cell.p2 .rune-symbol,
+body[data-rune-skin="rune-gilded"] .effect-fade-ghost.p2 .effect-fade-ghost-symbol,
+body[data-rune-skin="rune-gilded"] .effect-lift-ghost.p2 .effect-lift-ghost-symbol {
+  filter: grayscale(0.85) sepia(0.45) saturate(1.2) brightness(0.35)
+    drop-shadow(0 1px 2px rgba(255, 255, 255, 0.45))
+    drop-shadow(0 0 4px rgba(230, 182, 72, 0.55));
+}
+
+body[data-rune-skin="rune-obsidian"] .cell.p1.has-piece::before {
+  box-shadow: inset 0 0 0 1px rgba(204, 219, 238, 0.26), 0 0 8px rgba(45, 61, 83, 0.42);
+}
+
+body[data-rune-skin="rune-obsidian"] .cell.p2.has-piece::before {
+  box-shadow: inset 0 0 0 1px rgba(54, 67, 86, 0.44), 0 0 8px rgba(45, 61, 83, 0.28);
+}
+
+body[data-rune-skin="rune-obsidian"] .cell.p1 .rune-symbol,
+body[data-rune-skin="rune-obsidian"] .effect-fade-ghost.p1 .effect-fade-ghost-symbol,
+body[data-rune-skin="rune-obsidian"] .effect-lift-ghost.p1 .effect-lift-ghost-symbol {
+  filter: invert(1) brightness(1.16) contrast(1.48)
+    drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5))
+    drop-shadow(0 0 4px rgba(55, 74, 102, 0.52));
+}
+
+body[data-rune-skin="rune-obsidian"] .cell.p2 .rune-symbol,
+body[data-rune-skin="rune-obsidian"] .effect-fade-ghost.p2 .effect-fade-ghost-symbol,
+body[data-rune-skin="rune-obsidian"] .effect-lift-ghost.p2 .effect-lift-ghost-symbol {
+  filter: grayscale(1) brightness(0.2) contrast(1.4)
+    drop-shadow(0 1px 2px rgba(255, 255, 255, 0.44))
+    drop-shadow(0 0 4px rgba(55, 74, 102, 0.52));
+}
+
 .rune-symbol.level-2-rune {
   filter: drop-shadow(0 0 5px rgba(255, 214, 102, 0.8));
 }
@@ -152,6 +284,34 @@ body:not([data-theme="dark"]) .cell.p2.has-piece::before {
   filter: invert(1) brightness(1.25) contrast(1.2)
     drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45))
     drop-shadow(0 0 5px rgba(255, 214, 102, 0.8));
+}
+
+body[data-rune-skin="rune-gilded"] .cell.p1 .rune-symbol.level-2-rune {
+  filter: invert(1) sepia(0.26) saturate(1.3) brightness(1.23) contrast(1.1)
+    drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45))
+    drop-shadow(0 0 5px rgba(255, 214, 102, 0.8))
+    drop-shadow(0 0 4px rgba(230, 182, 72, 0.55));
+}
+
+body[data-rune-skin="rune-gilded"] .cell.p2 .rune-symbol.level-2-rune {
+  filter: grayscale(0.85) sepia(0.45) saturate(1.2) brightness(0.35)
+    drop-shadow(0 1px 2px rgba(255, 255, 255, 0.45))
+    drop-shadow(0 0 5px rgba(255, 214, 102, 0.8))
+    drop-shadow(0 0 4px rgba(230, 182, 72, 0.55));
+}
+
+body[data-rune-skin="rune-obsidian"] .cell.p1 .rune-symbol.level-2-rune {
+  filter: invert(1) brightness(1.16) contrast(1.48)
+    drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5))
+    drop-shadow(0 0 5px rgba(255, 214, 102, 0.8))
+    drop-shadow(0 0 4px rgba(55, 74, 102, 0.52));
+}
+
+body[data-rune-skin="rune-obsidian"] .cell.p2 .rune-symbol.level-2-rune {
+  filter: grayscale(1) brightness(0.2) contrast(1.4)
+    drop-shadow(0 1px 2px rgba(255, 255, 255, 0.44))
+    drop-shadow(0 0 5px rgba(255, 214, 102, 0.8))
+    drop-shadow(0 0 4px rgba(55, 74, 102, 0.52));
 }
 
 .rune-symbol.ethereal-rune {
@@ -301,11 +461,11 @@ body[data-animations="on"] .cell.anim-place .rune-symbol {
 }
 
 body[data-animations="on"] .cell.anim-nauthiz-place.has-piece::before {
-  animation: nauthiz-fade-zoom-in 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: nauthiz-fade-zoom-in 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 body[data-animations="on"] .cell.anim-nauthiz-place .rune-symbol {
-  animation: nauthiz-symbol-fade-zoom-in 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: nauthiz-symbol-fade-zoom-in 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 body[data-animations="on"] .cell.anim-thurisa-drop.has-piece::before {
@@ -313,27 +473,27 @@ body[data-animations="on"] .cell.anim-thurisa-drop.has-piece::before {
 }
 
 body[data-animations="on"] .cell.anim-ansuz-drop .effect-fade-ghost {
-  animation: ansuz-target-fade 280ms ease-out forwards;
+  animation: ansuz-target-fade 420ms ease-out forwards;
 }
 
 body[data-animations="on"] .cell.anim-ansuz-drop .effect-fade-ghost-symbol {
-  animation: ansuz-target-fade 280ms ease-out forwards;
+  animation: ansuz-target-fade 420ms ease-out forwards;
 }
 
 body[data-animations="on"] .cell.anim-gebo-drop .effect-fade-ghost {
-  animation: gebo-target-fade 280ms ease-out forwards;
+  animation: gebo-target-fade 420ms ease-out forwards;
 }
 
 body[data-animations="on"] .cell.anim-gebo-drop .effect-fade-ghost-symbol {
-  animation: gebo-target-fade 280ms ease-out forwards;
+  animation: gebo-target-fade 420ms ease-out forwards;
 }
 
 body[data-animations="on"] .cell .effect-lift-ghost {
-  animation: teiwaz-source-lift 220ms cubic-bezier(0.25, 0.85, 0.3, 1) forwards;
+  animation: teiwaz-source-lift 340ms cubic-bezier(0.25, 0.85, 0.3, 1) forwards;
 }
 
 body[data-animations="on"] .cell .effect-lift-ghost-symbol {
-  animation: teiwaz-source-symbol-lift 220ms cubic-bezier(0.25, 0.85, 0.3, 1) forwards;
+  animation: teiwaz-source-symbol-lift 340ms cubic-bezier(0.25, 0.85, 0.3, 1) forwards;
 }
 
 body[data-animations="on"] .cell.anim-ansuz-drop.has-piece::before {
@@ -353,11 +513,11 @@ body[data-animations="on"] .cell.anim-gebo-drop .rune-symbol {
 }
 
 body[data-animations="on"] .cell.anim-teiwaz-drop.has-piece::before {
-  animation: teiwaz-drop-after-lift 500ms cubic-bezier(0.2, 0.82, 0.28, 1);
+  animation: teiwaz-drop-after-lift 760ms cubic-bezier(0.2, 0.82, 0.28, 1);
 }
 
 body[data-animations="on"] .cell.anim-teiwaz-drop .rune-symbol {
-  animation: teiwaz-symbol-drop-after-lift 500ms cubic-bezier(0.2, 0.82, 0.28, 1);
+  animation: teiwaz-symbol-drop-after-lift 760ms cubic-bezier(0.2, 0.82, 0.28, 1);
 }
 
 body[data-animations="on"] .cell.anim-place-bottom.has-piece::before {
@@ -384,6 +544,28 @@ body[data-animations="on"] .cell.anim-shift-up .rune-symbol {
   to {
     transform: translateY(0) scale(1);
     opacity: 1;
+  }
+}
+
+@keyframes frost-board-shimmer {
+  from {
+    filter: saturate(0.94) brightness(0.98);
+    transform: translate3d(-2%, 0, 0);
+  }
+  to {
+    filter: saturate(1.12) brightness(1.04);
+    transform: translate3d(2%, -1%, 0);
+  }
+}
+
+@keyframes ember-board-heat {
+  from {
+    filter: saturate(0.96) brightness(0.98);
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    filter: saturate(1.16) brightness(1.05);
+    transform: translate3d(0.6%, -0.6%, 0) scale(1.02);
   }
 }
 
@@ -446,6 +628,39 @@ body[data-animations="on"] .cell.anim-shift-up .rune-symbol {
   }
 }
 
+@keyframes rune-symbol-drop-in-gilded {
+  0% {
+    transform: translateY(-360%) scale(0.75);
+    opacity: 0;
+    filter: brightness(1.2);
+  }
+  58% {
+    transform: translateY(8%) scale(1.08);
+    opacity: 1;
+    filter: brightness(1.32);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    filter: brightness(1);
+  }
+}
+
+@keyframes rune-symbol-drop-in-obsidian {
+  0% {
+    transform: translateY(-340%) scale(0.72) rotate(-8deg);
+    opacity: 0;
+  }
+  64% {
+    transform: translateY(0) scale(1.06) rotate(0.8deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
 @keyframes gebo-target-fade {
   from {
     opacity: 1;
@@ -454,6 +669,42 @@ body[data-animations="on"] .cell.anim-shift-up .rune-symbol {
   to {
     opacity: 0;
     transform: scale(0.88);
+  }
+}
+
+@keyframes frost-fade-snap {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  55% {
+    opacity: 0.4;
+    transform: scale(1.08);
+    filter: brightness(1.36);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.88);
+    filter: brightness(0.9);
+  }
+}
+
+@keyframes ember-fade-burn {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+    filter: saturate(1);
+  }
+  60% {
+    opacity: 0.32;
+    transform: scale(1.14);
+    filter: saturate(1.35);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.84);
+    filter: saturate(0.82);
   }
 }
 

@@ -49,7 +49,7 @@ export function runAiShopTurn(state, aiPlayerId) {
     shopSelectOfferRune(state, bestOffer.instanceId);
   }
 
-  const combinePair = findBestCombinePair(player.bag);
+  const combinePair = findBestCombinePair(player.bag, aiPlayerId);
   if (combinePair) {
     setShopMode(state, "combine");
     shopSelectBagRune(state, combinePair[0].instanceId);
@@ -66,24 +66,27 @@ export function runAiShopTurn(state, aiPlayerId) {
   }
 }
 
-function findBestCombinePair(bag) {
+function findBestCombinePair(bag, aiPlayerId) {
   const byId = new Map();
   bag.forEach((rune) => {
     if (rune.level !== 1 || NON_COMBINABLE.has(rune.id)) {
       return;
     }
-    if (!byId.has(rune.id)) {
-      byId.set(rune.id, []);
+    const combineOwner = getRuneCombineOwner(rune, aiPlayerId);
+    const key = `${rune.id}:${combineOwner}`;
+    if (!byId.has(key)) {
+      byId.set(key, []);
     }
-    byId.get(rune.id).push(rune);
+    byId.get(key).push(rune);
   });
 
   let best = null;
-  byId.forEach((runes, id) => {
+  byId.forEach((runes, key) => {
     if (runes.length < 2) {
       return;
     }
 
+    const [id] = key.split(":");
     const score = RUNE_WEIGHTS[id] || 0;
     if (!best || score > best.score) {
       best = { pair: [runes[0], runes[1]], score };
@@ -91,6 +94,13 @@ function findBestCombinePair(bag) {
   });
 
   return best ? best.pair : null;
+}
+
+function getRuneCombineOwner(rune, playerId) {
+  if (rune.capturedOwner === 1 || rune.capturedOwner === 2) {
+    return rune.capturedOwner;
+  }
+  return playerId;
 }
 
 function chooseRemoveCandidate(bag) {

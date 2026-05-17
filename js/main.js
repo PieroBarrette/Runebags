@@ -4130,6 +4130,8 @@ function buildBoardAnimationFrame(
   });
 
   if (algizPlacements.length > 0) {
+    const algizColumns = new Set(algizPlacements.map((entry) => entry.col));
+
     currByInstance.forEach((currentKey, instanceId) => {
       const previousKey = prevByInstance.get(instanceId);
       if (!previousKey || previousKey === currentKey) {
@@ -4158,6 +4160,46 @@ function buildBoardAnimationFrame(
 
       if (isAlgizColumnShift) {
         shiftedUp.add(currentKey);
+      }
+    });
+
+    // Fallback for legacy board cells without stable instance IDs.
+    algizColumns.forEach((col) => {
+      for (let row = 0; row < currentState.rows - 1; row += 1) {
+        const currentRune = currentState.boardRunes[row][col];
+        const currentOwner = currentState.board[row][col];
+        if (!currentRune || currentOwner === 0) {
+          continue;
+        }
+
+        const previousSameCell = previousSnapshot[row]?.[col] || null;
+        const previousBelowCell = previousSnapshot[row + 1]?.[col] || null;
+        if (!previousBelowCell) {
+          continue;
+        }
+
+        const currentInstanceId = currentRune.instanceId || null;
+        const previousSameInstanceId = previousSameCell?.instanceId || null;
+        const previousBelowInstanceId = previousBelowCell.instanceId || null;
+
+        const isSameAsPreviousCell = Boolean(
+          previousSameCell &&
+            previousSameCell.id === currentRune.id &&
+            previousSameCell.owner === currentOwner &&
+            previousSameInstanceId === currentInstanceId,
+        );
+        if (isSameAsPreviousCell) {
+          continue;
+        }
+
+        const canMatchByInstance = Boolean(currentInstanceId && previousBelowInstanceId);
+        const movedFromBelow = canMatchByInstance
+          ? previousBelowInstanceId === currentInstanceId
+          : previousBelowCell.id === currentRune.id && previousBelowCell.owner === currentOwner;
+
+        if (movedFromBelow) {
+          shiftedUp.add(`${row}:${col}`);
+        }
       }
     });
   }

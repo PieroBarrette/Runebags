@@ -649,6 +649,7 @@ export function shopSelectBagRune(state, runeInstanceId) {
   const player = state.players[playerId];
   const data = state.shop.players[playerId];
   const rune = player.bag.find((entry) => entry.instanceId === runeInstanceId);
+  const runeCombineOwner = getRuneCombineOwner(rune, playerId);
 
   if (!rune) {
     return { state, error: "Rune not found in active player bag." };
@@ -691,7 +692,7 @@ export function shopSelectBagRune(state, runeInstanceId) {
     }
 
     if (data.combineSelection.length === 0) {
-      if (!hasPairInBag(player.bag, rune.id)) {
+      if (!hasPairInBag(player.bag, rune.id, runeCombineOwner, playerId)) {
         return { state, error: "No matching pair for that rune in bag." };
       }
       data.combineSelection = [rune.instanceId];
@@ -712,9 +713,14 @@ export function shopSelectBagRune(state, runeInstanceId) {
       return { state, error: "Second rune must match the first rune symbol." };
     }
 
+    const firstCombineOwner = getRuneCombineOwner(first, playerId);
+    if (firstCombineOwner !== runeCombineOwner) {
+      return { state, error: "Second rune must match the first rune color." };
+    }
+
     removeRuneFromBag(state, playerId, first.instanceId);
     removeRuneFromBag(state, playerId, rune.instanceId);
-    player.bag.push(createRuneInstance(rune.id, 2));
+    player.bag.push(createCombinedShopRune(rune.id, 2, runeCombineOwner, playerId));
     data.combineSelection = [];
     data.mode = null;
 
@@ -768,15 +774,25 @@ export function getShopHighlights(state) {
   if (data.mode === "combine") {
     if (data.combineSelection.length === 0) {
       const combinable = bag
-        .filter((rune) => rune.level === 1 && !NON_COMBINABLE_RUNES.has(rune.id) && hasPairInBag(bag, rune.id))
+        .filter(
+          (rune) => rune.level === 1
+            && !NON_COMBINABLE_RUNES.has(rune.id)
+            && hasPairInBag(bag, rune.id, getRuneCombineOwner(rune, playerId), playerId),
+        )
         .map((rune) => rune.instanceId);
       return { bagHighlightIds: combinable, offerHighlightIds: [] };
     }
 
     const selected = bag.find((rune) => rune.instanceId === data.combineSelection[0]);
+    const selectedCombineOwner = getRuneCombineOwner(selected, playerId);
     const matches = selected
       ? bag
-          .filter((rune) => rune.instanceId !== selected.instanceId && rune.id === selected.id && rune.level === 1)
+          .filter(
+            (rune) => rune.instanceId !== selected.instanceId
+              && rune.id === selected.id
+              && rune.level === 1
+              && getRuneCombineOwner(rune, playerId) === selectedCombineOwner,
+          )
           .map((rune) => rune.instanceId)
       : [];
     return { bagHighlightIds: matches, offerHighlightIds: [] };
@@ -941,14 +957,51 @@ function removeRuneFromBag(state, playerId, runeInstanceId) {
   }
 }
 
-function hasPairInBag(bag, runeId) {
-  return bag.filter((rune) => rune.id === runeId && rune.level === 1).length >= 2;
+function hasPairInBag(bag, runeId, combineOwner, bagOwnerId) {
+  return bag.filter(
+    (rune) => rune.id === runeId
+      && rune.level === 1
+      && getRuneCombineOwner(rune, bagOwnerId) === combineOwner,
+  ).length >= 2;
 }
 
 function hasCombinablePair(state, playerId) {
   const bag = state.players[playerId].bag;
-  const ids = [...new Set(bag.map((rune) => rune.id))];
-  return ids.some((id) => !NON_COMBINABLE_RUNES.has(id) && hasPairInBag(bag, id));
+  const keys = [...new Set(
+    bag
+      .filter((rune) => rune.level === 1 && !NON_COMBINABLE_RUNES.has(rune.id))
+      .map((rune) => `${rune.id}:${getRuneCombineOwner(rune, playerId)}`),
+  )];
+
+  return keys.some((key) => {
+    const [id, ownerText] = key.split(":");
+    return hasPairInBag(bag, id, Number(ownerText), playerId);
+  });
+}
+
+function getRuneCombineOwner(rune, playerId) {
+  if (!rune) {
+    return null;
+  }
+
+  if (rune.capturedOwner === BLACK || rune.capturedOwner === WHITE) {
+    return rune.capturedOwner;
+  }
+
+  return playerId;
+}
+
+function createCombinedShopRune(runeId, level, combineOwner, bagOwnerId) {
+  const combined = createRuneInstance(runeId, level);
+  if (!combined) {
+    return combined;
+  }
+
+  if ((combineOwner === BLACK || combineOwner === WHITE) && combineOwner !== bagOwnerId) {
+    combined.capturedOwner = combineOwner;
+  }
+
+  return combined;
 }
 
 function applyShopEffectIfAny(state, playerId, rune) {
@@ -977,6 +1030,7 @@ function clearHandSelections(state) {
 
 function setRuneOnBoard(state, placement, rune) {
   state.boardRunes[placement.row][placement.col] = {
+    instanceId: rune.instanceId || null,
     id: rune.id,
     level: rune.level,
     ethereal: isRuneEthereal(rune),
@@ -1078,6 +1132,8 @@ function forcePassIfNeeded(state) {
   }
 
   const opponentCanPlay = canPlayerPlay(state, opponent);
+  // Next-turn constraints are single-opportunity effects and expire even on a forced pass.
+  state.nextTurnConstraints[current] = null;
   state.log.unshift(`${playerName(current)} cannot play and must pass.`);
 
   if (!opponentCanPlay) {
@@ -1395,7 +1451,7 @@ function removeRuneAt(state, row, col, source, returnMode) {
 
   if (returnMode === "immediate") {
     if (owner !== NEUTRAL_OWNER) {
-      state.players[owner].bag.push(createRuneInstance(rune.id, rune.level));
+      addRuneToBagAndShuffle(state, owner, rune.id, rune.level);
     }
     return { owner, rune };
   }
@@ -1409,6 +1465,11 @@ function removeRuneAt(state, row, col, source, returnMode) {
 }
 
 function sendRuneAwayForRound(state, owner, runeId, level, source) {
+  if (runeId === "neutral" && (source === "sowelu" || source === "gebo")) {
+    state.neutralSupply += 1;
+    return;
+  }
+
   state.roundAwayRunes.push({
     owner,
     runeId,
@@ -1441,6 +1502,18 @@ function recoverAwayRuneForFehu(state, playerId, awayIndex) {
   }
 
   state.players[playerId].bag.push(restored);
+  state.players[playerId].bag = shuffle(state.players[playerId].bag);
+  return restored;
+}
+
+function addRuneToBagAndShuffle(state, playerId, runeId, level) {
+  const restored = createRuneInstance(runeId, level);
+  if (!restored) {
+    return null;
+  }
+
+  state.players[playerId].bag.push(restored);
+  state.players[playerId].bag = shuffle(state.players[playerId].bag);
   return restored;
 }
 
