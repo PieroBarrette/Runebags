@@ -455,6 +455,18 @@ body[data-theme="dark"] .menu-logo {
   align-items: start;
 }
 
+#campaign-panel {
+  position: relative;
+}
+
+.campaign-panel-utility {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  gap: 0.5rem;
+}
+
 .campaign-run-wrap {
   position: relative;
   min-height: 640px;

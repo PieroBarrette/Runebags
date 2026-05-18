@@ -58,7 +58,7 @@ import {
   saveCosmeticState,
   selectCosmetic,
 } from "./persistence/cosmeticStore.js";
-import { CAMPAIGN_NODES, getCampaignNodeById } from "./campaign/campaignCatalog.js";
+import { CAMPAIGN_NODES, CAMPAIGN_START_NODE_ID, getCampaignNodeById } from "./campaign/campaignCatalog.js";
 import {
   addCampaignCombatPoints,
   addCampaignPerformancePoints,
@@ -143,9 +143,8 @@ const elements = {
   campaignActionPanel: document.getElementById("campaign-action-panel"),
   campaignActionTitle: document.getElementById("campaign-action-title"),
   campaignActionBody: document.getElementById("campaign-action-body"),
-  campaignStartBtn: document.getElementById("campaign-start-btn"),
-  campaignResetBtn: document.getElementById("campaign-reset-btn"),
-  campaignBackBtn: document.getElementById("campaign-back-btn"),
+  campaignMenuBtn: document.getElementById("campaign-menu-btn"),
+  campaignNewRunBtn: document.getElementById("campaign-new-run-btn"),
   aiSideSelect: document.getElementById("ai-side-select"),
   aiDepthSelect: document.getElementById("ai-depth-select"),
   aiPanel: document.getElementById("ai-panel"),
@@ -714,11 +713,12 @@ function bindEvents() {
     showMainMenu();
   });
 
-  elements.campaignBackBtn.addEventListener("click", () => {
+  elements.campaignMenuBtn.addEventListener("click", () => {
     showMainMenu();
   });
 
-  elements.campaignStartBtn.addEventListener("click", () => {
+  elements.campaignNewRunBtn.addEventListener("click", () => {
+    campaignState = resetCampaignRun();
     campaignState = startCampaignRun(campaignState);
     saveCampaignState(activeProfileSlot, campaignState);
     syncCampaignSummaryToProfile();
@@ -728,15 +728,7 @@ function bindEvents() {
       return;
     }
     renderCampaignPanel();
-    showToast("Campaign run ready.", "info");
-  });
-
-  elements.campaignResetBtn.addEventListener("click", () => {
-    campaignState = resetCampaignRun();
-    saveCampaignState(activeProfileSlot, campaignState);
-    syncCampaignSummaryToProfile();
-    renderCampaignPanel();
-    showToast("Campaign run reset.", "warn");
+    showToast("New campaign run ready.", "info");
   });
 
   elements.shopBackBtn.addEventListener("click", () => {
@@ -811,13 +803,6 @@ function bindEvents() {
       } else {
         showToast("You can only start the next encounter in sequence.", "warn");
       }
-      return;
-    }
-
-    const startBtn = event.target.closest("button[data-campaign-node-start]");
-    if (startBtn) {
-      const nodeId = String(startBtn.dataset.campaignNodeStart || "");
-      resolveCampaignNode(nodeId);
       return;
     }
   };
@@ -1154,8 +1139,7 @@ function bindEvents() {
 
   elements.phaseBtn.addEventListener("click", () => {
     if (currentLocalMode === MODE_CAMPAIGN && activeCampaignNodeId && !campaignInShopNode && state.phase === "game-over") {
-      showCampaignPanel();
-      setStatus("Choose your next campaign node.");
+      openNextCampaignShopNodeFromEncounter();
       return;
     }
 
@@ -1983,7 +1967,7 @@ function renderShopPanel() {
     elements.shopRerollBtn.hidden = true;
     elements.phaseBtn.hidden = !(inEncounterEnd || inRoundTransition);
     elements.phaseBtn.textContent = inEncounterEnd
-      ? "Back to Campaign"
+      ? "Go to Shop"
       : "Next Round";
     return;
   }
@@ -2006,7 +1990,10 @@ function renderShopPanel() {
   }
 
   if (campaignInShopNode && state.phase === "shop") {
-    elements.phaseBtn.textContent = "Finish Campaign Shop";
+    const node = getCampaignNodeById(activeCampaignNodeId);
+    elements.phaseBtn.textContent = isCampaignOpeningShopNode(node)
+      ? "Start Campaign"
+      : "Go Next";
   }
 
   if (!inShop) {
@@ -3299,8 +3286,8 @@ function renderCampaignPanel() {
 
   elements.campaignMap.innerHTML = "";
   const displayNodes = CAMPAIGN_NODES.filter((node) => {
-    if (node.id === "start-shop" && !completed.has(node.id)) {
-      return true;
+    if (node.type === "shop") {
+      return false;
     }
     return Number(node.ante) === ante;
   });
@@ -3316,13 +3303,11 @@ function renderCampaignPanel() {
       card.classList.add("selected");
     }
 
-    if (node.type !== "shop") {
-      card.dataset.campaignNodeScout = node.id;
-      if (isCompleted) {
-        card.dataset.disabled = "true";
-      } else {
-        card.tabIndex = 0;
-      }
+    card.dataset.campaignNodeScout = node.id;
+    if (isCompleted) {
+      card.dataset.disabled = "true";
+    } else {
+      card.tabIndex = 0;
     }
 
     const title = document.createElement("h4");
@@ -3337,16 +3322,6 @@ function renderCampaignPanel() {
     const status = isCompleted ? "Cleared" : isNext ? "Current" : "Upcoming";
     detail.textContent = `${getCampaignNodeTypeLabel(node.type)} | Supply ${Math.max(0, Number(node.roundPointPool) || 0)} | ${status}`;
     card.appendChild(detail);
-
-    if (node.type === "shop") {
-      const resolveBtn = document.createElement("button");
-      resolveBtn.type = "button";
-      resolveBtn.className = "menu-btn";
-      resolveBtn.dataset.campaignNodeStart = node.id;
-      resolveBtn.disabled = !isNext || isCompleted;
-      resolveBtn.textContent = getCampaignNodeActionLabel(node, isCompleted);
-      card.appendChild(resolveBtn);
-    }
 
     elements.campaignMap.appendChild(card);
   });
@@ -3371,13 +3346,6 @@ function getCampaignNodeTypeLabel(type) {
   return "Combat";
 }
 
-function getCampaignNodeActionLabel(node, isCompleted) {
-  if (node.type === "shop") {
-    return isCompleted ? "Completed" : "Open Shop";
-  }
-  return isCompleted ? "Completed" : "Start Encounter";
-}
-
 function getCampaignAvailableRerolls() {
   const combatPoints = Math.max(0, Number(campaignState.runCombatPoints) || 0);
   const spent = Math.max(0, Number(campaignState.runRerollsSpent) || 0);
@@ -3396,6 +3364,21 @@ function getCampaignRunPayout(outcome, stateSnapshot = campaignState) {
 function getNextCampaignPlayableNode() {
   const completed = new Set(campaignState.completedNodeIds || []);
   return CAMPAIGN_NODES.find((node) => !completed.has(node.id)) || null;
+}
+
+function isCampaignOpeningShopNode(node) {
+  return Boolean(node && node.type === "shop" && node.id === CAMPAIGN_START_NODE_ID);
+}
+
+function openNextCampaignShopNodeFromEncounter() {
+  const nextNode = getNextCampaignPlayableNode();
+  if (!nextNode || nextNode.type !== "shop") {
+    showCampaignPanel();
+    setStatus("Choose your next campaign node.");
+    return;
+  }
+
+  openCampaignShopNode(nextNode);
 }
 
 function renderCampaignLoadout() {
