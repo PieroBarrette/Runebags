@@ -1149,6 +1149,8 @@ function bindEvents() {
 
     if (currentLocalMode === MODE_CAMPAIGN && activeCampaignNodeId && !campaignInShopNode && state.phase === "round-end") {
       advanceCampaignEncounterRound();
+      render();
+      scheduleAiTurnIfNeeded();
       return;
     }
 
@@ -1764,6 +1766,10 @@ function advanceCampaignEncounterRound() {
   if (state.phase === "round-end" && (state.pointPoolRemaining || 0) <= 0) {
     finalizeCampaignEncounterFromRoundEnd();
   }
+
+  // Reset animation snapshots so the next round always paints from current state.
+  previousBoardSnapshot = null;
+  previousPendingActionSnapshot = null;
 
   persistState();
   render();
