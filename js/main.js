@@ -789,6 +789,18 @@ function bindEvents() {
   });
 
   const handleCampaignPanelClick = (event) => {
+    const startBtn = event.target.closest("button[data-campaign-node-start]");
+    if (startBtn) {
+      const nodeId = String(startBtn.dataset.campaignNodeStart || "");
+      const nextNode = getNextCampaignPlayableNode();
+      if (nextNode && nextNode.id === nodeId) {
+        startCampaignEncounterByNode(nodeId);
+      } else {
+        showToast("You can only start the next encounter in sequence.", "warn");
+      }
+      return;
+    }
+
     const scoutNode = event.target.closest("[data-campaign-node-scout]");
     if (scoutNode) {
       if (scoutNode.dataset.disabled === "true") {
@@ -796,17 +808,6 @@ function bindEvents() {
       }
       const nodeId = String(scoutNode.dataset.campaignNodeScout || "");
       selectCampaignNodeForScout(nodeId);
-      return;
-    }
-
-    const startScoutedBtn = event.target.closest("button[data-campaign-start-selected]");
-    if (startScoutedBtn) {
-      const nextNode = getNextCampaignPlayableNode();
-      if (campaignScoutedNodeId && nextNode && campaignScoutedNodeId === nextNode.id) {
-        startCampaignEncounterByNode(campaignScoutedNodeId);
-      } else {
-        showToast("You can only start the next encounter in sequence.", "warn");
-      }
       return;
     }
   };
@@ -826,7 +827,6 @@ function bindEvents() {
     const nodeId = String(scoutNode.dataset.campaignNodeScout || "");
     selectCampaignNodeForScout(nodeId);
   });
-  elements.campaignActionBody.addEventListener("click", handleCampaignPanelClick);
   elements.campaignLoadoutList.addEventListener("click", handleCampaignPanelClick);
 
   elements.rewardPopupClose.addEventListener("click", () => {
@@ -3347,7 +3347,8 @@ function renderCampaignPanel() {
   elements.campaignSummary.textContent = `Completed ${completion.completed}/${completion.total} (${completion.percent}%) | Ante ${Math.min(ante, 8)}/8 | Bosses defeated: ${bossClears}/8 | Rerolls: ${rerolls}`;
 
   renderCampaignLoadout();
-  renderCampaignNodeActionPanel();
+  elements.campaignActionPanel.hidden = true;
+  elements.campaignActionBody.innerHTML = "";
 
   elements.campaignMap.innerHTML = "";
   const displayNodes = CAMPAIGN_NODES.filter((node) => {
@@ -3387,6 +3388,15 @@ function renderCampaignPanel() {
     const status = isCompleted ? "Cleared" : isNext ? "Current" : "Upcoming";
     detail.textContent = `${getCampaignNodeTypeLabel(node.type)} | Supply ${Math.max(0, Number(node.roundPointPool) || 0)} | ${status}`;
     card.appendChild(detail);
+
+    if (isNext && !isCompleted) {
+      const startBtn = document.createElement("button");
+      startBtn.type = "button";
+      startBtn.className = "menu-btn";
+      startBtn.dataset.campaignNodeStart = node.id;
+      startBtn.textContent = "Start Encounter";
+      card.appendChild(startBtn);
+    }
 
     elements.campaignMap.appendChild(card);
   });
@@ -3456,7 +3466,6 @@ function renderCampaignLoadout() {
     empty.className = "settings-note";
     empty.textContent = "Scouting reveals the opponent bag template for the selected upcoming combat.";
     elements.campaignLoadoutList.appendChild(empty);
-    renderCampaignNodeActionPanel();
     return;
   }
 
@@ -3467,45 +3476,6 @@ function renderCampaignLoadout() {
     .map((runeId) => createRuneInstance(runeId, 1))
     .filter(Boolean);
   renderRuneList(elements.campaignLoadoutList, previewRunes, 2, [], { readOnly: true });
-
-  renderCampaignNodeActionPanel();
-}
-
-function renderCampaignNodeActionPanel() {
-  const scouted = getCampaignNodeById(campaignScoutedNodeId);
-  if (!scouted || scouted.type === "shop") {
-    elements.campaignActionPanel.hidden = true;
-    elements.campaignActionBody.innerHTML = "";
-    return;
-  }
-
-  const nextNode = getNextCampaignPlayableNode();
-  if (!nextNode || scouted.id !== nextNode.id) {
-    elements.campaignActionPanel.hidden = true;
-    elements.campaignActionBody.innerHTML = "";
-    return;
-  }
-
-  elements.campaignActionPanel.hidden = false;
-  elements.campaignActionTitle.textContent = `${scouted.title} - Ready`;
-  elements.campaignActionBody.innerHTML = "";
-
-  const info = document.createElement("p");
-  info.className = "settings-note";
-  info.textContent = "Start this combat when ready.";
-  elements.campaignActionBody.appendChild(info);
-
-  const actions = document.createElement("div");
-  actions.className = "menu-actions compact";
-
-  const startBtn = document.createElement("button");
-  startBtn.type = "button";
-  startBtn.className = "menu-btn";
-  startBtn.dataset.campaignStartSelected = "1";
-  startBtn.textContent = "Start Encounter";
-  actions.appendChild(startBtn);
-
-  elements.campaignActionBody.appendChild(actions);
 }
 
 function openCampaignShopNode(node) {
