@@ -2018,7 +2018,9 @@ function renderShopPanel() {
     return;
   }
 
-  if (currentLocalMode === MODE_CAMPAIGN && !campaignInShopNode) {
+  const inCampaignShopNode = currentLocalMode === MODE_CAMPAIGN && campaignInShopNode;
+
+  if (currentLocalMode === MODE_CAMPAIGN && !inCampaignShopNode) {
     const inEncounterEnd = state.phase === "game-over";
     const inRoundTransition = state.phase === "round-end";
     elements.shopPanel.hidden = true;
@@ -2040,7 +2042,7 @@ function renderShopPanel() {
   elements.boardEl.hidden = inShop;
   elements.shopInstruction.hidden = !inShop;
   elements.shopSwitchPlayer.hidden = !inShop || online.isOnlineActive() || aiConfig.enabled;
-  elements.shopRerollBtn.hidden = !inShop || !campaignInShopNode;
+  elements.shopRerollBtn.hidden = !inShop || !inCampaignShopNode;
 
   elements.phaseBtn.hidden = state.phase === "round" || state.phase === "game-over";
   if (online.isOnlineActive() && state.phase === "shop") {
@@ -2052,7 +2054,7 @@ function renderShopPanel() {
     elements.phaseBtn.textContent = state.phase === "shop" ? "Start Next Round" : "Start Shop Phase";
   }
 
-  if (campaignInShopNode && state.phase === "shop") {
+  if (inCampaignShopNode && state.phase === "shop") {
     const node = getCampaignNodeById(activeCampaignNodeId);
     elements.phaseBtn.textContent = isCampaignOpeningShopNode(node)
       ? "Start Campaign"
@@ -2078,7 +2080,7 @@ function renderShopPanel() {
     elements.shopInstruction.textContent = "Shop: remove once, combine pair, add up to 2 from offer.";
   }
 
-  if (campaignInShopNode) {
+  if (inCampaignShopNode) {
     const available = getCampaignAvailableRerolls();
     const campaignShopData = state.shop?.players?.[1];
     const addLimitReached = Boolean(campaignShopData && campaignShopData.addedCount >= campaignShopData.addLimit);
