@@ -26,7 +26,7 @@ const ENEMY_RUNE_OPTIONS = [
   { key: "eihwaz-l1", runeId: "eihwaz", level: 1, points: 1, runeCount: 1, maxPicks: 2 },
   { key: "fehu-l1", runeId: "fehu", level: 1, points: 1, runeCount: 1, maxPicks: 2 },
   { key: "hagalz-l1", runeId: "hagalz", level: 1, points: 1, runeCount: 1, maxPicks: 2 },
-  { key: "odal-l1", runeId: "odal", level: 1, points: 1, runeCount: 1, maxPicks: 2 },
+  { key: "odal-l1", runeId: "odal", level: 1, points: 1, runeCount: 1, maxPicks: 1 },
   { key: "uruz-l1", runeId: "uruz", level: 1, points: 1, runeCount: 1, maxPicks: 1 },
 
   { key: "dagaz-l1", runeId: "dagaz", level: 1, points: 2, runeCount: 1, maxPicks: 1 },
