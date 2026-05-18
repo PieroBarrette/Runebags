@@ -495,6 +495,9 @@ function bindEvents() {
   });
 
   elements.menuCampaignBtn.addEventListener("click", () => {
+    if (tryResumeCampaignEncounter()) {
+      return;
+    }
     showCampaignPanel();
   });
 
@@ -1008,6 +1011,7 @@ function bindEvents() {
   });
 
   elements.menuBtn.addEventListener("click", () => {
+    persistState();
     cancelAiTimer();
     showMainMenu();
     if (!online.isOnlineActive()) {
