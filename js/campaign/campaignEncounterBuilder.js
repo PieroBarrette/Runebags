@@ -100,7 +100,7 @@ function getEnemyPoolSelection(node, campaignState) {
 
 function getObjective(nodeType, ante) {
   if (nodeType === "elite") {
-    return `Elite encounter (Ante ${ante}): survive pressure over 5 supply points.`;
+    return `Elite encounter (Ante ${ante}): win over 5 supply points.`;
   }
   if (nodeType === "boss") {
     return `Boss encounter (Ante ${ante}): harder constraints over 7 supply points.`;
@@ -112,16 +112,7 @@ function getObjective(nodeType, ante) {
 }
 
 function applyOpeningPressure(state, nodeType) {
-  if (nodeType === "elite") {
-    state.nextTurnConstraints[1] = [2, 3, 4];
-    return;
-  }
-  if (nodeType === "boss") {
-    state.nextTurnConstraints[1] = [3];
-    return;
-  }
   if (nodeType === "final-boss") {
-    state.nextTurnConstraints[1] = [2, 3, 4];
     // Slight opening disadvantage for the player in the final boss.
     state.board[state.rows - 1][3] = 2;
   }

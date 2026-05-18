@@ -127,6 +127,48 @@ const CAMPAIGN_BOSS_CONSTRAINT_POOL = [
   "no-center",
   "edges-only",
 ];
+const CAMPAIGN_BOSS_CONSTRAINT_RULES = {
+  "center-only": {
+    columns: [3],
+    nodeText: "Opener: center column only",
+    logText: "Boss constraint: first turn must be center column.",
+  },
+  "center-flanks": {
+    columns: [2, 4],
+    nodeText: "Opener: central flanks only",
+    logText: "Boss constraint: first turn must be a central flank.",
+  },
+  "left-half": {
+    columns: [0, 1, 2, 3],
+    nodeText: "Opener: left half only",
+    logText: "Boss constraint: first turn must be on the left half.",
+  },
+  "right-half": {
+    columns: [3, 4, 5, 6],
+    nodeText: "Opener: right half only",
+    logText: "Boss constraint: first turn must be on the right half.",
+  },
+  "even-columns": {
+    columns: [0, 2, 4, 6],
+    nodeText: "Opener: even columns only",
+    logText: "Boss constraint: first turn must use an even column.",
+  },
+  "odd-columns": {
+    columns: [1, 3, 5],
+    nodeText: "Opener: odd columns only",
+    logText: "Boss constraint: first turn must use an odd column.",
+  },
+  "no-center": {
+    columns: [0, 1, 2, 4, 5, 6],
+    nodeText: "Opener: center column sealed",
+    logText: "Boss constraint: center column is sealed for your opener.",
+  },
+  "edges-only": {
+    columns: [0, 6],
+    nodeText: "Opener: edge columns only",
+    logText: "Final boss constraint: opener must be on an edge.",
+  },
+};
 
 const elements = {
   profileEntryScreen: document.getElementById("profile-entry-screen"),
@@ -3389,10 +3431,23 @@ function renderCampaignPanel() {
     const title = document.createElement("h4");
     const antePrefix = node.ante > 0 ? `Ante ${node.ante} - ` : "";
     const bossName = (node.type === "boss" || node.type === "final-boss")
-      ? String(campaignState.bossNameByNode?.[node.id] || "")
+      ? ensureCampaignBossName(node)
       : "";
-    title.textContent = `${antePrefix}${node.title}${bossName ? ` (${bossName})` : ""}`;
+    title.textContent = `${antePrefix}${node.title}`;
     card.appendChild(title);
+
+    if (bossName) {
+      const bossMeta = document.createElement("small");
+      bossMeta.textContent = `Boss: ${bossName}`;
+      card.appendChild(bossMeta);
+    }
+
+    const bossConstraintLabel = getCampaignBossConstraintLabel(node);
+    if (bossConstraintLabel) {
+      const constraintMeta = document.createElement("small");
+      constraintMeta.textContent = `Constraint: ${bossConstraintLabel}`;
+      card.appendChild(constraintMeta);
+    }
 
     const detail = document.createElement("small");
     const status = isCompleted ? "Cleared" : isNext ? "Current" : "Upcoming";
@@ -3661,43 +3716,9 @@ function applyCampaignBossConstraintForActiveNode() {
   }
 
   const ruleId = getCampaignBossConstraintId(node);
-  if (ruleId === "center-only") {
-    state.nextTurnConstraints[1] = [3];
-    state.log.unshift("Boss constraint: first turn must be center column.");
-    return;
-  }
-  if (ruleId === "center-flanks") {
-    state.nextTurnConstraints[1] = [2, 4];
-    state.log.unshift("Boss constraint: first turn must be a central flank.");
-    return;
-  }
-  if (ruleId === "left-half") {
-    state.nextTurnConstraints[1] = [0, 1, 2, 3];
-    state.log.unshift("Boss constraint: first turn must be on the left half.");
-    return;
-  }
-  if (ruleId === "right-half") {
-    state.nextTurnConstraints[1] = [3, 4, 5, 6];
-    state.log.unshift("Boss constraint: first turn must be on the right half.");
-    return;
-  }
-  if (ruleId === "even-columns") {
-    state.nextTurnConstraints[1] = [0, 2, 4, 6];
-    state.log.unshift("Boss constraint: first turn must use an even column.");
-    return;
-  }
-  if (ruleId === "odd-columns") {
-    state.nextTurnConstraints[1] = [1, 3, 5];
-    state.log.unshift("Boss constraint: first turn must use an odd column.");
-    return;
-  }
-  if (ruleId === "no-center") {
-    state.nextTurnConstraints[1] = [0, 1, 2, 4, 5, 6];
-    state.log.unshift("Boss constraint: center column is sealed for your opener.");
-    return;
-  }
-  state.nextTurnConstraints[1] = [0, 6];
-  state.log.unshift("Final boss constraint: opener must be on an edge.");
+  const definition = CAMPAIGN_BOSS_CONSTRAINT_RULES[ruleId] || CAMPAIGN_BOSS_CONSTRAINT_RULES["edges-only"];
+  state.nextTurnConstraints[1] = [...definition.columns];
+  state.log.unshift(definition.logText);
 }
 
 function getCampaignBossConstraintId(node) {
@@ -3710,6 +3731,14 @@ function getCampaignBossConstraintId(node) {
   }
   const index = Math.abs(hash >>> 0) % CAMPAIGN_BOSS_CONSTRAINT_POOL.length;
   return CAMPAIGN_BOSS_CONSTRAINT_POOL[index];
+}
+
+function getCampaignBossConstraintLabel(node) {
+  if (!node || (node.type !== "boss" && node.type !== "final-boss")) {
+    return "";
+  }
+  const ruleId = getCampaignBossConstraintId(node);
+  return CAMPAIGN_BOSS_CONSTRAINT_RULES[ruleId]?.nodeText || CAMPAIGN_BOSS_CONSTRAINT_RULES["edges-only"].nodeText;
 }
 
 function syncCampaignSummaryToProfile() {
