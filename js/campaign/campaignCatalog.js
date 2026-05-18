@@ -1,4 +1,4 @@
-const ANTE_COUNT = 8;
+const ANTE_COUNT = 5;
 
 const STEP_DEFS = [
   { key: "combat", label: "Normal Combat", type: "combat", roundPointPool: 3, rewardPoints: 35 },

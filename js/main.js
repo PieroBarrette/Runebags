@@ -3535,10 +3535,10 @@ function renderCampaignLoadout() {
   }
 
   const preview = getCampaignOpponentPreview(scouted, campaignState);
-  elements.campaignLoadoutSummary.textContent = `${getCampaignNodeTypeLabel(scouted.type)} preview | Template ${preview.poolIndex + 1}/${preview.poolCount}`;
+  elements.campaignLoadoutSummary.textContent = `${getCampaignNodeTypeLabel(scouted.type)} preview | ${preview.pointBudget} rune points across ${preview.runeBudget} runes`;
 
-  const previewRunes = preview.runeIds
-    .map((runeId) => createRuneInstance(runeId, 1))
+  const previewRunes = (preview.runeEntries || [])
+    .map((entry) => createRuneInstance(entry.runeId, entry.level))
     .filter(Boolean);
   renderRuneList(elements.campaignLoadoutList, previewRunes, 2, [], { readOnly: true });
 }

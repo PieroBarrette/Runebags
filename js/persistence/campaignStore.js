@@ -1,7 +1,8 @@
 import { CAMPAIGN_NODES, CAMPAIGN_START_NODE_ID, getCampaignNodeById } from "../campaign/campaignCatalog.js";
+import { buildCampaignEnemyBagsForRun } from "../campaign/campaignEncounterBuilder.js";
 import { getRuneById, INITIAL_SHOP_COUNTS } from "../runes/runeCatalog.js";
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 function sanitizeLoadoutRunes(candidate) {
   const list = Array.isArray(candidate) ? candidate : [];
@@ -67,9 +68,37 @@ function createDefaultState() {
     runCombatPoints: 0,
     runPerformancePoints: 0,
     runRerollsSpent: 0,
+    enemyBagByNode: {},
     startedAt: null,
     updatedAt: Date.now(),
   };
+}
+
+function sanitizeEnemyBagByNode(candidate) {
+  const source = candidate && typeof candidate === "object" ? candidate : {};
+  const result = {};
+
+  Object.entries(source).forEach(([nodeId, entry]) => {
+    const node = getCampaignNodeById(nodeId);
+    if (!node || (node.type !== "combat" && node.type !== "elite" && node.type !== "boss" && node.type !== "final-boss")) {
+      return;
+    }
+
+    const runeEntries = sanitizeLoadoutRunes(entry?.runeEntries);
+    if (!runeEntries.length) {
+      return;
+    }
+
+    result[nodeId] = {
+      pointBudget: Math.max(0, Number(entry?.pointBudget) || 0),
+      runeBudget: Math.max(1, Number(entry?.runeBudget) || runeEntries.length || 1),
+      runeEntries,
+      seed: Number(entry?.seed) || 0,
+      includesKenazPair: Boolean(entry?.includesKenazPair),
+    };
+  });
+
+  return result;
 }
 
 function sanitizeState(raw) {
@@ -137,6 +166,7 @@ function sanitizeState(raw) {
     runCombatPoints: Math.max(0, Number(source.runCombatPoints) || 0),
     runPerformancePoints: Math.max(0, Number(source.runPerformancePoints) || 0),
     runRerollsSpent: Math.max(0, Number(source.runRerollsSpent) || 0),
+    enemyBagByNode: sanitizeEnemyBagByNode(source.enemyBagByNode),
     startedAt: Number(source.startedAt) || null,
     updatedAt: Number(source.updatedAt) || Date.now(),
   };
@@ -179,6 +209,9 @@ export function startCampaignRun(state) {
   }
   if (!next.startedAt) {
     next.startedAt = Date.now();
+  }
+  if (!next.enemyBagByNode || Object.keys(next.enemyBagByNode).length === 0) {
+    next.enemyBagByNode = buildCampaignEnemyBagsForRun(CAMPAIGN_NODES, next);
   }
   return next;
 }
