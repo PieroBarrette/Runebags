@@ -29,7 +29,7 @@ const RUNE_CATALOG = [
     icon: "./assets/runes/inguz.svg",
     columnRule: "center-only",
     supportsLevels: true,
-    maxLevel: 2,
+    maxLevel: 1,
   },
   {
     id: "jera",
@@ -39,7 +39,7 @@ const RUNE_CATALOG = [
     icon: "./assets/runes/jera.svg",
     columnRule: "edge-only",
     supportsLevels: true,
-    maxLevel: 2,
+    maxLevel: 1,
   },
   {
     id: "kenaz",
@@ -79,7 +79,7 @@ const RUNE_CATALOG = [
     icon: "./assets/runes/algiz.svg",
     columnRule: "any",
     supportsLevels: true,
-    maxLevel: 2,
+    maxLevel: 1,
     shopEffect: "When picked from shop, add a neutral rune to owner bag.",
   },
   {
@@ -90,7 +90,7 @@ const RUNE_CATALOG = [
     icon: "./assets/runes/ansuz.svg",
     columnRule: "any",
     supportsLevels: true,
-    maxLevel: 2,
+    maxLevel: 1,
   },
   {
     id: "berkana",
@@ -100,7 +100,7 @@ const RUNE_CATALOG = [
     icon: "./assets/runes/berkana.svg",
     columnRule: "any",
     supportsLevels: true,
-    maxLevel: 2,
+    maxLevel: 1,
   },
   {
     id: "dagaz",
@@ -161,7 +161,7 @@ const RUNE_CATALOG = [
     icon: "./assets/runes/hagalz.svg",
     columnRule: "any",
     supportsLevels: true,
-    maxLevel: 2,
+    maxLevel: 1,
   },
   {
     id: "isa",
@@ -171,7 +171,7 @@ const RUNE_CATALOG = [
     icon: "./assets/runes/isa.svg",
     columnRule: "any",
     supportsLevels: true,
-    maxLevel: 2,
+    maxLevel: 1,
   },
   {
     id: "mannaz",
@@ -203,7 +203,7 @@ const RUNE_CATALOG = [
     icon: "./assets/runes/odal.svg",
     columnRule: "any",
     supportsLevels: true,
-    maxLevel: 2,
+    maxLevel: 1,
   },
   {
     id: "perth",
@@ -266,7 +266,7 @@ const RUNE_CATALOG = [
     icon: "./assets/runes/uruz.svg",
     columnRule: "any",
     supportsLevels: true,
-    maxLevel: 2,
+    maxLevel: 1,
   },
 ];
 
