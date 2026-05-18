@@ -131,6 +131,7 @@ export function renderBoard(
       if (animationFrame.enabled) {
         const isAnsuzStaged = animationFrame.ansuzAfterFadeDrop?.has(animationKey);
         const isGeboStagedDrop = animationFrame.geboAfterFadeDrop?.has(animationKey);
+        const isGeboSourceFade = animationFrame.geboGhostByCell?.has(animationKey);
         const isTeiwazStagedDrop = animationFrame.teiwazAfterLiftDrop?.has(animationKey);
         const isThurisaDrop = animationFrame.thurisaDrops?.has(animationKey);
         if (animationFrame.placed?.has(animationKey)) {
@@ -148,7 +149,7 @@ export function renderBoard(
           }
         }
 
-        if (isGeboStagedDrop) {
+        if (isGeboStagedDrop || isGeboSourceFade) {
           button.classList.add("anim-gebo-drop");
         }
 
