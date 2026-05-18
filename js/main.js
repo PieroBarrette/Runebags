@@ -210,6 +210,11 @@ const elements = {
   rewardPopup: document.getElementById("reward-popup"),
   rewardPopupBody: document.getElementById("reward-popup-body"),
   rewardPopupClose: document.getElementById("reward-popup-close"),
+  campaignResultPopup: document.getElementById("campaign-result-popup"),
+  campaignResultBody: document.getElementById("campaign-result-body"),
+  campaignResultTitle: document.getElementById("campaign-result-title"),
+  campaignResultMenuBtn: document.getElementById("campaign-result-menu-btn"),
+  campaignResultNewRunBtn: document.getElementById("campaign-result-new-run-btn"),
   menuBtn: document.getElementById("menu-btn"),
   phaseBtn: document.getElementById("phase-btn"),
   newGameBtn: document.getElementById("new-game-btn"),
@@ -718,17 +723,16 @@ function bindEvents() {
   });
 
   elements.campaignNewRunBtn.addEventListener("click", () => {
-    campaignState = resetCampaignRun();
-    campaignState = startCampaignRun(campaignState);
-    saveCampaignState(activeProfileSlot, campaignState);
-    syncCampaignSummaryToProfile();
-    const nextNode = getNextCampaignPlayableNode();
-    if (nextNode) {
-      resolveCampaignNode(nextNode.id);
-      return;
-    }
-    renderCampaignPanel();
-    showToast("New campaign run ready.", "info");
+    startFreshCampaignRun();
+  });
+
+  elements.campaignResultMenuBtn.addEventListener("click", () => {
+    hideCampaignResultPopup();
+    showMainMenu();
+  });
+
+  elements.campaignResultNewRunBtn.addEventListener("click", () => {
+    startFreshCampaignRun();
   });
 
   elements.shopBackBtn.addEventListener("click", () => {
@@ -1803,15 +1807,13 @@ function evaluateCampaignProgressIfNeeded() {
     }
 
     const failedTitle = node.type === "final-boss" ? "final boss" : node.title;
-    campaignState = resetCampaignRun();
-    saveCampaignState(activeProfileSlot, campaignState);
-    syncCampaignSummaryToProfile();
     clearModeSave(MODE_CAMPAIGN, activeProfileSlot);
     campaignInShopNode = false;
-    activeCampaignNodeId = null;
-    showToast(`Run lost at ${failedTitle}. End payout: +${defeatPayout}.`, "warn");
-    setStatus(`Run failed. End payout: +${defeatPayout}. Start again from opening shop.`);
-    showCampaignPanel();
+    showCampaignResultPopup(
+      "Campaign Defeat",
+      `Run lost at ${failedTitle}. End payout: +${defeatPayout} wallet points.`,
+    );
+    setStatus(`Run failed. End payout: +${defeatPayout}. Choose New Run or Main Menu.`);
     return;
   }
 
@@ -1834,17 +1836,14 @@ function evaluateCampaignProgressIfNeeded() {
       addProfileWalletPoints(activeProfileSlot, victoryPayout);
       refreshProfileHeader();
       pulseElement(elements.menuProfileSwitchBtn, "ui-pulse");
-      elements.rewardPopupBody.textContent = `Run Cleared! Final boss defeated. End payout: +${victoryPayout} wallet points. Reroll points earned: ${campaignState.runCombatPoints}.`;
-      elements.rewardPopup.hidden = false;
-      rewardPopupShownForGame = true;
-
-      campaignState = resetCampaignRun();
-      saveCampaignState(activeProfileSlot, campaignState);
-      syncCampaignSummaryToProfile();
       clearModeSave(MODE_CAMPAIGN, activeProfileSlot);
       campaignInShopNode = false;
-      activeCampaignNodeId = null;
-      showToast("Run victory! Campaign reset for a fresh run.", "reward");
+      showCampaignResultPopup(
+        "Campaign Victory",
+        `Final boss defeated. End payout: +${victoryPayout} wallet points. Reroll points earned: ${campaignState.runCombatPoints}.`,
+      );
+      setStatus(`Run cleared. End payout: +${victoryPayout}. Choose New Run or Main Menu.`);
+      return;
     }
   } else {
     showToast(`Encounter replay cleared: ${node.title}`, "info");
@@ -1955,6 +1954,18 @@ function updateTopStatus() {
 }
 
 function renderShopPanel() {
+  if (isCampaignResultPopupVisible()) {
+    elements.shopPanel.hidden = true;
+    elements.boardEl.hidden = true;
+    elements.shopInstruction.hidden = true;
+    elements.shopSwitchPlayer.hidden = true;
+    elements.shopRemoveBtn.hidden = true;
+    elements.shopCombineBtn.hidden = true;
+    elements.shopRerollBtn.hidden = true;
+    elements.phaseBtn.hidden = true;
+    return;
+  }
+
   if (currentLocalMode === MODE_CAMPAIGN && !campaignInShopNode) {
     const inEncounterEnd = state.phase === "game-over";
     const inRoundTransition = state.phase === "round-end";
@@ -2058,6 +2069,11 @@ function renderShopPanel() {
 }
 
 function renderEndgameBags() {
+  if (isCampaignResultPopupVisible()) {
+    elements.endgameBagsPanel.hidden = true;
+    return;
+  }
+
   const inGameOver = state.phase === "game-over";
   elements.endgameBagsPanel.hidden = !inGameOver;
   if (!inGameOver) {
@@ -2807,6 +2823,13 @@ function isOnlineServerConnected() {
 }
 
 function updateTopButtons() {
+  if (isCampaignResultPopupVisible()) {
+    elements.menuBtn.hidden = true;
+    elements.newGameBtn.hidden = true;
+    return;
+  }
+
+  elements.menuBtn.hidden = false;
   const onlineGame = online.isOnlineActive();
   elements.newGameBtn.hidden = false;
   if (onlineGame) {
@@ -2820,6 +2843,48 @@ function updateTopButtons() {
   }
 
   elements.newGameBtn.textContent = "New Game";
+}
+
+function isCampaignResultPopupVisible() {
+  return Boolean(elements.campaignResultPopup && !elements.campaignResultPopup.hidden);
+}
+
+function hideCampaignResultPopup() {
+  if (!elements.campaignResultPopup) {
+    return;
+  }
+  elements.campaignResultPopup.hidden = true;
+}
+
+function showCampaignResultPopup(title, body) {
+  if (!elements.campaignResultPopup) {
+    return;
+  }
+
+  elements.campaignResultTitle.textContent = title;
+  elements.campaignResultBody.textContent = body;
+  elements.campaignResultPopup.hidden = false;
+}
+
+function startFreshCampaignRun() {
+  hideCampaignResultPopup();
+  campaignState = resetCampaignRun();
+  campaignState = startCampaignRun(campaignState);
+  saveCampaignState(activeProfileSlot, campaignState);
+  syncCampaignSummaryToProfile();
+  activeCampaignNodeId = null;
+  campaignInShopNode = false;
+  campaignScoutedNodeId = null;
+  campaignOutcomeHandled = false;
+
+  const nextNode = getNextCampaignPlayableNode();
+  if (nextNode) {
+    resolveCampaignNode(nextNode.id);
+    return;
+  }
+
+  renderCampaignPanel();
+  showToast("New campaign run ready.", "info");
 }
 
 function getValidatedOnlinePseudo() {
