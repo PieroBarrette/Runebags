@@ -3514,6 +3514,7 @@ function openCampaignShopNode(node) {
   shopState.shop.players[1].ready = false;
   shopState.shop.players[2].ready = false;
   shopState.players[1].bag = buildCampaignPlayerBag(campaignState.loadoutRunes || []);
+  shopState.players[1].shopSupply = buildCampaignShopSupply(campaignState.campaignShopSupply || []);
   shopState.players[1].discard = [];
   shopState.players[1].hand = [];
 
@@ -3541,6 +3542,7 @@ function completeCampaignShopNodeFromState() {
   campaignState = {
     ...campaignState,
     loadoutRunes: extractCampaignLoadoutFromBag(state.players?.[1]?.bag || []),
+    campaignShopSupply: extractCampaignShopSupplyFromState(state),
   };
   campaignState = completeCampaignNode(campaignState, node.id);
   saveCampaignState(activeProfileSlot, campaignState);
@@ -3585,6 +3587,31 @@ function buildCampaignPlayerBag(loadoutRunes) {
   });
 
   return bag;
+}
+
+function buildCampaignShopSupply(entries) {
+  const source = Array.isArray(entries) ? entries : [];
+  const supply = [];
+  source.forEach((entry) => {
+    const rune = createRuneInstance(entry?.runeId, entry?.level);
+    if (rune) {
+      supply.push(rune);
+    }
+  });
+  return supply;
+}
+
+function extractCampaignShopSupplyFromState(sourceState) {
+  const playerId = 1;
+  const player = sourceState?.players?.[playerId];
+  const data = sourceState?.shop?.players?.[playerId];
+  const supply = Array.isArray(player?.shopSupply) ? player.shopSupply : [];
+  const offer = Array.isArray(data?.offer) ? data.offer : [];
+
+  return [...supply, ...offer].map((rune) => ({
+    runeId: rune.id,
+    level: Math.max(1, Number(rune.level) || 1),
+  }));
 }
 
 function rerollCampaignShopOffer() {

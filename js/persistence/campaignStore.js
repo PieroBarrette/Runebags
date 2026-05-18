@@ -1,5 +1,5 @@
 import { CAMPAIGN_NODES, CAMPAIGN_START_NODE_ID, getCampaignNodeById } from "../campaign/campaignCatalog.js";
-import { getRuneById } from "../runes/runeCatalog.js";
+import { getRuneById, INITIAL_SHOP_COUNTS } from "../runes/runeCatalog.js";
 
 const SCHEMA_VERSION = 2;
 
@@ -34,6 +34,16 @@ function createDefaultRunBag() {
   ];
 }
 
+function createDefaultCampaignShopSupply() {
+  const supply = [];
+  Object.entries(INITIAL_SHOP_COUNTS).forEach(([runeId, count]) => {
+    for (let i = 0; i < count; i += 1) {
+      supply.push({ runeId, level: 1 });
+    }
+  });
+  return supply;
+}
+
 function getKey(profileSlot) {
   const slot = Number(profileSlot);
   const safe = Number.isInteger(slot) && slot >= 1 && slot <= 3 ? slot : 1;
@@ -51,6 +61,7 @@ function createDefaultState() {
     loadoutRunes: createDefaultRunBag(),
     pendingRewardNodeId: null,
     pendingRewardChoices: [],
+    campaignShopSupply: createDefaultCampaignShopSupply(),
     shopOfferByNode: {},
     bossNameByNode: {},
     runCombatPoints: 0,
@@ -88,6 +99,10 @@ function sanitizeState(raw) {
     sanitizedShopOffers[nodeId] = sanitizeLoadoutRunes(offer).slice(0, 5);
   });
 
+  const campaignShopSupply = Array.isArray(source.campaignShopSupply)
+    ? sanitizeLoadoutRunes(source.campaignShopSupply)
+    : createDefaultCampaignShopSupply();
+
   const bossNameByNode = source.bossNameByNode && typeof source.bossNameByNode === "object"
     ? source.bossNameByNode
     : {};
@@ -116,6 +131,7 @@ function sanitizeState(raw) {
       ? String(source.pendingRewardNodeId)
       : null,
     pendingRewardChoices: sanitizeLoadoutRunes(source.pendingRewardChoices).slice(0, 3),
+    campaignShopSupply,
     shopOfferByNode: sanitizedShopOffers,
     bossNameByNode: sanitizedBossNames,
     runCombatPoints: Math.max(0, Number(source.runCombatPoints) || 0),
