@@ -255,6 +255,8 @@ const elements = {
   campaignResultPopup: document.getElementById("campaign-result-popup"),
   campaignResultBody: document.getElementById("campaign-result-body"),
   campaignResultTitle: document.getElementById("campaign-result-title"),
+  campaignResultStats: document.getElementById("campaign-result-stats"),
+  campaignResultBag: document.getElementById("campaign-result-bag"),
   campaignResultMenuBtn: document.getElementById("campaign-result-menu-btn"),
   campaignResultNewRunBtn: document.getElementById("campaign-result-new-run-btn"),
   menuBtn: document.getElementById("menu-btn"),
@@ -1864,6 +1866,10 @@ function evaluateCampaignProgressIfNeeded() {
     showCampaignResultPopup(
       "Campaign Defeat",
       `Run lost at ${failedTitle}. End payout: +${defeatPayout} wallet points.`,
+      {
+        payout: defeatPayout,
+        outcome: "defeat",
+      },
     );
     setStatus(`Run failed. End payout: +${defeatPayout}. Choose New Run or Main Menu.`);
     return;
@@ -1893,6 +1899,10 @@ function evaluateCampaignProgressIfNeeded() {
       showCampaignResultPopup(
         "Campaign Victory",
         `Final boss defeated. End payout: +${victoryPayout} wallet points. Reroll points earned: ${campaignState.runCombatPoints}.`,
+        {
+          payout: victoryPayout,
+          outcome: "victory",
+        },
       );
       setStatus(`Run cleared. End payout: +${victoryPayout}. Choose New Run or Main Menu.`);
       return;
@@ -2910,13 +2920,80 @@ function hideCampaignResultPopup() {
   elements.campaignResultPopup.hidden = true;
 }
 
-function showCampaignResultPopup(title, body) {
+function formatCampaignRunDuration(startedAt) {
+  const started = Number(startedAt) || 0;
+  if (started <= 0) {
+    return "-";
+  }
+
+  const elapsedMs = Math.max(0, Date.now() - started);
+  const totalMinutes = Math.floor(elapsedMs / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  return `${Math.max(1, minutes)}m`;
+}
+
+function renderCampaignResultStats(options = {}) {
+  if (!elements.campaignResultStats) {
+    return;
+  }
+
+  const payout = Math.max(0, Number(options.payout) || 0);
+  const rerollsUsed = Math.max(0, Number(campaignState.runRerollsSpent) || 0);
+  const runesAdded = Math.max(0, Number(campaignState.runShopAdds) || 0);
+  const runesRemoved = Math.max(0, Number(campaignState.runShopRemoves) || 0);
+  const completion = getCampaignCompletion(campaignState);
+  const durationLabel = formatCampaignRunDuration(campaignState.startedAt);
+
+  const statEntries = [
+    { label: "Points gained", value: `+${payout}` },
+    { label: "Rerolls used", value: String(rerollsUsed) },
+    { label: "Runes added", value: String(runesAdded) },
+    { label: "Runes removed", value: String(runesRemoved) },
+    { label: "Bosses defeated", value: `${completion.bosses}/8` },
+    { label: "Run duration", value: durationLabel },
+  ];
+
+  elements.campaignResultStats.innerHTML = "";
+  statEntries.forEach((entry) => {
+    const card = document.createElement("div");
+    card.className = "campaign-result-stat";
+
+    const label = document.createElement("span");
+    label.className = "campaign-result-stat-label";
+    label.textContent = entry.label;
+
+    const value = document.createElement("strong");
+    value.className = "campaign-result-stat-value";
+    value.textContent = entry.value;
+
+    card.appendChild(label);
+    card.appendChild(value);
+    elements.campaignResultStats.appendChild(card);
+  });
+}
+
+function renderCampaignResultBag() {
+  if (!elements.campaignResultBag) {
+    return;
+  }
+
+  const finalBag = buildCampaignPlayerBag(campaignState.loadoutRunes || []);
+  renderRuneList(elements.campaignResultBag, finalBag, 1, [], { readOnly: true });
+}
+
+function showCampaignResultPopup(title, body, options = {}) {
   if (!elements.campaignResultPopup) {
     return;
   }
 
   elements.campaignResultTitle.textContent = title;
   elements.campaignResultBody.textContent = body;
+  renderCampaignResultStats(options);
+  renderCampaignResultBag();
   elements.campaignResultPopup.hidden = false;
 }
 
@@ -3598,10 +3675,16 @@ function completeCampaignShopNodeFromState() {
     return;
   }
 
+  const shopData = state.shop?.players?.[1] || {};
+  const addedThisShop = Math.max(0, Number(shopData.addedCount) || 0);
+  const removedThisShop = Math.max(0, Number(shopData.removeCount) || 0);
+
   campaignState = {
     ...campaignState,
     loadoutRunes: extractCampaignLoadoutFromBag(state.players?.[1]?.bag || []),
     campaignShopSupply: extractCampaignShopSupplyFromState(state),
+    runShopAdds: Math.max(0, Number(campaignState.runShopAdds) || 0) + addedThisShop,
+    runShopRemoves: Math.max(0, Number(campaignState.runShopRemoves) || 0) + removedThisShop,
   };
   campaignState = completeCampaignNode(campaignState, node.id);
   saveCampaignState(activeProfileSlot, campaignState);

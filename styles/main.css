@@ -575,7 +575,6 @@ body[data-theme="dark"] .menu-logo {
   margin: 0;
   font-family: "Cinzel", Georgia, serif;
 }
-
 .campaign-action-panel {
   border: 1px solid rgba(36, 51, 71, 0.2);
   border-radius: 12px;
@@ -863,6 +862,16 @@ body[data-theme="dark"] .campaign-action-panel {
   .campaign-run-list {
     min-height: 500px;
     max-height: 500px;
+  }
+
+  .campaign-result-card {
+    width: min(96vw, 760px);
+    max-height: 90vh;
+  }
+
+  .campaign-result-bag {
+    grid-template-columns: 1fr;
+    max-height: min(34vh, 280px);
   }
 }
 
@@ -1225,34 +1234,87 @@ body[data-theme="dark"] .chat-row.you {
 }
 
 .campaign-result-popup {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  z-index: 12;
+  z-index: 48;
   display: grid;
   place-items: center;
-  padding: 1rem;
-  background: rgba(14, 20, 29, 0.42);
+  padding: clamp(0.75rem, 2.6vw, 1.4rem);
+  background: rgba(14, 20, 29, 0.52);
+  backdrop-filter: blur(2px);
 }
 
 .campaign-result-card {
-  width: min(560px, 100%);
+  width: min(840px, 100%);
+  max-height: min(88vh, 760px);
+  overflow: auto;
   border: 1px solid rgba(36, 51, 71, 0.28);
-  border-radius: 14px;
+  border-radius: 16px;
   background: linear-gradient(180deg, rgba(249, 252, 255, 0.98), rgba(237, 243, 251, 0.96));
-  padding: 0.95rem;
+  padding: 1rem;
   display: grid;
-  gap: 0.65rem;
+  gap: 0.75rem;
   box-shadow: 0 16px 34px rgba(16, 24, 36, 0.35);
 }
 
 .campaign-result-card h3 {
   margin: 0;
   font-family: "Cinzel", Georgia, serif;
-  font-size: 1.08rem;
+  font-size: 1.16rem;
+}
+
+.campaign-result-section {
+  border: 1px solid rgba(36, 51, 71, 0.2);
+  border-radius: 12px;
+  background: rgba(244, 249, 255, 0.82);
+  padding: 0.6rem;
+}
+
+.campaign-result-section-title {
+  margin: 0 0 0.45rem;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.94rem;
+  letter-spacing: 0.03em;
+}
+
+.campaign-result-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.45rem;
+}
+
+.campaign-result-stat {
+  border: 1px solid rgba(36, 51, 71, 0.18);
+  border-radius: 10px;
+  background: rgba(252, 253, 255, 0.9);
+  padding: 0.42rem 0.5rem;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.campaign-result-stat-label {
+  font-size: 0.82rem;
+  color: var(--text-soft);
+}
+
+.campaign-result-stat-value {
+  font-size: 1rem;
+}
+
+.campaign-result-bag {
+  max-height: min(30vh, 250px);
+  overflow: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.45rem;
 }
 
 .campaign-result-actions {
   justify-content: center;
+  position: sticky;
+  bottom: 0;
+  padding-top: 0.25rem;
+  background: linear-gradient(180deg, rgba(249, 252, 255, 0.12), rgba(237, 243, 251, 0.82));
 }
 
 .fx-toast-layer {
@@ -1345,6 +1407,20 @@ body[data-theme="dark"] .campaign-result-popup {
 body[data-theme="dark"] .campaign-result-card {
   border-color: rgba(220, 230, 241, 0.3);
   background: linear-gradient(180deg, rgba(21, 29, 38, 0.98), rgba(16, 23, 31, 0.96));
+}
+
+body[data-theme="dark"] .campaign-result-section {
+  border-color: rgba(220, 230, 241, 0.24);
+  background: rgba(23, 32, 43, 0.86);
+}
+
+body[data-theme="dark"] .campaign-result-stat {
+  border-color: rgba(220, 230, 241, 0.22);
+  background: rgba(18, 26, 35, 0.9);
+}
+
+body[data-theme="dark"] .campaign-result-actions {
+  background: linear-gradient(180deg, rgba(21, 29, 38, 0.2), rgba(16, 23, 31, 0.86));
 }
 
 .shop-panel h3 {
