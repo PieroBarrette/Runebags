@@ -258,6 +258,13 @@
         <p>Ethereal runes use dashed styling and return to shop supply instead of player bag at round settlement.</p>
         <p>Winning lines and forced columns are highlighted on board, including full 4+ combo lines and both sides in simultaneous-win draws.</p>
       </div>
+      <div class="rules-tutorial-settings">
+        <label for="rules-tutorial-toggle" class="tutorial-toggle-label">
+          <input id="rules-tutorial-toggle" class="tutorial-toggle-checkbox" type="checkbox">
+          <span class="tutorial-toggle-text">Enable Tutorial</span>
+        </label>
+        <p class="tutorial-toggle-hint">Enabled by default for new players. It automatically disables after all tutorial dialogs are shown.</p>
+      </div>
     </section>
 
     <section id="game-screen" hidden>
@@ -317,6 +324,10 @@
             <p id="board-rune-info-title" class="board-rune-info-title"></p>
             <p id="board-rune-info-description" class="board-rune-info-description"></p>
           </div>
+          <div id="tutorial-dialog" class="tutorial-dialog" data-position="status" hidden>
+            <p id="tutorial-dialog-text" class="tutorial-dialog-text"></p>
+            <p class="tutorial-dialog-hint">Click once to finish text, click again to close.</p>
+          </div>
           <div id="reward-popup" class="reward-popup" hidden>
             <h3>Match Rewards</h3>
             <p id="reward-popup-body" class="bag-meta">No rewards yet.</p>
@@ -365,6 +376,17 @@
           </form>
         </section>
       </section>
+    </section>
+
+    <section id="tutorial-prompt" class="tutorial-prompt-screen" hidden>
+      <article class="tutorial-prompt-card" role="dialog" aria-modal="true" aria-labelledby="tutorial-prompt-title">
+        <h2 id="tutorial-prompt-title">Tutorial</h2>
+        <p class="tutorial-prompt-text">New to RuneBags? Would you like to see a guided tutorial with quick dialogs while you play?</p>
+        <div class="menu-actions compact tutorial-prompt-actions">
+          <button id="tutorial-prompt-sure-btn" class="menu-btn" type="button">Sure</button>
+          <button id="tutorial-prompt-skip-btn" class="menu-btn secondary" type="button">Skip tutorial</button>
+        </div>
+      </article>
     </section>
   </main>
 

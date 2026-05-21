@@ -36,9 +36,13 @@ import {
   getActiveProfileSlot,
   getProfileBySlot,
   getProfileSlots,
+  getProfileTutorialState,
   getProfileWalletPoints,
-  hasProfileSeenTutorial,
-  markProfileTutorialSeen,
+  markProfileTutorialCompleted,
+  markProfileTutorialPromptSeen,
+  markProfileTutorialSequenceSeen,
+  markProfileTutorialTriggerShown,
+  setProfileTutorialEnabled,
   setProfileAchievementProgress,
   setProfileCampaignProgress,
   setActiveProfileSlot,
@@ -80,6 +84,7 @@ import {
 import { createOnlineController } from "./online/onlineController.js";
 import { createRuneInstance, getRuneById, RUNE_CATALOG } from "./runes/runeCatalog.js";
 import { createSfxEngine } from "./audio/sfxEngine.js";
+import { createTutorialController } from "./tutorial/tutorialController.js";
 
 const THEME_STORAGE_KEY = "runebags-theme-v1";
 const ANIMATION_STORAGE_KEY = "runebags-animations-v1";
@@ -304,6 +309,12 @@ const elements = {
   shopCombineBtn: document.getElementById("shop-combine-btn"),
   shopRerollBtn: document.getElementById("shop-reroll-btn"),
   fxToastLayer: document.getElementById("fx-toast-layer"),
+  tutorialPrompt: document.getElementById("tutorial-prompt"),
+  tutorialPromptSureBtn: document.getElementById("tutorial-prompt-sure-btn"),
+  tutorialPromptSkipBtn: document.getElementById("tutorial-prompt-skip-btn"),
+  tutorialDialog: document.getElementById("tutorial-dialog"),
+  tutorialDialogText: document.getElementById("tutorial-dialog-text"),
+  rulesTutorialToggle: document.getElementById("rules-tutorial-toggle"),
 };
 
 let selectedLocalRuneIds = loadRuneSelectionPreference();
@@ -352,6 +363,30 @@ let campaignSelectedShopAddIndexes = new Set();
 let campaignInShopNode = false;
 let campaignScoutedNodeId = null;
 let pendingCampaignFinishOutcome = null;
+
+const tutorialController = createTutorialController({
+  elements,
+  onPromptSeen: () => {
+    markProfileTutorialPromptSeen(activeProfileSlot);
+  },
+  onSetEnabled: (enabled) => {
+    setProfileTutorialEnabled(activeProfileSlot, enabled);
+  },
+  onSequenceSeen: (sequenceKey) => {
+    markProfileTutorialSequenceSeen(activeProfileSlot, sequenceKey);
+  },
+  onTriggerShown: (triggerId) => {
+    markProfileTutorialTriggerShown(activeProfileSlot, triggerId);
+  },
+  onCompleted: () => {
+    markProfileTutorialCompleted(activeProfileSlot);
+  },
+  onPromptResolved: () => {
+    render();
+  },
+});
+
+tutorialController.loadProfileTutorialState(getProfileTutorialState(activeProfileSlot));
 
 registerServiceWorker();
 
@@ -1092,6 +1127,8 @@ function bindEvents() {
     state = result.state;
     if (result.error) {
       setStatus(result.error);
+    } else {
+      tutorialController.maybeQueueForPhase(state.phase);
     }
 
     persistState();
@@ -1815,6 +1852,7 @@ function advanceCampaignEncounterRound() {
     if (!roundStep.error) {
       applyCampaignBossConstraintForActiveNode();
       state.log.unshift("Campaign advanced to the next round.");
+      tutorialController.maybeQueueForPhase(state.phase);
     }
   }
 
@@ -2525,6 +2563,7 @@ function initializeEntryMode() {
 }
 
 function showProfileEntryScreen() {
+  tutorialController.hideAll();
   elements.profileEntryScreen.hidden = false;
   elements.mainMenu.hidden = true;
   elements.campaignPanel.hidden = true;
@@ -2564,6 +2603,7 @@ function continueAfterProfileEntry() {
 }
 
 function showMainMenu() {
+  tutorialController.hideAll();
   elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = false;
   elements.campaignPanel.hidden = true;
@@ -2579,6 +2619,7 @@ function showMainMenu() {
 }
 
 function showAiPanel() {
+  tutorialController.hideAll();
   elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
   elements.campaignPanel.hidden = true;
@@ -2602,6 +2643,7 @@ function showAiPanel() {
 }
 
 function showOnlinePanel() {
+  tutorialController.hideAll();
   elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
   elements.campaignPanel.hidden = true;
@@ -2622,6 +2664,7 @@ function showOnlinePanel() {
 }
 
 function showRulesPanel() {
+  tutorialController.hideAll();
   elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
   elements.campaignPanel.hidden = true;
@@ -2636,6 +2679,7 @@ function showRulesPanel() {
 }
 
 function showSettingsPanel() {
+  tutorialController.hideAll();
   elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
   elements.campaignPanel.hidden = true;
@@ -2650,6 +2694,7 @@ function showSettingsPanel() {
 }
 
 function showProfilesPanel() {
+  tutorialController.hideAll();
   elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
   elements.campaignPanel.hidden = true;
@@ -2665,6 +2710,7 @@ function showProfilesPanel() {
 }
 
 function showAchievementsPanel() {
+  tutorialController.hideAll();
   elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
   elements.campaignPanel.hidden = true;
@@ -2680,6 +2726,7 @@ function showAchievementsPanel() {
 }
 
 function showShopPanelMenu() {
+  tutorialController.hideAll();
   elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
   elements.campaignPanel.hidden = true;
@@ -2695,6 +2742,7 @@ function showShopPanelMenu() {
 }
 
 function showCampaignPanel() {
+  tutorialController.hideAll();
   elements.profileEntryScreen.hidden = true;
   elements.mainMenu.hidden = true;
   elements.campaignPanel.hidden = false;
@@ -2721,7 +2769,8 @@ function enterGameScreen(mode, roomCode = null) {
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = false;
-  maybeSuggestTutorialOnFirstGame();
+
+  tutorialController.onGameEntered(mode, state.phase);
 
   if (mode === "online" && roomCode) {
     applyRoomQuery(roomCode);
@@ -2731,15 +2780,6 @@ function enterGameScreen(mode, roomCode = null) {
   }
 
   render();
-}
-
-function maybeSuggestTutorialOnFirstGame() {
-  if (hasProfileSeenTutorial(activeProfileSlot)) {
-    return;
-  }
-
-  markProfileTutorialSeen(activeProfileSlot);
-  showToast("New to RuneBags? Open Rules from the menu for a quick primer.", "info");
 }
 
 function updateOnlineRoomUI(roomCode) {
@@ -4023,6 +4063,7 @@ function activateProfileSlot(slot, options = {}) {
   achievementState = loadAchievementState(activeProfileSlot);
   cosmeticState = loadCosmeticState(activeProfileSlot);
   campaignState = loadCampaignState(activeProfileSlot);
+  tutorialController.loadProfileTutorialState(getProfileTutorialState(activeProfileSlot));
   activeCampaignNodeId = null;
   campaignOutcomeHandled = false;
   campaignInShopNode = false;

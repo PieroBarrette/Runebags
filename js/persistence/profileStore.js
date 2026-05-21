@@ -11,6 +11,31 @@ function createEmptyProgress() {
   };
 }
 
+function createDefaultTutorialProgress() {
+  return {
+    introPromptSeen: false,
+    completed: false,
+    shopSequenceSeen: false,
+    roundSequenceSeen: false,
+    shownTriggerIds: [],
+  };
+}
+
+function sanitizeTutorialProgress(rawProgress, legacyTutorialSeen = false) {
+  const source = rawProgress && typeof rawProgress === "object" ? rawProgress : {};
+  const shown = Array.isArray(source.shownTriggerIds)
+    ? source.shownTriggerIds.filter((id) => typeof id === "string" && id.trim().length > 0)
+    : [];
+
+  return {
+    introPromptSeen: Boolean(source.introPromptSeen) || Boolean(legacyTutorialSeen),
+    completed: Boolean(source.completed),
+    shopSequenceSeen: Boolean(source.shopSequenceSeen),
+    roundSequenceSeen: Boolean(source.roundSequenceSeen),
+    shownTriggerIds: [...new Set(shown)],
+  };
+}
+
 function createDefaultSlot(slot) {
   return {
     slot,
@@ -18,6 +43,8 @@ function createDefaultSlot(slot) {
     createdAt: null,
     lastPlayedAt: null,
     tutorialSeen: false,
+    tutorialEnabled: true,
+    tutorialProgress: createDefaultTutorialProgress(),
     walletPoints: 0,
     progression: createEmptyProgress(),
   };
@@ -59,12 +86,20 @@ function sanitizeProgress(rawProgress) {
 
 function sanitizeSlotPayload(rawSlot, slot) {
   const source = rawSlot && typeof rawSlot === "object" ? rawSlot : {};
+  const legacyTutorialSeen = Boolean(source.tutorialSeen);
+  const tutorialProgress = sanitizeTutorialProgress(source.tutorialProgress, legacyTutorialSeen);
+  const tutorialEnabled = typeof source.tutorialEnabled === "boolean"
+    ? source.tutorialEnabled
+    : !legacyTutorialSeen;
+
   return {
     slot,
     name: sanitizeName(source.name, slot),
     createdAt: Number(source.createdAt) || null,
     lastPlayedAt: Number(source.lastPlayedAt) || null,
-    tutorialSeen: Boolean(source.tutorialSeen),
+    tutorialSeen: tutorialProgress.introPromptSeen,
+    tutorialEnabled: Boolean(tutorialEnabled),
+    tutorialProgress,
     walletPoints: Math.max(0, Math.floor(Number(source.walletPoints) || 0)),
     progression: sanitizeProgress(source.progression),
   };
@@ -176,7 +211,7 @@ export function touchProfileSlot(slot) {
 export function hasProfileSeenTutorial(slot) {
   const safeSlot = sanitizeSlot(slot, 1);
   const profile = getProfileBySlot(safeSlot);
-  return Boolean(profile?.tutorialSeen);
+  return Boolean(profile?.tutorialProgress?.introPromptSeen || profile?.tutorialSeen);
 }
 
 export function markProfileTutorialSeen(slot) {
@@ -188,6 +223,114 @@ export function markProfileTutorialSeen(slot) {
   }
 
   profile.tutorialSeen = true;
+  profile.tutorialProgress = sanitizeTutorialProgress({
+    ...(profile.tutorialProgress || createDefaultTutorialProgress()),
+    introPromptSeen: true,
+  }, true);
+  profile.lastPlayedAt = Date.now();
+  saveProfileState(payload);
+  return true;
+}
+
+export function getProfileTutorialState(slot) {
+  const safeSlot = sanitizeSlot(slot, 1);
+  const profile = getProfileBySlot(safeSlot);
+  const progress = sanitizeTutorialProgress(profile?.tutorialProgress, profile?.tutorialSeen);
+  const enabled = typeof profile?.tutorialEnabled === "boolean"
+    ? profile.tutorialEnabled
+    : !progress.introPromptSeen;
+
+  return {
+    enabled: Boolean(enabled),
+    ...progress,
+  };
+}
+
+export function setProfileTutorialEnabled(slot, enabled) {
+  const safeSlot = sanitizeSlot(slot, 1);
+  const payload = loadProfileState();
+  const profile = payload.slots.find((item) => item.slot === safeSlot);
+  if (!profile) {
+    return false;
+  }
+
+  profile.tutorialEnabled = Boolean(enabled);
+  profile.lastPlayedAt = Date.now();
+  saveProfileState(payload);
+  return true;
+}
+
+export function markProfileTutorialPromptSeen(slot) {
+  return markProfileTutorialSeen(slot);
+}
+
+export function markProfileTutorialSequenceSeen(slot, sequenceKey) {
+  const safeSlot = sanitizeSlot(slot, 1);
+  const key = String(sequenceKey || "").trim().toLowerCase();
+  if (!key) {
+    return false;
+  }
+
+  const payload = loadProfileState();
+  const profile = payload.slots.find((item) => item.slot === safeSlot);
+  if (!profile) {
+    return false;
+  }
+
+  const progress = sanitizeTutorialProgress(profile.tutorialProgress, profile.tutorialSeen);
+  if (key === "shop") {
+    progress.shopSequenceSeen = true;
+  } else if (key === "round") {
+    progress.roundSequenceSeen = true;
+  } else {
+    return false;
+  }
+
+  profile.tutorialProgress = progress;
+  profile.tutorialSeen = progress.introPromptSeen;
+  profile.lastPlayedAt = Date.now();
+  saveProfileState(payload);
+  return true;
+}
+
+export function markProfileTutorialTriggerShown(slot, triggerId) {
+  const safeSlot = sanitizeSlot(slot, 1);
+  const id = String(triggerId || "").trim();
+  if (!id) {
+    return false;
+  }
+
+  const payload = loadProfileState();
+  const profile = payload.slots.find((item) => item.slot === safeSlot);
+  if (!profile) {
+    return false;
+  }
+
+  const progress = sanitizeTutorialProgress(profile.tutorialProgress, profile.tutorialSeen);
+  if (!progress.shownTriggerIds.includes(id)) {
+    progress.shownTriggerIds.push(id);
+  }
+
+  profile.tutorialProgress = progress;
+  profile.tutorialSeen = progress.introPromptSeen;
+  profile.lastPlayedAt = Date.now();
+  saveProfileState(payload);
+  return true;
+}
+
+export function markProfileTutorialCompleted(slot) {
+  const safeSlot = sanitizeSlot(slot, 1);
+  const payload = loadProfileState();
+  const profile = payload.slots.find((item) => item.slot === safeSlot);
+  if (!profile) {
+    return false;
+  }
+
+  const progress = sanitizeTutorialProgress(profile.tutorialProgress, profile.tutorialSeen);
+  progress.completed = true;
+  profile.tutorialProgress = progress;
+  profile.tutorialSeen = progress.introPromptSeen;
+  profile.tutorialEnabled = false;
   profile.lastPlayedAt = Date.now();
   saveProfileState(payload);
   return true;
