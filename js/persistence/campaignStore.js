@@ -45,6 +45,25 @@ function createDefaultCampaignShopSupply() {
   return supply;
 }
 
+function sanitizeCampaignShopSupply(candidate) {
+  const source = sanitizeLoadoutRunes(candidate);
+  const maxCounts = { ...INITIAL_SHOP_COUNTS };
+  const safe = [];
+
+  source.forEach((entry) => {
+    const runeId = String(entry?.runeId || "").trim();
+    const remaining = Number(maxCounts[runeId]) || 0;
+    if (remaining <= 0) {
+      return;
+    }
+
+    maxCounts[runeId] = remaining - 1;
+    safe.push({ runeId, level: 1 });
+  });
+
+  return safe;
+}
+
 function getKey(profileSlot) {
   const slot = Number(profileSlot);
   const safe = Number.isInteger(slot) && slot >= 1 && slot <= 3 ? slot : 1;
@@ -129,7 +148,7 @@ function sanitizeState(raw) {
   });
 
   const campaignShopSupply = Array.isArray(source.campaignShopSupply)
-    ? sanitizeLoadoutRunes(source.campaignShopSupply)
+    ? sanitizeCampaignShopSupply(source.campaignShopSupply)
     : createDefaultCampaignShopSupply();
 
   const bossNameByNode = source.bossNameByNode && typeof source.bossNameByNode === "object"

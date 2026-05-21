@@ -3572,6 +3572,8 @@ function openCampaignShopNode(node) {
   shopState.shop.players[2].ready = false;
   shopState.players[1].bag = buildCampaignPlayerBag(campaignState.loadoutRunes || []);
   shopState.players[1].shopSupply = buildCampaignShopSupply(campaignState.campaignShopSupply || []);
+  shopState.shop.players[1].offer = [];
+  drawCampaignShopOffer(shopState.players[1], shopState.shop.players[1]);
   shopState.players[1].discard = [];
   shopState.players[1].hand = [];
 
@@ -3658,6 +3660,20 @@ function buildCampaignShopSupply(entries) {
   return supply;
 }
 
+function drawCampaignShopOffer(player, shopPlayerData, drawCount = 5) {
+  if (!player || !shopPlayerData) {
+    return;
+  }
+
+  for (let i = 0; i < drawCount && player.shopSupply.length > 0; i += 1) {
+    const index = Math.floor(Math.random() * player.shopSupply.length);
+    const [drawn] = player.shopSupply.splice(index, 1);
+    if (drawn) {
+      shopPlayerData.offer.push(drawn);
+    }
+  }
+}
+
 function extractCampaignShopSupplyFromState(sourceState) {
   const playerId = 1;
   const player = sourceState?.players?.[playerId];
@@ -3681,14 +3697,7 @@ function rerollCampaignShopOffer() {
 
   data.offer.forEach((rune) => player.shopSupply.push(rune));
   data.offer = [];
-  const drawCount = 5;
-  for (let i = 0; i < drawCount && player.shopSupply.length > 0; i += 1) {
-    const index = Math.floor(Math.random() * player.shopSupply.length);
-    const [drawn] = player.shopSupply.splice(index, 1);
-    if (drawn) {
-      data.offer.push(drawn);
-    }
-  }
+  drawCampaignShopOffer(player, data);
 }
 
 function ensureCampaignBossName(node) {

@@ -8,6 +8,14 @@ const STEP_DEFS = [
   { key: "boss", label: "Boss Combat", type: "boss", roundPointPool: 7, rewardPoints: 110 },
 ];
 
+const INTER_ANTE_SHOP_STEP = {
+  key: "shop-c",
+  label: "Inter-Ante Shop",
+  type: "shop",
+  roundPointPool: 0,
+  rewardPoints: 0,
+};
+
 function createStartShopNode() {
   return {
     id: "start-shop",
@@ -49,17 +57,20 @@ function buildLinearNodes() {
   const nodes = [createStartShopNode()];
 
   for (let ante = 1; ante <= ANTE_COUNT; ante += 1) {
-    for (let i = 0; i < STEP_DEFS.length; i += 1) {
-      const stepDef = STEP_DEFS[i];
-      const nextInAnte = STEP_DEFS[i + 1];
-      const isLastStep = i === STEP_DEFS.length - 1;
+    const anteSteps = ante < ANTE_COUNT
+      ? [...STEP_DEFS, INTER_ANTE_SHOP_STEP]
+      : STEP_DEFS;
+
+    for (let i = 0; i < anteSteps.length; i += 1) {
+      const stepDef = anteSteps[i];
+      const nextInAnte = anteSteps[i + 1];
       const nextId = nextInAnte
         ? `ante-${String(ante).padStart(2, "0")}-${nextInAnte.key}`
         : ante < ANTE_COUNT
           ? `ante-${String(ante + 1).padStart(2, "0")}-${STEP_DEFS[0].key}`
           : null;
 
-      nodes.push(createAnteNode(ante, i, stepDef, isLastStep ? nextId : nextId));
+      nodes.push(createAnteNode(ante, i, stepDef, nextId));
     }
   }
 
