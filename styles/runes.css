@@ -139,11 +139,6 @@ body[data-rune-skin="rune-gilded"] .rune-chip.black .rune-chip-symbol {
   filter: invert(1) sepia(0.22) brightness(1.3) contrast(1.05) drop-shadow(0 0 2px rgba(255, 229, 163, 0.9));
 }
 
-body[data-rune-skin="rune-gilded"] .rune-card.selected {
-  border-color: rgba(226, 166, 43, 0.95);
-  box-shadow: 0 0 0 2px rgba(235, 183, 72, 0.65), 0 10px 22px rgba(150, 107, 30, 0.28);
-}
-
 body[data-rune-skin="rune-obsidian"] .rune-card {
   border-color: rgba(46, 62, 84, 0.78);
   background:
@@ -178,11 +173,6 @@ body[data-rune-skin="rune-obsidian"] .rune-chip-symbol {
 
 body[data-rune-skin="rune-obsidian"] .rune-chip.black .rune-chip-symbol {
   filter: invert(1) brightness(1.12) contrast(1.5) drop-shadow(0 0 2px rgba(178, 213, 252, 0.42));
-}
-
-body[data-rune-skin="rune-obsidian"] .rune-card.selected {
-  border-color: rgba(125, 177, 231, 0.95);
-  box-shadow: 0 0 0 2px rgba(106, 158, 214, 0.62), 0 10px 22px rgba(36, 55, 79, 0.34);
 }
 
 body[data-animations="on"][data-rune-skin="rune-gilded"] .rune-card.anim-hand-reveal {
@@ -257,4 +247,16 @@ body[data-theme="dark"] .rune-card {
 
 body[data-theme="dark"] .rune-card.ethereal {
   background: linear-gradient(175deg, rgba(60, 72, 88, 0.95), rgba(40, 50, 64, 0.95));
+}
+
+/* Keep gameplay selection highlight consistent across level/effect/skin variants. */
+.rune-card.selected,
+.rune-card.shop-highlight {
+  border-color: #43b463;
+  box-shadow: 0 0 0 2px rgba(67, 180, 99, 0.9);
+}
+
+.rune-card.selected.level-2,
+.rune-card.shop-highlight.level-2 {
+  box-shadow: inset 0 0 0 1px rgba(255, 214, 102, 0.65), 0 0 0 2px rgba(67, 180, 99, 0.9);
 }
