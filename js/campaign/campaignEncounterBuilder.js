@@ -402,6 +402,14 @@ export function buildCampaignEncounterState(node, campaignState, options = {}) {
   const nodeType = selection.nodeType;
   const ante = Math.max(1, Number(node?.ante) || 1);
 
+  state.campaignRuleSet = {
+    isaReturnToBagAfterCombat: true,
+    wunjoPostCombatOnce: true,
+  };
+  state.campaignCombatWunjoEligible = { 1: false, 2: false };
+  state.campaignCombatWunjoGranted = { 1: false, 2: false };
+  state.campaignCombatEndResolved = false;
+
   state.phase = "round";
   state.roundNumber = 1;
   state.turnNumber = 1;

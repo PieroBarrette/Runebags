@@ -2125,6 +2125,56 @@ function settleRound(state) {
   }
 }
 
+export function applyCampaignCombatEndBonuses(state) {
+  if (!state?.campaignRuleSet || state.campaignCombatEndResolved) {
+    return;
+  }
+
+  if (state.campaignRuleSet.wunjoPostCombatOnce) {
+    const eligibleOwners = getWunjoEligibleOwnersOnBoard(state);
+    ensureCampaignWunjoTracking(state);
+    for (const owner of eligibleOwners) {
+      state.campaignCombatWunjoEligible[owner] = true;
+    }
+
+    if (!state.nextShopBonuses) {
+      state.nextShopBonuses = createEmptyShopBonuses();
+    }
+
+    for (const playerId of [BLACK, WHITE]) {
+      if (!state.campaignCombatWunjoEligible[playerId] || state.campaignCombatWunjoGranted[playerId]) {
+        continue;
+      }
+
+      const bonus = ensureShopBonusEntry(state, playerId);
+      bonus.extraAdds += 1;
+      bonus.extraRemoves += 1;
+      state.campaignCombatWunjoGranted[playerId] = true;
+      state.log.unshift(`${playerName(playerId)} earned Wunjo bonus for next shop (+1 add, +1 remove).`);
+    }
+  }
+
+  if (state.campaignRuleSet.isaReturnToBagAfterCombat) {
+    for (let row = 0; row < state.rows; row += 1) {
+      for (let col = 0; col < state.columns; col += 1) {
+        const owner = state.board[row][col];
+        const rune = state.boardRunes[row][col];
+        if ((owner !== BLACK && owner !== WHITE) || !rune) {
+          continue;
+        }
+
+        if (!cellHasPassiveRuneId(state, row, col, "isa")) {
+          continue;
+        }
+
+        state.players[owner].bag.push(createRuneInstance(rune.id, rune.level));
+      }
+    }
+  }
+
+  state.campaignCombatEndResolved = true;
+}
+
 function countOwnedRuneOnBoard(state, ownerId, runeId) {
   let count = 0;
   for (let row = 0; row < state.rows; row += 1) {
@@ -2178,11 +2228,34 @@ function finalizeGameAtZeroPoints(state) {
 }
 
 function applyWunjoShopBonuses(state) {
+  if (state?.campaignRuleSet?.wunjoPostCombatOnce) {
+    const eligibleOwners = getWunjoEligibleOwnersOnBoard(state);
+    ensureCampaignWunjoTracking(state);
+    for (const owner of eligibleOwners) {
+      state.campaignCombatWunjoEligible[owner] = true;
+    }
+    return;
+  }
+
   if (!state.nextShopBonuses) {
     state.nextShopBonuses = createEmptyShopBonuses();
   }
 
-  const granted = new Set();
+  const granted = getWunjoEligibleOwnersOnBoard(state);
+
+  for (const owner of granted) {
+    const bonus = ensureShopBonusEntry(state, owner);
+    bonus.extraAdds += 1;
+    bonus.extraRemoves += 1;
+  }
+
+  for (const playerId of granted) {
+    state.log.unshift(`${playerName(playerId)} earned Wunjo bonus for next shop (+1 add, +1 remove).`);
+  }
+}
+
+function getWunjoEligibleOwnersOnBoard(state) {
+  const eligible = new Set();
 
   for (let row = 0; row < state.rows; row += 1) {
     for (let col = 0; col < state.columns; col += 1) {
@@ -2195,15 +2268,20 @@ function applyWunjoShopBonuses(state) {
         continue;
       }
 
-      const bonus = ensureShopBonusEntry(state, owner);
-      bonus.extraAdds += 1;
-      bonus.extraRemoves += 1;
-      granted.add(owner);
+      eligible.add(owner);
     }
   }
 
-  for (const playerId of granted) {
-    state.log.unshift(`${playerName(playerId)} earned Wunjo bonus for next shop (+1 add, +1 remove).`);
+  return eligible;
+}
+
+function ensureCampaignWunjoTracking(state) {
+  if (!state.campaignCombatWunjoEligible || typeof state.campaignCombatWunjoEligible !== "object") {
+    state.campaignCombatWunjoEligible = { 1: false, 2: false };
+  }
+
+  if (!state.campaignCombatWunjoGranted || typeof state.campaignCombatWunjoGranted !== "object") {
+    state.campaignCombatWunjoGranted = { 1: false, 2: false };
   }
 }
 

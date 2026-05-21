@@ -1,4 +1,5 @@
 import {
+  applyCampaignCombatEndBonuses,
   createInitialState,
   enterShopPhase,
   getForcedVisiblePlayers,
@@ -1834,6 +1835,7 @@ function finalizeCampaignEncounterFromRoundEnd() {
     return;
   }
 
+  applyCampaignCombatEndBonuses(state);
   state.phase = "game-over";
   if (state.winner === 1 || state.winner === 2) {
     state.gameWinner = state.winner;
@@ -3609,7 +3611,17 @@ function openNextCampaignShopNodeFromEncounter() {
     return;
   }
 
-  openCampaignShopNode(nextNode);
+  openCampaignShopNode(nextNode, {
+    playerBonus: getCampaignPlayerBonusForNextShop(state, 1),
+  });
+}
+
+function getCampaignPlayerBonusForNextShop(sourceState, playerId) {
+  const raw = sourceState?.nextShopBonuses?.[playerId] || {};
+  return {
+    extraAdds: Math.max(0, Number(raw.extraAdds) || 0),
+    extraRemoves: Math.max(0, Number(raw.extraRemoves) || 0),
+  };
 }
 
 function finishPendingCampaignOutcome() {
@@ -3649,7 +3661,7 @@ function renderCampaignLoadout() {
   renderRuneList(elements.campaignLoadoutList, previewRunes, 2, [], { readOnly: true });
 }
 
-function openCampaignShopNode(node) {
+function openCampaignShopNode(node, options = {}) {
   if (online.isOnlineActive()) {
     online.leaveRoom();
   }
@@ -3681,6 +3693,15 @@ function openCampaignShopNode(node) {
   drawCampaignShopOffer(shopState.players[1], shopState.shop.players[1]);
   shopState.players[1].discard = [];
   shopState.players[1].hand = [];
+
+  const bonus = options.playerBonus || null;
+  const extraAdds = Math.max(0, Number(bonus?.extraAdds) || 0);
+  const extraRemoves = Math.max(0, Number(bonus?.extraRemoves) || 0);
+  if (extraAdds > 0 || extraRemoves > 0) {
+    shopState.shop.players[1].addLimit += extraAdds;
+    shopState.shop.players[1].removeLimit += extraRemoves;
+    shopState.log.unshift(`Campaign bonus applied: +${extraAdds} add, +${extraRemoves} remove this shop.`);
+  }
 
   state = restoreState(shopState, getLocalGameOptions());
   handVisibility = { 1: true, 2: false };
