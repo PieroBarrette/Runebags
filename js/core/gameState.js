@@ -163,11 +163,12 @@ export function playTurn(state, column, options = {}) {
   if (selectedRune.id === "nauthiz") {
     const targetRow = Number(options.row);
     const targetCol = Number(options.col);
+    const legalCells = getLegalFloatingCellsForRune(state, state.currentPlayer, selectedRune);
+    const canPlaceAtTarget = legalCells.some((cell) => cell.row === targetRow && cell.col === targetCol);
     if (
       !Number.isInteger(targetRow)
       || !Number.isInteger(targetCol)
-      || !isInside(state, targetRow, targetCol)
-      || state.board[targetRow][targetCol] !== EMPTY
+      || !canPlaceAtTarget
     ) {
       return { state, error: "Choose an empty target cell for Nauthiz." };
     }
@@ -403,7 +404,7 @@ export function getPendingBoardTargets(state) {
         pending: true,
         mode: "cells",
         columns: [],
-        cells: getFreeCells(state),
+        cells: getLegalFloatingCellsForRune(state, state.currentPlayer, selectedRune),
       };
     }
   }
@@ -479,7 +480,7 @@ export function getLegalMovesForPlayer(state, playerId) {
   const moves = [];
   player.hand.forEach((rune) => {
     if (rune.id === "nauthiz") {
-      const cells = getFreeCells(state);
+      const cells = getLegalFloatingCellsForRune(state, playerId, rune);
       cells.forEach((cell) => {
         moves.push({
           runeInstanceId: rune.instanceId,
@@ -1115,7 +1116,22 @@ function canPlayerPlay(state, playerId) {
     return false;
   }
 
-  return player.hand.some((rune) => getLegalColumnsForRune(state, playerId, rune).length > 0);
+  return player.hand.some((rune) => {
+    if (rune.id === "nauthiz") {
+      return getLegalFloatingCellsForRune(state, playerId, rune).length > 0;
+    }
+
+    return getLegalColumnsForRune(state, playerId, rune).length > 0;
+  });
+}
+
+function getLegalFloatingCellsForRune(state, playerId, rune) {
+  const allowedColumns = getAllowedColumns(rune, state.columns);
+  const constrainedColumns = getConstrainedColumns(state, playerId, allColumns(state.columns));
+  return getFreeCells(state).filter(
+    (cell) => allowedColumns.includes(cell.col)
+      && constrainedColumns.includes(cell.col),
+  );
 }
 
 function forcePassIfNeeded(state) {
