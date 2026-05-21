@@ -350,6 +350,7 @@ let campaignActiveActionType = null;
 let campaignSelectedShopAddIndexes = new Set();
 let campaignInShopNode = false;
 let campaignScoutedNodeId = null;
+let pendingCampaignFinishOutcome = null;
 
 registerServiceWorker();
 
@@ -1191,6 +1192,10 @@ function bindEvents() {
 
   elements.phaseBtn.addEventListener("click", () => {
     if (currentLocalMode === MODE_CAMPAIGN && activeCampaignNodeId && !campaignInShopNode && state.phase === "game-over") {
+      if (pendingCampaignFinishOutcome) {
+        finishPendingCampaignOutcome();
+        return;
+      }
       openNextCampaignShopNodeFromEncounter();
       return;
     }
@@ -1747,6 +1752,7 @@ function startCampaignEncounterByNode(nodeId, options = {}) {
   campaignActiveActionNodeId = null;
   campaignActiveActionType = null;
   campaignSelectedShopAddIndexes = new Set();
+  pendingCampaignFinishOutcome = null;
   state = restoreState(encounter.state, getLocalGameOptions());
   handVisibility = {
     1: encounter.currentPlayer === 1,
@@ -1863,15 +1869,16 @@ function evaluateCampaignProgressIfNeeded() {
     const failedTitle = node.type === "final-boss" ? "final boss" : node.title;
     clearModeSave(MODE_CAMPAIGN, activeProfileSlot);
     campaignInShopNode = false;
-    showCampaignResultPopup(
-      "Campaign Defeat",
-      `Run lost at ${failedTitle}. End payout: +${defeatPayout} wallet points.`,
-      {
+    pendingCampaignFinishOutcome = {
+      title: "Campaign Defeat",
+      body: `Run lost at ${failedTitle}. End payout: +${defeatPayout} wallet points.`,
+      stats: {
         payout: defeatPayout,
         outcome: "defeat",
       },
-    );
-    setStatus(`Run failed. End payout: +${defeatPayout}. Choose New Run or Main Menu.`);
+      status: `Run failed. End payout: +${defeatPayout}. Click Finish Campaign.`,
+    };
+    setStatus(pendingCampaignFinishOutcome.status);
     return;
   }
 
@@ -1896,15 +1903,16 @@ function evaluateCampaignProgressIfNeeded() {
       pulseElement(elements.menuProfileSwitchBtn, "ui-pulse");
       clearModeSave(MODE_CAMPAIGN, activeProfileSlot);
       campaignInShopNode = false;
-      showCampaignResultPopup(
-        "Campaign Victory",
-        `Final boss defeated. End payout: +${victoryPayout} wallet points. Reroll points earned: ${campaignState.runCombatPoints}.`,
-        {
+      pendingCampaignFinishOutcome = {
+        title: "Campaign Victory",
+        body: `Final boss defeated. End payout: +${victoryPayout} wallet points. Reroll points earned: ${campaignState.runCombatPoints}.`,
+        stats: {
           payout: victoryPayout,
           outcome: "victory",
         },
-      );
-      setStatus(`Run cleared. End payout: +${victoryPayout}. Choose New Run or Main Menu.`);
+        status: `Run cleared. End payout: +${victoryPayout}. Click Finish Campaign.`,
+      };
+      setStatus(pendingCampaignFinishOutcome.status);
       return;
     }
   } else {
@@ -2033,6 +2041,9 @@ function renderShopPanel() {
   if (currentLocalMode === MODE_CAMPAIGN && !inCampaignShopNode) {
     const inEncounterEnd = state.phase === "game-over";
     const inRoundTransition = state.phase === "round-end";
+    const awaitingCampaignFinish = Boolean(
+      inEncounterEnd && activeCampaignNodeId && pendingCampaignFinishOutcome,
+    );
     elements.shopPanel.hidden = true;
     elements.boardEl.hidden = false;
     elements.shopInstruction.hidden = true;
@@ -2042,7 +2053,7 @@ function renderShopPanel() {
     elements.shopRerollBtn.hidden = true;
     elements.phaseBtn.hidden = !(inEncounterEnd || inRoundTransition);
     elements.phaseBtn.textContent = inEncounterEnd
-      ? "Go to Shop"
+      ? (awaitingCampaignFinish ? "Finish Campaign" : "Go to Shop")
       : "Next Round";
     return;
   }
@@ -3007,6 +3018,7 @@ function startFreshCampaignRun() {
   campaignInShopNode = false;
   campaignScoutedNodeId = null;
   campaignOutcomeHandled = false;
+  pendingCampaignFinishOutcome = null;
 
   const nextNode = getNextCampaignPlayableNode();
   if (nextNode) {
@@ -3600,6 +3612,21 @@ function openNextCampaignShopNodeFromEncounter() {
   openCampaignShopNode(nextNode);
 }
 
+function finishPendingCampaignOutcome() {
+  if (!pendingCampaignFinishOutcome) {
+    return;
+  }
+
+  showCampaignResultPopup(
+    pendingCampaignFinishOutcome.title,
+    pendingCampaignFinishOutcome.body,
+    pendingCampaignFinishOutcome.stats,
+  );
+  setStatus(pendingCampaignFinishOutcome.status);
+  pendingCampaignFinishOutcome = null;
+  render();
+}
+
 function renderCampaignLoadout() {
   elements.campaignLoadoutList.innerHTML = "";
 
@@ -3639,6 +3666,7 @@ function openCampaignShopNode(node) {
   campaignActiveActionType = null;
   campaignSelectedShopAddIndexes = new Set();
   campaignScoutedNodeId = null;
+  pendingCampaignFinishOutcome = null;
 
   const shopState = createInitialState(getLocalGameOptions());
   shopState.phase = "shop";
