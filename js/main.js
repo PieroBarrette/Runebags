@@ -1,4 +1,4 @@
-import {
+﻿import {
   applyCampaignCombatEndBonuses,
   createInitialState,
   enterShopPhase,
@@ -3477,7 +3477,7 @@ function renderCampaignPanel() {
   const completion = getCampaignCompletion(campaignState);
   const completed = new Set(campaignState.completedNodeIds || []);
   const nextNode = getNextCampaignPlayableNode();
-  const ante = Math.max(1, Number(nextNode?.ante) || 1);
+  const cycle = Math.max(1, Number(nextNode?.cycle) || 1);
   const bossClears = CAMPAIGN_NODES.reduce((count, node) => {
     if (!completed.has(node.id)) {
       return count;
@@ -3489,7 +3489,7 @@ function renderCampaignPanel() {
   }, 0);
 
   const rerolls = getCampaignAvailableRerolls();
-  elements.campaignSummary.textContent = `Completed ${completion.completed}/${completion.total} (${completion.percent}%) | Ante ${Math.min(ante, 8)}/8 | Bosses defeated: ${bossClears}/8 | Rerolls: ${rerolls}`;
+  elements.campaignSummary.textContent = `Completed ${completion.completed}/${completion.total} (${completion.percent}%) | Cycle ${Math.min(cycle, 8)}/8 | Bosses defeated: ${bossClears}/8 | Rerolls: ${rerolls}`;
 
   renderCampaignLoadout();
   elements.campaignActionPanel.hidden = true;
@@ -3500,7 +3500,7 @@ function renderCampaignPanel() {
     if (node.type === "shop") {
       return false;
     }
-    return Number(node.ante) === ante;
+    return Number(node.cycle) === cycle;
   });
 
   displayNodes.forEach((node) => {
@@ -3522,11 +3522,11 @@ function renderCampaignPanel() {
     }
 
     const title = document.createElement("h4");
-    const antePrefix = node.ante > 0 ? `Ante ${node.ante} - ` : "";
+    const cyclePrefix = node.cycle > 0 ? `Cycle ${node.cycle} - ` : "";
     const bossName = (node.type === "boss" || node.type === "final-boss")
       ? ensureCampaignBossName(node)
       : "";
-    title.textContent = `${antePrefix}${node.title}`;
+    title.textContent = `${cyclePrefix}${node.title}`;
     card.appendChild(title);
 
     if (bossName) {

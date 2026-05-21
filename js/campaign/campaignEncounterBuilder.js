@@ -1,4 +1,4 @@
-import { createInitialState } from "../core/gameState.js";
+﻿import { createInitialState } from "../core/gameState.js";
 import { createRuneInstance } from "../runes/runeCatalog.js";
 
 const ENCOUNTER_RUNE_BUDGETS = {
@@ -113,9 +113,9 @@ function shuffleInPlace(values, rng) {
 }
 
 function computeBudget(node) {
-  const ante = Math.max(1, Number(node?.ante) || 1);
+  const cycle = Math.max(1, Number(node?.cycle) || 1);
   const nodeType = getEncounterType(node);
-  const key = `${ante}-${nodeType}`;
+  const key = `${cycle}-${nodeType}`;
   return ENCOUNTER_RUNE_BUDGETS[key] || DEFAULT_ENEMY_BUDGET;
 }
 
@@ -358,17 +358,17 @@ function getEnemyPoolSelection(node, campaignState) {
   };
 }
 
-function getObjective(nodeType, ante) {
+function getObjective(nodeType, cycle) {
   if (nodeType === "elite") {
-    return `Elite encounter (Ante ${ante}): win over 5 supply points.`;
+    return `Elite encounter (Cycle ${cycle}): win over 5 supply points.`;
   }
   if (nodeType === "boss") {
-    return `Boss encounter (Ante ${ante}): harder constraints over 7 supply points.`;
+    return `Boss encounter (Cycle ${cycle}): harder constraints over 7 supply points.`;
   }
   if (nodeType === "final-boss") {
     return "Final boss: severe constraints over 10 supply points.";
   }
-  return `Normal encounter (Ante ${ante}): win over 3 supply points.`;
+  return `Normal encounter (Cycle ${cycle}): win over 3 supply points.`;
 }
 
 function applyOpeningPressure(state, nodeType) {
@@ -400,7 +400,7 @@ export function buildCampaignEncounterState(node, campaignState, options = {}) {
   const state = createInitialState(options);
   const selection = getEnemyPoolSelection(node, campaignState);
   const nodeType = selection.nodeType;
-  const ante = Math.max(1, Number(node?.ante) || 1);
+  const cycle = Math.max(1, Number(node?.cycle) || 1);
 
   state.campaignRuleSet = {
     isaReturnToBagAfterCombat: true,
@@ -457,7 +457,7 @@ export function buildCampaignEncounterState(node, campaignState, options = {}) {
     ? String(campaignState?.bossNameByNode?.[node?.id] || "Unnamed Boss").trim()
     : "";
 
-  const objective = getObjective(nodeType, ante);
+  const objective = getObjective(nodeType, cycle);
   const recommendedColumn = nodeType === "combat" ? 3 : 4;
 
   state.log = [

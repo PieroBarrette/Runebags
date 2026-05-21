@@ -1,4 +1,4 @@
-const ANTE_COUNT = 5;
+﻿const CYCLE_COUNT = 5;
 
 const STEP_DEFS = [
   { key: "combat", label: "Normal Combat", type: "combat", roundPointPool: 3, rewardPoints: 35 },
@@ -8,9 +8,9 @@ const STEP_DEFS = [
   { key: "boss", label: "Boss Combat", type: "boss", roundPointPool: 7, rewardPoints: 110 },
 ];
 
-const INTER_ANTE_SHOP_STEP = {
+const INTER_CYCLE_SHOP_STEP = {
   key: "shop-c",
-  label: "Inter-Ante Shop",
+  label: "Inter-Cycle Shop",
   type: "shop",
   roundPointPool: 0,
   rewardPoints: 0,
@@ -21,32 +21,32 @@ function createStartShopNode() {
     id: "start-shop",
     title: "Opening Shop",
     type: "shop",
-    ante: 0,
+    cycle: 0,
     step: "start-shop",
-    description: "Open your run by tuning your bag before ante 1.",
+    description: "Open your run by tuning your bag before cycle 1.",
     roundPointPool: 0,
     rewardPoints: 0,
-    nextIds: ["ante-01-combat"],
+    nextIds: ["cycle-01-combat"],
   };
 }
 
-function createAnteNode(ante, stepIndex, stepDef, nextId) {
-  const isFinalBoss = ante === ANTE_COUNT && stepDef.key === "boss";
+function createCycleNode(cycle, stepIndex, stepDef, nextId) {
+  const isFinalBoss = cycle === CYCLE_COUNT && stepDef.key === "boss";
   const type = isFinalBoss ? "final-boss" : stepDef.type;
-  const id = `ante-${String(ante).padStart(2, "0")}-${stepDef.key}`;
-  const title = isFinalBoss ? "Final Boss" : `Ante ${ante} ${stepDef.label}`;
+  const id = `cycle-${String(cycle).padStart(2, "0")}-${stepDef.key}`;
+  const title = isFinalBoss ? "Final Boss" : `Cycle ${cycle} ${stepDef.label}`;
   const pool = type === "final-boss" ? 10 : stepDef.roundPointPool;
 
   return {
     id,
     title,
     type,
-    ante,
+    cycle,
     step: stepDef.key,
     stepIndex,
     description: isFinalBoss
       ? "Final showdown. Hard constraints and 10-point supply."
-      : `${stepDef.label} for ante ${ante}.`,
+      : `${stepDef.label} for cycle ${cycle}.`,
     roundPointPool: pool,
     rewardPoints: type === "final-boss" ? 220 : stepDef.rewardPoints,
     nextIds: nextId ? [nextId] : [],
@@ -56,21 +56,21 @@ function createAnteNode(ante, stepIndex, stepDef, nextId) {
 function buildLinearNodes() {
   const nodes = [createStartShopNode()];
 
-  for (let ante = 1; ante <= ANTE_COUNT; ante += 1) {
-    const anteSteps = ante < ANTE_COUNT
-      ? [...STEP_DEFS, INTER_ANTE_SHOP_STEP]
+  for (let cycle = 1; cycle <= CYCLE_COUNT; cycle += 1) {
+    const cycleSteps = cycle < CYCLE_COUNT
+      ? [...STEP_DEFS, INTER_CYCLE_SHOP_STEP]
       : STEP_DEFS;
 
-    for (let i = 0; i < anteSteps.length; i += 1) {
-      const stepDef = anteSteps[i];
-      const nextInAnte = anteSteps[i + 1];
-      const nextId = nextInAnte
-        ? `ante-${String(ante).padStart(2, "0")}-${nextInAnte.key}`
-        : ante < ANTE_COUNT
-          ? `ante-${String(ante + 1).padStart(2, "0")}-${STEP_DEFS[0].key}`
+    for (let i = 0; i < cycleSteps.length; i += 1) {
+      const stepDef = cycleSteps[i];
+      const nextInCycle = cycleSteps[i + 1];
+      const nextId = nextInCycle
+        ? `cycle-${String(cycle).padStart(2, "0")}-${nextInCycle.key}`
+        : cycle < CYCLE_COUNT
+          ? `cycle-${String(cycle + 1).padStart(2, "0")}-${STEP_DEFS[0].key}`
           : null;
 
-      nodes.push(createAnteNode(ante, i, stepDef, nextId));
+      nodes.push(createCycleNode(cycle, i, stepDef, nextId));
     }
   }
 
