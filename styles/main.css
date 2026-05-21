@@ -1031,36 +1031,14 @@ body[data-theme="dark"] .chat-row.you {
   line-height: 1.4;
 }
 
-.rules-tutorial-settings {
-  margin-top: 0.75rem;
-  padding: 0.6rem;
-  border: 1px solid rgba(36, 51, 71, 0.2);
-  border-radius: 10px;
-  background: rgba(241, 246, 252, 0.68);
-  display: grid;
-  gap: 0.28rem;
+.rules-tutorial-action {
+  margin-top: 0.85rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid rgba(36, 51, 71, 0.2);
 }
 
-.tutorial-toggle-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-}
-
-.tutorial-toggle-checkbox {
-  width: 1rem;
-  height: 1rem;
-  accent-color: var(--accent);
-}
-
-.tutorial-toggle-text {
-  color: var(--text-main);
-  font-weight: 600;
-}
-
-.tutorial-toggle-hint {
-  margin: 0;
+.rules-tutorial-note {
+  margin: 0.45rem 0 0;
   color: var(--text-soft);
   font-size: 0.84rem;
   line-height: 1.35;
@@ -1498,9 +1476,8 @@ body[data-theme="dark"] .fx-toast.warn {
   background: linear-gradient(180deg, rgba(72, 57, 19, 0.92), rgba(52, 42, 14, 0.9));
 }
 
-body[data-theme="dark"] .rules-tutorial-settings {
+body[data-theme="dark"] .rules-tutorial-action {
   border-color: rgba(220, 230, 241, 0.24);
-  background: rgba(32, 41, 52, 0.68);
 }
 
 body[data-theme="dark"] .tutorial-dialog {

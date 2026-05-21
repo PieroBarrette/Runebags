@@ -314,7 +314,7 @@ const elements = {
   tutorialPromptSkipBtn: document.getElementById("tutorial-prompt-skip-btn"),
   tutorialDialog: document.getElementById("tutorial-dialog"),
   tutorialDialogText: document.getElementById("tutorial-dialog-text"),
-  rulesTutorialToggle: document.getElementById("rules-tutorial-toggle"),
+  rulesTutorialBtn: document.getElementById("rules-tutorial-btn"),
 };
 
 let selectedLocalRuneIds = loadRuneSelectionPreference();

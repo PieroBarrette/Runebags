@@ -124,9 +124,9 @@ export function createTutorialController(options) {
   }
 
   function syncToggle() {
-    if (elements.rulesTutorialToggle) {
-      elements.rulesTutorialToggle.checked = Boolean(state.enabled);
-      elements.rulesTutorialToggle.disabled = Boolean(state.completed);
+    if (elements.rulesTutorialBtn) {
+      elements.rulesTutorialBtn.textContent = state.enabled ? "disable tutorial" : "enable tutorial";
+      elements.rulesTutorialBtn.setAttribute("aria-pressed", state.enabled ? "true" : "false");
     }
   }
 
@@ -315,9 +315,9 @@ export function createTutorialController(options) {
     resolvePrompt(false);
   });
 
-  if (elements.rulesTutorialToggle) {
-    elements.rulesTutorialToggle.addEventListener("change", (event) => {
-      const nextEnabled = Boolean(event.target.checked);
+  if (elements.rulesTutorialBtn) {
+    elements.rulesTutorialBtn.addEventListener("click", () => {
+      const nextEnabled = !state.enabled;
       state.enabled = nextEnabled;
       onSetEnabled(nextEnabled);
       if (!nextEnabled) {
