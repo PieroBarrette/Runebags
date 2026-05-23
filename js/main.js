@@ -314,6 +314,9 @@ const elements = {
   tutorialPromptSkipBtn: document.getElementById("tutorial-prompt-skip-btn"),
   tutorialDialog: document.getElementById("tutorial-dialog"),
   tutorialDialogText: document.getElementById("tutorial-dialog-text"),
+  tutorialChecklist: document.getElementById("tutorial-checklist"),
+  tutorialChecklistObjective: document.getElementById("tutorial-checklist-objective"),
+  tutorialChecklistList: document.getElementById("tutorial-checklist-list"),
   rulesTutorialBtn: document.getElementById("rules-tutorial-btn"),
 };
 
@@ -350,6 +353,7 @@ let previousTurnPillText = "";
 let previousStatusText = "";
 let previousShopStateKey = "";
 let suppressBoardClickOnce = false;
+let activeTutorialCueTokens = [];
 let activeFeedTab = "turn";
 let onlineChatMessages = [];
 let hasUnreadChat = false;
@@ -1689,6 +1693,7 @@ function render() {
     return;
   }
 
+  tutorialController.onGameStateUpdated(state);
   hideBoardRuneInfo();
   normalizeCampaignEndStateIfNeeded();
 
@@ -1797,6 +1802,7 @@ function render() {
   renderEndgameBags();
   updateMeta();
   updateTopStatus();
+  renderTutorialOverlay();
   applyUiPulseTransitions();
   updateTopButtons();
   updateOnlineConnectionStatus();
@@ -2051,6 +2057,111 @@ function applyUiPulseTransitions() {
   elements.boardPanel.classList.toggle("board-in-round", state.phase === "round");
 }
 
+function renderTutorialOverlay() {
+  const uiState = tutorialController.getUiState();
+  renderTutorialChecklist(uiState);
+  applyTutorialCueTargets(uiState.cueTargets || []);
+}
+
+function renderTutorialChecklist(uiState) {
+  const shouldShow = Boolean(uiState?.showChecklist);
+  if (!elements.tutorialChecklist || !elements.tutorialChecklistObjective || !elements.tutorialChecklistList) {
+    return;
+  }
+
+  elements.tutorialChecklist.hidden = !shouldShow;
+  if (!shouldShow) {
+    elements.tutorialChecklistObjective.textContent = "";
+    elements.tutorialChecklistList.innerHTML = "";
+    return;
+  }
+
+  elements.tutorialChecklistObjective.textContent = uiState.objectiveText || "";
+  elements.tutorialChecklistList.innerHTML = "";
+
+  const items = Array.isArray(uiState.checklistItems) ? uiState.checklistItems : [];
+  items.forEach((item) => {
+    const li = document.createElement("li");
+    li.className = "tutorial-checklist-item";
+    if (item.done) {
+      li.classList.add("done");
+    }
+
+    li.textContent = `${item.done ? "Done" : "Open"}: ${item.label}`;
+    elements.tutorialChecklistList.appendChild(li);
+  });
+}
+
+function clearTutorialCueTargets() {
+  activeTutorialCueTokens.forEach(({ element, className }) => {
+    if (element) {
+      element.classList.remove(className);
+    }
+  });
+  activeTutorialCueTokens = [];
+}
+
+function addTutorialCue(element, className = "tutorial-cue-target") {
+  if (!element || typeof element.classList?.add !== "function") {
+    return;
+  }
+  element.classList.add(className);
+  activeTutorialCueTokens.push({ element, className });
+}
+
+function resolveTutorialCueElements(target) {
+  if (target === "shop-offer") {
+    return [elements.shopOffer];
+  }
+
+  if (target === "shop-bag") {
+    return [elements.shopBag];
+  }
+
+  if (target === "shop-remove-btn") {
+    return [elements.shopRemoveBtn];
+  }
+
+  if (target === "shop-combine-btn") {
+    return [elements.shopCombineBtn];
+  }
+
+  if (target === "phase-btn") {
+    return [elements.phaseBtn];
+  }
+
+  if (target === "board") {
+    return [elements.boardEl];
+  }
+
+  if (target === "active-hand") {
+    return [state.currentPlayer === 1 ? elements.player1Hand : elements.player2Hand];
+  }
+
+  if (target === "point-pool") {
+    return [elements.pointPool];
+  }
+
+  if (target === "turn-pill") {
+    return [elements.turnPill];
+  }
+
+  return [];
+}
+
+function applyTutorialCueTargets(targets) {
+  clearTutorialCueTargets();
+
+  if (!Array.isArray(targets) || targets.length === 0) {
+    return;
+  }
+
+  targets.forEach((target) => {
+    const resolved = resolveTutorialCueElements(target);
+    resolved.forEach((element) => addTutorialCue(element));
+  });
+}
+
 function updateTopStatus() {
   if (state.pendingAction) {
     elements.turnPill.textContent = `Round ${state.roundNumber} - ${getDisplayPlayerName(state.currentPlayer)} choice`;
@@ -2216,6 +2327,8 @@ function renderShopPanel() {
   const highlights = getShopHighlights(state);
   const actions = getShopActionAvailability(state);
   const playerReady = Boolean(data.ready);
+
+  tutorialController.onShopAvailabilityChanged(playerId, Boolean(actions.combineVisible));
 
   elements.shopPlayerTitle.textContent = online.isOnlineActive()
     ? `Your Shop - ${getDisplayPlayerName(playerId)}`

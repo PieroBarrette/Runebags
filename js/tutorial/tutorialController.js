@@ -66,6 +66,26 @@ const ALL_TRIGGER_IDS = new Set(
     .map((entry) => entry.id),
 );
 
+const MESSAGE_BY_ID = new Map(
+  Object.values(TUTORIAL_MESSAGES)
+    .flat()
+    .map((entry) => [entry.id, entry]),
+);
+
+const MESSAGE_OBJECTIVE_LABELS = {
+  "shop-add": "Add runes from the shop offer.",
+  "shop-remove": "Remove one rune from your bag.",
+  "shop-combine": "Watch for the first combine opportunity.",
+  "shop-next": "Start the next round when shopping is done.",
+  "round-play": "Select a rune in hand, then pick a column.",
+  "round-connect-four": "Goal: make a line of four runes.",
+  "round-hover": "Hover a board rune to read its effect.",
+  "round-pass": "Learn what forced pass means.",
+  "round-tie-remove-point": "Learn what happens on tied rounds.",
+  "round-majority-win": "Learn how to win by points majority.",
+  "round-bag-tiebreak": "Learn the final bag-size tiebreak.",
+};
+
 function asSet(value) {
   if (!Array.isArray(value)) {
     return new Set();
@@ -98,6 +118,22 @@ export function createTutorialController(options) {
     active: null,
     typedLength: 0,
     typingTimer: null,
+    shopAddActionSeen: false,
+    lastShopAddedCountByPlayer: {
+      1: 0,
+      2: 0,
+    },
+    lastShopAddLimitByPlayer: {
+      1: 2,
+      2: 2,
+    },
+    lastCombineVisibleByPlayer: {
+      1: false,
+      2: false,
+    },
+    shopAddLimitReachedSeen: false,
+    currentShopAddCount: 0,
+    currentShopAddLimit: 2,
   };
 
   function stopTyping() {
@@ -228,6 +264,30 @@ export function createTutorialController(options) {
     startTyping(next);
   }
 
+  function enqueueMessageById(id) {
+    if (!id || state.shownTriggerIds.has(id)) {
+      return;
+    }
+
+    const message = MESSAGE_BY_ID.get(id);
+    if (!message) {
+      return;
+    }
+
+    const alreadyQueued = state.queue.some((entry) => entry.id === id) || state.active?.id === id;
+    if (alreadyQueued) {
+      return;
+    }
+
+    const sequenceKey = message.id.startsWith("shop-") ? "shop" : "round";
+    state.queue.push({ ...message, sequenceKey });
+  }
+
+  function enqueueMessages(ids) {
+    ids.forEach((id) => enqueueMessageById(id));
+    showNextMessage();
+  }
+
   function enqueueSequence(sequenceKey) {
     if (!state.enabled || state.completed) {
       return;
@@ -260,12 +320,102 @@ export function createTutorialController(options) {
       return;
     }
 
-    if (phase === "shop" && !state.shopSequenceSeen) {
-      enqueueSequence("shop");
+    if (phase === "shop") {
+      enqueueMessages(["shop-add"]);
+    }
+  }
+
+  function syncShopAddProgress(gameState) {
+    const shopPlayers = gameState?.shop?.players;
+    const shopCurrentPlayerId = Number(gameState?.shop?.currentPlayer) || 1;
+    const currentShopData = shopPlayers?.[shopCurrentPlayerId];
+    state.currentShopAddCount = Math.max(0, Number(currentShopData?.addedCount) || 0);
+    state.currentShopAddLimit = Math.max(1, Number(currentShopData?.addLimit) || 2);
+
+    [1, 2].forEach((playerId) => {
+      const addedCount = Math.max(0, Number(shopPlayers?.[playerId]?.addedCount) || 0);
+      const addLimit = Math.max(1, Number(shopPlayers?.[playerId]?.addLimit) || 2);
+      if (addedCount > 0 || addedCount > state.lastShopAddedCountByPlayer[playerId]) {
+        state.shopAddActionSeen = true;
+      }
+      if (addedCount >= addLimit) {
+        state.shopAddLimitReachedSeen = true;
+      }
+      state.lastShopAddedCountByPlayer[playerId] = addedCount;
+      state.lastShopAddLimitByPlayer[playerId] = addLimit;
+    });
+  }
+
+  function onGameStateUpdated(gameState) {
+    if (!gameState || typeof gameState !== "object") {
+      return;
     }
 
-    if (phase === "round" && !state.roundSequenceSeen) {
-      enqueueSequence("round");
+    state.phase = gameState.phase;
+    syncShopAddProgress(gameState);
+
+    if (!state.enabled || state.completed || !state.gameScreenVisible || !isEligibleMode()) {
+      return;
+    }
+
+    if (gameState.phase === "shop") {
+      if (!state.shownTriggerIds.has("shop-add")) {
+        enqueueMessageById("shop-add");
+      }
+      if (state.shopAddLimitReachedSeen) {
+        enqueueMessageById("shop-remove");
+      }
+      if (state.shownTriggerIds.has("shop-remove")) {
+        enqueueMessageById("shop-next");
+      }
+      showNextMessage();
+      return;
+    }
+
+    if (gameState.phase === "round" && gameState.roundNumber === 1) {
+      if (gameState.turnNumber === 1) {
+        enqueueMessageById("round-play");
+      }
+      if (gameState.turnNumber >= 2) {
+        enqueueMessageById("round-connect-four");
+      }
+      if (gameState.turnNumber >= 3) {
+        enqueueMessageById("round-hover");
+      }
+      showNextMessage();
+      return;
+    }
+
+    if (gameState.phase === "round-end" && gameState.roundNumber === 1) {
+      enqueueMessages([
+        "round-pass",
+        "round-tie-remove-point",
+        "round-majority-win",
+        "round-bag-tiebreak",
+      ]);
+    }
+  }
+
+  function onShopAvailabilityChanged(playerId, combineVisible) {
+    const normalizedPlayerId = Number(playerId);
+    if (normalizedPlayerId !== 1 && normalizedPlayerId !== 2) {
+      return;
+    }
+
+    const wasVisible = Boolean(state.lastCombineVisibleByPlayer[normalizedPlayerId]);
+    const isVisible = Boolean(combineVisible);
+    state.lastCombineVisibleByPlayer[normalizedPlayerId] = isVisible;
+
+    if (!state.enabled || state.completed || !state.gameScreenVisible || !isEligibleMode()) {
+      return;
+    }
+
+    if (state.phase !== "shop") {
+      return;
+    }
+
+    if (isVisible && !wasVisible) {
+      enqueueMessages(["shop-combine"]);
     }
   }
 
@@ -336,6 +486,8 @@ export function createTutorialController(options) {
     state.shopSequenceSeen = Boolean(profileState?.shopSequenceSeen);
     state.roundSequenceSeen = Boolean(profileState?.roundSequenceSeen);
     state.shownTriggerIds = asSet(profileState?.shownTriggerIds);
+    state.shopAddActionSeen = state.shownTriggerIds.has("shop-remove") || state.shownTriggerIds.has("shop-next");
+    state.shopAddLimitReachedSeen = state.shownTriggerIds.has("shop-remove") || state.shownTriggerIds.has("shop-next");
 
     if (state.completed && state.enabled) {
       state.enabled = false;
@@ -372,10 +524,147 @@ export function createTutorialController(options) {
     hideBubble(true);
   }
 
+  function getCueTargetsForActiveMessage() {
+    const messageId = state.active?.id;
+    if (!messageId) {
+      return [];
+    }
+
+    if (messageId === "shop-add") {
+      return ["shop-offer"];
+    }
+
+    if (messageId === "shop-remove") {
+      return ["shop-bag", "shop-remove-btn"];
+    }
+
+    if (messageId === "shop-combine") {
+      return ["shop-bag", "shop-combine-btn"];
+    }
+
+    if (messageId === "shop-next") {
+      return ["phase-btn"];
+    }
+
+    if (messageId === "round-play") {
+      return ["active-hand", "board"];
+    }
+
+    if (messageId === "round-connect-four") {
+      return ["board"];
+    }
+
+    if (messageId === "round-hover") {
+      return ["board"];
+    }
+
+    if (
+      messageId === "round-pass"
+      || messageId === "round-tie-remove-point"
+      || messageId === "round-majority-win"
+      || messageId === "round-bag-tiebreak"
+    ) {
+      return ["point-pool", "turn-pill"];
+    }
+
+    return [];
+  }
+
+  function getChecklistItems() {
+    const addProgress = Math.min(state.currentShopAddCount, state.currentShopAddLimit);
+    const pointsExplained = [
+      "round-pass",
+      "round-tie-remove-point",
+      "round-majority-win",
+      "round-bag-tiebreak",
+    ].every((id) => state.shownTriggerIds.has(id));
+
+    return [
+      {
+        key: "add",
+        label: `Add runes from the offer (${addProgress}/${state.currentShopAddLimit})`,
+        done: state.shopAddLimitReachedSeen || state.shownTriggerIds.has("shop-remove"),
+      },
+      {
+        key: "remove",
+        label: "Remove one rune in shop",
+        done: state.shownTriggerIds.has("shop-remove"),
+      },
+      {
+        key: "combine",
+        label: "See first combine opportunity",
+        done: state.shownTriggerIds.has("shop-combine"),
+      },
+      {
+        key: "round-play",
+        label: "Play your first turn",
+        done: state.shownTriggerIds.has("round-play"),
+      },
+      {
+        key: "round-goal",
+        label: "Read the round goal (line of 4)",
+        done: state.shownTriggerIds.has("round-connect-four"),
+      },
+      {
+        key: "round-hover",
+        label: "Read the hover explanation",
+        done: state.shownTriggerIds.has("round-hover"),
+      },
+      {
+        key: "points",
+        label: "Read end-of-round points explanations",
+        done: pointsExplained,
+      },
+    ];
+  }
+
+  function getObjectiveText(checklistItems) {
+    if (state.active?.id) {
+      return MESSAGE_OBJECTIVE_LABELS[state.active.id] || state.active.text;
+    }
+
+    const nextItem = checklistItems.find((item) => !item.done);
+    if (nextItem) {
+      return nextItem.label;
+    }
+
+    return "Tutorial complete.";
+  }
+
+  function getUiState() {
+    const showChecklist = Boolean(
+      state.gameScreenVisible
+        && state.introPromptSeen
+        && state.enabled
+        && !state.completed
+        && isEligibleMode(),
+    );
+
+    if (!showChecklist) {
+      return {
+        showChecklist: false,
+        objectiveText: "",
+        checklistItems: [],
+        cueTargets: [],
+      };
+    }
+
+    const checklistItems = getChecklistItems();
+    return {
+      showChecklist: true,
+      objectiveText: getObjectiveText(checklistItems),
+      checklistItems,
+      cueTargets: getCueTargetsForActiveMessage(),
+    };
+  }
+
   return {
     loadProfileTutorialState,
     onGameEntered,
     maybeQueueForPhase,
+    onGameStateUpdated,
+    onShopAvailabilityChanged,
+    getUiState,
     hideAll,
     syncToggle,
   };
