@@ -238,7 +238,7 @@ export function getProfileTutorialState(slot) {
   const progress = sanitizeTutorialProgress(profile?.tutorialProgress, profile?.tutorialSeen);
   const enabled = typeof profile?.tutorialEnabled === "boolean"
     ? profile.tutorialEnabled
-    : !progress.introPromptSeen;
+    : false;
 
   return {
     enabled: Boolean(enabled),

@@ -72,20 +72,6 @@ const MESSAGE_BY_ID = new Map(
     .map((entry) => [entry.id, entry]),
 );
 
-const MESSAGE_OBJECTIVE_LABELS = {
-  "shop-add": "Add runes from the shop offer.",
-  "shop-remove": "Remove one rune from your bag.",
-  "shop-combine": "Watch for the first combine opportunity.",
-  "shop-next": "Start the next round when shopping is done.",
-  "round-play": "Select a rune in hand, then pick a column.",
-  "round-connect-four": "Goal: make a line of four runes.",
-  "round-hover": "Hover a board rune to read its effect.",
-  "round-pass": "Learn what forced pass means.",
-  "round-tie-remove-point": "Learn what happens on tied rounds.",
-  "round-majority-win": "Learn how to win by points majority.",
-  "round-bag-tiebreak": "Learn the final bag-size tiebreak.",
-};
-
 function asSet(value) {
   if (!Array.isArray(value)) {
     return new Set();
@@ -233,7 +219,7 @@ export function createTutorialController(options) {
   }
 
   function showNextMessage() {
-    if (!state.enabled || state.completed || !state.gameScreenVisible || !isEligibleMode()) {
+    if (!state.enabled || state.completed || !state.introPromptSeen || !state.gameScreenVisible || !isEligibleMode()) {
       hideBubble(true);
       return;
     }
@@ -316,7 +302,7 @@ export function createTutorialController(options) {
 
   function maybeQueueForPhase(phase) {
     state.phase = phase;
-    if (!state.enabled || state.completed || !isEligibleMode()) {
+    if (!state.enabled || state.completed || !state.introPromptSeen || !isEligibleMode()) {
       return;
     }
 
@@ -354,7 +340,7 @@ export function createTutorialController(options) {
     state.phase = gameState.phase;
     syncShopAddProgress(gameState);
 
-    if (!state.enabled || state.completed || !state.gameScreenVisible || !isEligibleMode()) {
+    if (!state.enabled || state.completed || !state.introPromptSeen || !state.gameScreenVisible || !isEligibleMode()) {
       return;
     }
 
@@ -406,7 +392,7 @@ export function createTutorialController(options) {
     const isVisible = Boolean(combineVisible);
     state.lastCombineVisibleByPlayer[normalizedPlayerId] = isVisible;
 
-    if (!state.enabled || state.completed || !state.gameScreenVisible || !isEligibleMode()) {
+    if (!state.enabled || state.completed || !state.introPromptSeen || !state.gameScreenVisible || !isEligibleMode()) {
       return;
     }
 
@@ -448,8 +434,16 @@ export function createTutorialController(options) {
       onSetEnabled(false);
       syncToggle();
       hideBubble(true);
-    } else if (state.enabled && !state.completed) {
+    } else {
+      if (!state.completed && !state.enabled) {
+        state.enabled = true;
+        onSetEnabled(true);
+        syncToggle();
+      }
+
+      if (state.enabled && !state.completed) {
       maybeQueueForPhase(state.phase);
+      }
     }
 
     onPromptResolved();
@@ -570,91 +564,16 @@ export function createTutorialController(options) {
     return [];
   }
 
-  function getChecklistItems() {
-    const addProgress = Math.min(state.currentShopAddCount, state.currentShopAddLimit);
-    const pointsExplained = [
-      "round-pass",
-      "round-tie-remove-point",
-      "round-majority-win",
-      "round-bag-tiebreak",
-    ].every((id) => state.shownTriggerIds.has(id));
-
-    return [
-      {
-        key: "add",
-        label: `Add runes from the offer (${addProgress}/${state.currentShopAddLimit})`,
-        done: state.shopAddLimitReachedSeen || state.shownTriggerIds.has("shop-remove"),
-      },
-      {
-        key: "remove",
-        label: "Remove one rune in shop",
-        done: state.shownTriggerIds.has("shop-remove"),
-      },
-      {
-        key: "combine",
-        label: "See first combine opportunity",
-        done: state.shownTriggerIds.has("shop-combine"),
-      },
-      {
-        key: "round-play",
-        label: "Play your first turn",
-        done: state.shownTriggerIds.has("round-play"),
-      },
-      {
-        key: "round-goal",
-        label: "Read the round goal (line of 4)",
-        done: state.shownTriggerIds.has("round-connect-four"),
-      },
-      {
-        key: "round-hover",
-        label: "Read the hover explanation",
-        done: state.shownTriggerIds.has("round-hover"),
-      },
-      {
-        key: "points",
-        label: "Read end-of-round points explanations",
-        done: pointsExplained,
-      },
-    ];
-  }
-
-  function getObjectiveText(checklistItems) {
-    if (state.active?.id) {
-      return MESSAGE_OBJECTIVE_LABELS[state.active.id] || state.active.text;
-    }
-
-    const nextItem = checklistItems.find((item) => !item.done);
-    if (nextItem) {
-      return nextItem.label;
-    }
-
-    return "Tutorial complete.";
-  }
-
   function getUiState() {
-    const showChecklist = Boolean(
+    const showCues = Boolean(
       state.gameScreenVisible
         && state.introPromptSeen
         && state.enabled
         && !state.completed
         && isEligibleMode(),
     );
-
-    if (!showChecklist) {
-      return {
-        showChecklist: false,
-        objectiveText: "",
-        checklistItems: [],
-        cueTargets: [],
-      };
-    }
-
-    const checklistItems = getChecklistItems();
     return {
-      showChecklist: true,
-      objectiveText: getObjectiveText(checklistItems),
-      checklistItems,
-      cueTargets: getCueTargetsForActiveMessage(),
+      cueTargets: showCues ? getCueTargetsForActiveMessage() : [],
     };
   }
 

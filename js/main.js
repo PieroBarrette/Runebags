@@ -314,9 +314,6 @@ const elements = {
   tutorialPromptSkipBtn: document.getElementById("tutorial-prompt-skip-btn"),
   tutorialDialog: document.getElementById("tutorial-dialog"),
   tutorialDialogText: document.getElementById("tutorial-dialog-text"),
-  tutorialChecklist: document.getElementById("tutorial-checklist"),
-  tutorialChecklistObjective: document.getElementById("tutorial-checklist-objective"),
-  tutorialChecklistList: document.getElementById("tutorial-checklist-list"),
   rulesTutorialBtn: document.getElementById("rules-tutorial-btn"),
 };
 
@@ -2064,37 +2061,7 @@ function applyUiPulseTransitions() {
 
 function renderTutorialOverlay() {
   const uiState = tutorialController.getUiState();
-  renderTutorialChecklist(uiState);
   applyTutorialCueTargets(uiState.cueTargets || []);
-}
-
-function renderTutorialChecklist(uiState) {
-  const shouldShow = Boolean(uiState?.showChecklist);
-  if (!elements.tutorialChecklist || !elements.tutorialChecklistObjective || !elements.tutorialChecklistList) {
-    return;
-  }
-
-  elements.tutorialChecklist.hidden = !shouldShow;
-  if (!shouldShow) {
-    elements.tutorialChecklistObjective.textContent = "";
-    elements.tutorialChecklistList.innerHTML = "";
-    return;
-  }
-
-  elements.tutorialChecklistObjective.textContent = uiState.objectiveText || "";
-  elements.tutorialChecklistList.innerHTML = "";
-
-  const items = Array.isArray(uiState.checklistItems) ? uiState.checklistItems : [];
-  items.forEach((item) => {
-    const li = document.createElement("li");
-    li.className = "tutorial-checklist-item";
-    if (item.done) {
-      li.classList.add("done");
-    }
-
-    li.textContent = `${item.done ? "Done" : "Open"}: ${item.label}`;
-    elements.tutorialChecklistList.appendChild(li);
-  });
 }
 
 function clearTutorialCueTargets() {
