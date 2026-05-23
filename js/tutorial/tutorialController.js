@@ -72,6 +72,26 @@ const MESSAGE_BY_ID = new Map(
     .map((entry) => [entry.id, entry]),
 );
 
+const MESSAGE_OBJECTIVE_LABELS = {
+  "shop-add": "Add runes from the shop offer.",
+  "shop-remove": "Remove one rune from your bag.",
+  "shop-combine": "Watch for the first combine opportunity.",
+  "shop-next": "Start the next round when shopping is done.",
+  "round-play": "Select a rune in hand, then pick a column.",
+  "round-connect-four": "Goal: make a line of four runes.",
+  "round-hover": "Hover a board rune to read its effect.",
+  "round-pass": "Learn the forced-pass rule.",
+  "round-tie-remove-point": "Learn tied-round point removal.",
+  "round-majority-win": "Learn majority point victory.",
+  "round-bag-tiebreak": "Learn the final bag-size tiebreak.",
+};
+
+const OPTIONAL_TRIGGER_IDS = new Set([
+  "round-pass",
+  "round-tie-remove-point",
+  "round-bag-tiebreak",
+]);
+
 function asSet(value) {
   if (!Array.isArray(value)) {
     return new Set();
@@ -120,6 +140,10 @@ export function createTutorialController(options) {
     shopAddLimitReachedSeen: false,
     currentShopAddCount: 0,
     currentShopAddLimit: 2,
+    lastObservedLogCount: null,
+    roundOneEnded: false,
+    roundOneWasDraw: false,
+    roundOneBagTiebreakRelevant: false,
   };
 
   function stopTyping() {
@@ -170,7 +194,9 @@ export function createTutorialController(options) {
       return;
     }
 
-    const allSeen = [...ALL_TRIGGER_IDS].every((id) => state.shownTriggerIds.has(id));
+    const allSeen = [...ALL_TRIGGER_IDS]
+      .filter((id) => !OPTIONAL_TRIGGER_IDS.has(id))
+      .every((id) => state.shownTriggerIds.has(id));
     if (!allSeen) {
       return;
     }
@@ -332,6 +358,81 @@ export function createTutorialController(options) {
     });
   }
 
+  function getPlayerIdFromLogPrefix(logLine) {
+    if (typeof logLine !== "string") {
+      return null;
+    }
+
+    if (logLine.startsWith("Black ")) {
+      return 1;
+    }
+
+    if (logLine.startsWith("White ")) {
+      return 2;
+    }
+
+    return null;
+  }
+
+  function inspectRecentLogEvents(gameState) {
+    const logEntries = Array.isArray(gameState?.log) ? gameState.log : [];
+    const currentCount = logEntries.length;
+
+    if (state.lastObservedLogCount === null) {
+      state.lastObservedLogCount = currentCount;
+      return;
+    }
+
+    if (currentCount < state.lastObservedLogCount) {
+      state.lastObservedLogCount = currentCount;
+      return;
+    }
+
+    if (currentCount === state.lastObservedLogCount) {
+      return;
+    }
+
+    const newCount = currentCount - state.lastObservedLogCount;
+    const newEntries = logEntries.slice(0, newCount);
+    state.lastObservedLogCount = currentCount;
+
+    if (state.shownTriggerIds.has("round-pass")) {
+      return;
+    }
+
+    newEntries.forEach((entry) => {
+      if (!/cannot play and must pass\.$/.test(entry)) {
+        return;
+      }
+
+      const playerId = getPlayerIdFromLogPrefix(entry);
+      if (playerId !== 1 && playerId !== 2) {
+        return;
+      }
+
+      const player = gameState.players?.[playerId];
+      const handCount = Math.max(0, Number(player?.hand?.length) || 0);
+      const bagCount = Math.max(0, Number(player?.bag?.length) || 0);
+      if (handCount === 0 && bagCount === 0) {
+        enqueueMessageById("round-pass");
+      }
+    });
+  }
+
+  function queueFirstRoundPointSupplyMessages() {
+    const ids = ["round-majority-win"];
+
+    if (state.roundOneWasDraw) {
+      ids.push("round-tie-remove-point");
+    }
+
+    if (state.roundOneBagTiebreakRelevant) {
+      ids.push("round-bag-tiebreak");
+    }
+
+    enqueueMessages(ids);
+  }
+
   function onGameStateUpdated(gameState) {
     if (!gameState || typeof gameState !== "object") {
       return;
@@ -339,6 +440,21 @@ export function createTutorialController(options) {
 
     state.phase = gameState.phase;
     syncShopAddProgress(gameState);
+    inspectRecentLogEvents(gameState);
+
+    if (!state.roundOneEnded && gameState.roundNumber === 1) {
+      if (gameState.phase === "round-end") {
+        state.roundOneEnded = true;
+        state.roundOneWasDraw = gameState.winner === null;
+        queueFirstRoundPointSupplyMessages();
+      } else if (gameState.phase === "game-over") {
+        state.roundOneEnded = true;
+        state.roundOneWasDraw = gameState.winner === null;
+        state.roundOneBagTiebreakRelevant =
+          gameState.gameWinnerReason === "fewest-bag-runes" || gameState.gameWinnerReason === "full-tie";
+        queueFirstRoundPointSupplyMessages();
+      }
+    }
 
     if (!state.enabled || state.completed || !state.introPromptSeen || !state.gameScreenVisible || !isEligibleMode()) {
       return;
@@ -372,14 +488,7 @@ export function createTutorialController(options) {
       return;
     }
 
-    if (gameState.phase === "round-end" && gameState.roundNumber === 1) {
-      enqueueMessages([
-        "round-pass",
-        "round-tie-remove-point",
-        "round-majority-win",
-        "round-bag-tiebreak",
-      ]);
-    }
+    showNextMessage();
   }
 
   function onShopAvailabilityChanged(playerId, combineVisible) {
@@ -482,6 +591,10 @@ export function createTutorialController(options) {
     state.shownTriggerIds = asSet(profileState?.shownTriggerIds);
     state.shopAddActionSeen = state.shownTriggerIds.has("shop-remove") || state.shownTriggerIds.has("shop-next");
     state.shopAddLimitReachedSeen = state.shownTriggerIds.has("shop-remove") || state.shownTriggerIds.has("shop-next");
+    state.roundOneEnded = state.shownTriggerIds.has("round-majority-win") || state.shownTriggerIds.has("round-tie-remove-point");
+    state.roundOneWasDraw = state.shownTriggerIds.has("round-tie-remove-point");
+    state.roundOneBagTiebreakRelevant = state.shownTriggerIds.has("round-bag-tiebreak");
+    state.lastObservedLogCount = null;
 
     if (state.completed && state.enabled) {
       state.enabled = false;
@@ -495,6 +608,7 @@ export function createTutorialController(options) {
     state.mode = mode;
     state.phase = phase;
     state.gameScreenVisible = true;
+    state.lastObservedLogCount = null;
 
     if (!isEligibleMode()) {
       hidePrompt();
@@ -516,6 +630,7 @@ export function createTutorialController(options) {
     state.gameScreenVisible = false;
     hidePrompt();
     hideBubble(true);
+    state.lastObservedLogCount = null;
   }
 
   function getCueTargetsForActiveMessage() {
@@ -565,15 +680,86 @@ export function createTutorialController(options) {
   }
 
   function getUiState() {
-    const showCues = Boolean(
+    const showOverlay = Boolean(
       state.gameScreenVisible
         && state.introPromptSeen
         && state.enabled
         && !state.completed
         && isEligibleMode(),
     );
+
+    if (!showOverlay) {
+      return {
+        showChecklist: false,
+        objectiveText: "",
+        checklistItems: [],
+        cueTargets: [],
+      };
+    }
+
+    const addProgress = Math.min(state.currentShopAddCount, state.currentShopAddLimit);
+    const pointsExplained = state.shownTriggerIds.has("round-majority-win")
+      && (!state.roundOneWasDraw || state.shownTriggerIds.has("round-tie-remove-point"))
+      && (!state.roundOneBagTiebreakRelevant || state.shownTriggerIds.has("round-bag-tiebreak"));
+
+    const checklistItems = [
+      {
+        key: "add",
+        label: `Add runes from the offer (${addProgress}/${state.currentShopAddLimit})`,
+        done: state.shopAddLimitReachedSeen || state.shownTriggerIds.has("shop-remove"),
+      },
+      {
+        key: "remove",
+        label: "Remove one rune in shop",
+        done: state.shownTriggerIds.has("shop-remove"),
+      },
+      {
+        key: "combine",
+        label: "See first combine opportunity",
+        done: state.shownTriggerIds.has("shop-combine"),
+      },
+      {
+        key: "round-play",
+        label: "Play your first turn",
+        done: state.shownTriggerIds.has("round-play"),
+      },
+      {
+        key: "round-goal",
+        label: "Read the round goal (line of 4)",
+        done: state.shownTriggerIds.has("round-connect-four"),
+      },
+      {
+        key: "round-hover",
+        label: "Read the hover explanation",
+        done: state.shownTriggerIds.has("round-hover"),
+      },
+      {
+        key: "pass-rule",
+        label: "See forced pass tip when a player has no bag and hand",
+        done: state.shownTriggerIds.has("round-pass"),
+      },
+      {
+        key: "points",
+        label: "Read first-round point supply explanations",
+        done: pointsExplained,
+      },
+    ];
+
+    let objectiveText = "Tutorial complete.";
+    if (state.active?.id) {
+      objectiveText = MESSAGE_OBJECTIVE_LABELS[state.active.id] || state.active.text;
+    } else {
+      const nextItem = checklistItems.find((item) => !item.done);
+      if (nextItem) {
+        objectiveText = nextItem.label;
+      }
+    }
+
     return {
-      cueTargets: showCues ? getCueTargetsForActiveMessage() : [],
+      showChecklist: true,
+      objectiveText,
+      checklistItems,
+      cueTargets: getCueTargetsForActiveMessage(),
     };
   }
 
