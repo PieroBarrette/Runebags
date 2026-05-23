@@ -580,10 +580,15 @@ function bindEvents() {
   });
 
   elements.menuCampaignBtn.addEventListener("click", () => {
-    if (tryResumeCampaignEncounter()) {
+    if (hasSavedCampaignProgress()) {
+      if (tryResumeCampaignEncounter()) {
+        return;
+      }
+      showCampaignPanel();
       return;
     }
-    showCampaignPanel();
+
+    startFreshCampaignRun();
   });
 
   elements.menuPassplayBtn.addEventListener("click", () => {
@@ -2781,6 +2786,24 @@ function showMainMenu() {
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
   refreshProfileHeader();
+  updateCampaignMenuButtonLabel();
+}
+
+function hasSavedCampaignProgress() {
+  const hasRunProgress = Boolean(campaignState?.started)
+    || (Array.isArray(campaignState?.completedNodeIds) && campaignState.completedNodeIds.length > 0)
+    || Boolean(campaignState?.currentNodeId);
+  const hasEncounterSave = Boolean(loadModeSave(MODE_CAMPAIGN, activeProfileSlot)?.state);
+  return hasRunProgress || hasEncounterSave;
+}
+
+function updateCampaignMenuButtonLabel() {
+  if (!elements.menuCampaignBtn) {
+    return;
+  }
+  elements.menuCampaignBtn.textContent = hasSavedCampaignProgress()
+    ? "Continue campaign"
+    : "New campaign";
 }
 
 function showAiPanel() {
