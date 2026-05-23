@@ -658,6 +658,21 @@ body[data-theme="dark"] .menu-logo {
   width: 100%;
 }
 
+.profile-slot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.menu-btn.danger {
+  background: linear-gradient(180deg, #f8e3e1, #efc8c4);
+  color: #59221b;
+}
+
+.menu-btn.danger:hover {
+  border-color: #a0473d;
+}
+
 .achievements-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
@@ -925,6 +940,11 @@ body[data-theme="dark"] #phase-btn {
 
 body[data-theme="dark"] .menu-btn.secondary {
   background: linear-gradient(180deg, #26303b, #1b2430);
+}
+
+body[data-theme="dark"] .menu-btn.danger {
+  background: linear-gradient(180deg, #5b2b2b, #412020);
+  color: #f7dddd;
 }
 
 body[data-theme="dark"] .waiting-room,

@@ -80,7 +80,7 @@ Status update:
 - Shop/remove campaign nodes are now slower run-management actions separate from normal match shop flow.
 - Active campaign encounters auto-resume on profile entry/profile switch when a save is present.
 - Campaign UI simplified from map graph to a linear progression list.
-- Campaign run sequence now follows: opening shop, then for each cycle: normal combat (3), shop, elite (5), shop, boss (7), repeated 8 times with final boss at 10.
+- Campaign run sequence now follows: opening shop, then for each cycle: normal combat (3), shop, elite (5), shop, boss (7), repeated 5 times with final boss at 10.
 - Campaign combats now run as multi-round supply fights without between-round shops.
 - Enemy combat bags now come from predefined templates by type (combat/elite/boss/final-boss), randomly selected per run seed.
 - Campaign shop nodes now use the real in-game shop phase UI and rules (remove/combine/add), then convert resulting bag specials back into run loadout.

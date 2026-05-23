@@ -926,6 +926,47 @@ function bindEvents() {
       return;
     }
 
+    const resetProgressButton = event.target.closest("button[data-profile-reset-progression]");
+    if (resetProgressButton) {
+      const slot = Number(resetProgressButton.dataset.profileResetProgression);
+      if (slot !== activeProfileSlot) {
+        return;
+      }
+
+      const profile = getProfileBySlot(activeProfileSlot);
+      const confirmed = window.confirm(
+        `Reset progression for ${profile.name}? This clears campaign and achievement progress for this profile.`,
+      );
+      if (!confirmed) {
+        return;
+      }
+
+      achievementState = {
+        schemaVersion: 1,
+        unlockedIds: [],
+        metrics: {
+          gamesFinished: 0,
+          wins: 0,
+          capturedRemovals: 0,
+          firstTurnRoundWins: 0,
+          fullTies: 0,
+        },
+        updatedAt: Date.now(),
+      };
+      saveAchievementState(activeProfileSlot, achievementState);
+
+      campaignState = resetCampaignRun();
+      saveCampaignState(activeProfileSlot, campaignState);
+      clearModeSave(MODE_CAMPAIGN, activeProfileSlot);
+
+      syncAchievementSummaryToProfile();
+      syncCampaignSummaryToProfile();
+      refreshProfileHeader();
+      renderProfilesPanel();
+      showToast("Active profile progression reset.", "warn");
+      return;
+    }
+
     const renameButton = event.target.closest("button[data-profile-rename]");
     if (renameButton) {
       const slot = Number(renameButton.dataset.profileRename);
@@ -3006,7 +3047,7 @@ function renderCampaignResultStats(options = {}) {
     { label: "Rerolls used", value: String(rerollsUsed) },
     { label: "Runes added", value: String(runesAdded) },
     { label: "Runes removed", value: String(runesRemoved) },
-    { label: "Bosses defeated", value: `${completion.bosses}/8` },
+    { label: "Bosses defeated", value: `${completion.bosses}/5` },
     { label: "Run duration", value: durationLabel },
   ];
 
@@ -3529,7 +3570,7 @@ function renderCampaignPanel() {
   }, 0);
 
   const rerolls = getCampaignAvailableRerolls();
-  elements.campaignSummary.textContent = `Completed ${completion.completed}/${completion.total} (${completion.percent}%) | Cycle ${Math.min(cycle, 8)}/8 | Bosses defeated: ${bossClears}/8 | Rerolls: ${rerolls}`;
+  elements.campaignSummary.textContent = `Completed ${completion.completed}/${completion.total} (${completion.percent}%) | Cycle ${Math.min(cycle, 5)}/5 | Bosses defeated: ${bossClears}/5 | Rerolls: ${rerolls}`;
 
   renderCampaignLoadout();
   elements.campaignActionPanel.hidden = true;
@@ -4044,7 +4085,21 @@ function renderProfilesPanel() {
     selectBtn.dataset.profileSelect = String(profile.slot);
     selectBtn.disabled = profile.slot === activeProfileSlot;
     selectBtn.textContent = profile.slot === activeProfileSlot ? "Active" : "Select Slot";
-    card.appendChild(selectBtn);
+
+    const actions = document.createElement("div");
+    actions.className = "profile-slot-actions";
+    actions.appendChild(selectBtn);
+
+    if (profile.slot === activeProfileSlot) {
+      const resetProgressBtn = document.createElement("button");
+      resetProgressBtn.type = "button";
+      resetProgressBtn.className = "menu-btn danger";
+      resetProgressBtn.dataset.profileResetProgression = String(profile.slot);
+      resetProgressBtn.textContent = "Reset Progression";
+      actions.appendChild(resetProgressBtn);
+    }
+
+    card.appendChild(actions);
 
     elements.profilesList.appendChild(card);
   });
