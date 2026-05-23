@@ -964,6 +964,11 @@ function bindEvents() {
       saveCampaignState(activeProfileSlot, campaignState);
       clearModeSave(MODE_CAMPAIGN, activeProfileSlot);
 
+      const walletBeforeReset = getProfileWalletPoints(activeProfileSlot);
+      if (walletBeforeReset > 0) {
+        spendProfileWalletPoints(activeProfileSlot, walletBeforeReset);
+      }
+
       syncAchievementSummaryToProfile();
       syncCampaignSummaryToProfile();
       refreshProfileHeader();
