@@ -281,6 +281,7 @@ export function resolvePendingBoardChoice(state, choice) {
   }
 
   if (action.type === "kenaz-destroy-target") {
+    const turnContext = action.turnContext;
     const key = cellKey(choice.row, choice.col);
     const valid = new Set(action.validCells.map((cell) => cellKey(cell.row, cell.col)));
     if (!valid.has(key)) {
@@ -289,10 +290,16 @@ export function resolvePendingBoardChoice(state, choice) {
 
     const destroyed = removeRuneAt(state, choice.row, choice.col, "kenaz", "destroy");
     if (destroyed) {
+      const actorId = Number(turnContext?.playerId) || null;
+      const targetOwnerId = Number(destroyed.owner) || null;
+      state.lastKenazDestroy = {
+        stamp: (Number(state.lastKenazDestroy?.stamp) || 0) + 1,
+        actorId,
+        targetOwnerId,
+      };
       state.log.unshift("Kenaz destroyed the chosen rune permanently.");
     }
 
-    const turnContext = action.turnContext;
     state.pendingAction = null;
     return finalizeTurn(state, turnContext.playerId, turnContext.extraTurn);
   }

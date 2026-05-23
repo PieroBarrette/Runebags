@@ -947,9 +947,14 @@ function bindEvents() {
         metrics: {
           gamesFinished: 0,
           wins: 0,
+          aiWins: 0,
           capturedRemovals: 0,
           firstTurnRoundWins: 0,
           fullTies: 0,
+          bagSize30Plus: 0,
+          campaignWins: 0,
+          kenazSelfDestroys: 0,
+          triplePointRounds: 0,
         },
         updatedAt: Date.now(),
       };
@@ -1777,9 +1782,9 @@ function render() {
   previousPendingActionSnapshot = pendingSnapshot;
   renderHands(state, elements, handVisibility, forcedVisible);
   applyOnlinePlayerNames();
+  evaluateCampaignProgressIfNeeded();
   evaluateAchievementsIfNeeded();
   evaluateRewardsIfNeeded();
-  evaluateCampaignProgressIfNeeded();
 
   renderLog(state, elements);
   renderChatPanel();
@@ -1982,6 +1987,7 @@ function evaluateCampaignProgressIfNeeded() {
       addProfileWalletPoints(activeProfileSlot, victoryPayout);
       refreshProfileHeader();
       pulseElement(elements.menuProfileSwitchBtn, "ui-pulse");
+      state.log.unshift("Campaign run cleared.");
       clearModeSave(MODE_CAMPAIGN, activeProfileSlot);
       campaignInShopNode = false;
       pendingCampaignFinishOutcome = {
@@ -3294,21 +3300,36 @@ function showToast(message, type = "info") {
   }, 2200);
 }
 
-function createAchievementSnapshot(currentState, mode) {
+function createAchievementSnapshot(currentState, mode, context = {}) {
+  const trackedPlayerId = context && (context.trackedPlayerId === 1 || context.trackedPlayerId === 2)
+    ? context.trackedPlayerId
+    : null;
   return {
     mode,
+    trackedPlayerId,
     phase: currentState.phase,
     roundNumber: Number(currentState.roundNumber) || 0,
     turnNumber: Number(currentState.turnNumber) || 0,
     winner: currentState.winner || null,
     gameWinner: currentState.gameWinner || null,
     gameWinnerReason: currentState.gameWinnerReason || null,
+    playerPoints: {
+      1: Number(currentState.players?.[1]?.points) || 0,
+      2: Number(currentState.players?.[2]?.points) || 0,
+    },
+    playerBagSizes: {
+      1: Array.isArray(currentState.players?.[1]?.bag) ? currentState.players[1].bag.length : 0,
+      2: Array.isArray(currentState.players?.[2]?.bag) ? currentState.players[2].bag.length : 0,
+    },
+    lastKenazDestroyStamp: Number(currentState.lastKenazDestroy?.stamp) || 0,
+    lastKenazDestroyActorId: Number(currentState.lastKenazDestroy?.actorId) || null,
+    lastKenazDestroyTargetOwnerId: Number(currentState.lastKenazDestroy?.targetOwnerId) || null,
     logLength: Array.isArray(currentState.log) ? currentState.log.length : 0,
   };
 }
 
 function resetAchievementTracking() {
-  previousAchievementSnapshot = createAchievementSnapshot(state, currentLocalMode);
+  previousAchievementSnapshot = createAchievementSnapshot(state, currentLocalMode, getAchievementTrackingContext());
 }
 
 function resetRewardTracking() {
@@ -3384,12 +3405,34 @@ function syncAchievementSummaryToProfile() {
   setProfileAchievementProgress(activeProfileSlot, unlockedCount, ACHIEVEMENT_CATALOG.length);
 }
 
+function getAchievementTrackingContext() {
+  if (currentLocalMode === MODE_CAMPAIGN) {
+    return { trackedPlayerId: 1 };
+  }
+
+  if (currentLocalMode === MODE_ONLINE) {
+    if (waitingRoomState.playerId === 1 || waitingRoomState.playerId === 2) {
+      return { trackedPlayerId: waitingRoomState.playerId };
+    }
+    return { trackedPlayerId: null };
+  }
+
+  if (aiConfig.enabled || currentLocalMode === MODE_AI) {
+    const aiPlayerId = aiConfig.playerId === 1 || aiConfig.playerId === 2 ? aiConfig.playerId : 2;
+    return { trackedPlayerId: aiPlayerId === 1 ? 2 : 1 };
+  }
+
+  return { trackedPlayerId: 1 };
+}
+
 function evaluateAchievementsIfNeeded() {
+  const tracking = getAchievementTrackingContext();
   const result = evaluateAchievementProgress(
     achievementState,
     previousAchievementSnapshot,
     state,
     currentLocalMode,
+    tracking,
   );
 
   const previousUnlockedCount = Array.isArray(achievementState.unlockedIds)

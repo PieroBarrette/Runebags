@@ -13,9 +13,14 @@ function createDefaultState() {
     metrics: {
       gamesFinished: 0,
       wins: 0,
+      aiWins: 0,
       capturedRemovals: 0,
       firstTurnRoundWins: 0,
       fullTies: 0,
+      bagSize30Plus: 0,
+      campaignWins: 0,
+      kenazSelfDestroys: 0,
+      triplePointRounds: 0,
     },
     updatedAt: Date.now(),
   };
@@ -32,9 +37,14 @@ function sanitizeState(raw) {
     metrics: {
       gamesFinished: Math.max(0, Number(metrics.gamesFinished) || 0),
       wins: Math.max(0, Number(metrics.wins) || 0),
+      aiWins: Math.max(0, Number(metrics.aiWins) || 0),
       capturedRemovals: Math.max(0, Number(metrics.capturedRemovals) || 0),
       firstTurnRoundWins: Math.max(0, Number(metrics.firstTurnRoundWins) || 0),
       fullTies: Math.max(0, Number(metrics.fullTies) || 0),
+      bagSize30Plus: Math.max(0, Number(metrics.bagSize30Plus) || 0),
+      campaignWins: Math.max(0, Number(metrics.campaignWins) || 0),
+      kenazSelfDestroys: Math.max(0, Number(metrics.kenazSelfDestroys) || 0),
+      triplePointRounds: Math.max(0, Number(metrics.triplePointRounds) || 0),
     },
     updatedAt: Number(source.updatedAt) || Date.now(),
   };
