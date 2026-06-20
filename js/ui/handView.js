@@ -21,12 +21,9 @@ const RUNES_WITH_LEVEL_PREFIX = new Set([
 function renderPlayerHand(state, playerId, elements, isVisible, isForcedVisible) {
   const player = state.players[playerId];
   const handEl = playerId === 1 ? elements.player1Hand : elements.player2Hand;
-  const toggleEl = playerId === 1 ? elements.player1Toggle : elements.player2Toggle;
 
   handEl.innerHTML = "";
   handEl.classList.toggle("hidden-hand", !isVisible);
-  toggleEl.textContent = isForcedVisible ? "Forced Visible (Uruz)" : isVisible ? "Hide Hand" : "Reveal Hand";
-  toggleEl.disabled = isForcedVisible;
 
   player.hand.forEach((rune) => {
     const button = document.createElement("button");

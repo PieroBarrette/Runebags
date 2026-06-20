@@ -30,8 +30,17 @@ import { renderHands } from "./ui/handView.js";
 import { renderLog } from "./ui/logView.js";
 import { clearModeSave, loadModeSave, saveModeSave } from "./persistence/localStore.js";
 import { createOnlineController } from "./online/onlineController.js";
-import { getRuneById, RUNE_CATALOG } from "./runes/runeCatalog.js";
+import { getRuneById, RUNE_CATALOG, getAllowedColumns } from "./runes/runeCatalog.js";
 import { createSfxEngine } from "./audio/sfxEngine.js";
+import { createTutorialController } from "./tutorial/tutorialController.js";
+import {
+  getTutorialState,
+  markTutorialCompleted,
+  markTutorialPromptSeen,
+  markTutorialSequenceSeen,
+  markTutorialTriggerShown,
+  setTutorialEnabled,
+} from "./persistence/tutorialStore.js";
 
 const THEME_STORAGE_KEY = "runebags-theme-v1";
 const ANIMATION_STORAGE_KEY = "runebags-animations-v1";
@@ -122,18 +131,24 @@ const elements = {
   p2OnlineDot: document.getElementById("p2-online-dot"),
   player1Hand: document.getElementById("p1-hand"),
   player2Hand: document.getElementById("p2-hand"),
-  player1Toggle: document.getElementById("p1-hand-toggle"),
-  player2Toggle: document.getElementById("p2-hand-toggle"),
+  passDeviceOverlay: document.getElementById("pass-device-overlay"),
+  passDeviceText: document.getElementById("pass-device-text"),
+  passDeviceRevealBtn: document.getElementById("pass-device-reveal-btn"),
+  tutorialToggle: document.getElementById("tutorial-toggle"),
+  tutorialDialog: document.getElementById("tutorial-dialog"),
+  tutorialDialogText: document.getElementById("tutorial-dialog-text"),
+  tutorialPrompt: document.getElementById("tutorial-prompt"),
+  tutorialPromptSureBtn: document.getElementById("tutorial-prompt-sure-btn"),
+  tutorialPromptSkipBtn: document.getElementById("tutorial-prompt-skip-btn"),
   p1Bag: document.getElementById("p1-bag"),
   p2Bag: document.getElementById("p2-bag"),
-  p1Discard: document.getElementById("p1-discard"),
-  p2Discard: document.getElementById("p2-discard"),
   p1Points: document.getElementById("p1-points"),
   p2Points: document.getElementById("p2-points"),
   pointPool: document.getElementById("point-pool"),
   neutralSupply: document.getElementById("neutral-supply"),
   roundDiscards: document.getElementById("round-discards"),
   roundAwayList: document.getElementById("round-away-list"),
+  logTabs: document.getElementById("log-tabs"),
   logTabTurn: document.getElementById("log-tab-turn"),
   logTabChat: document.getElementById("log-tab-chat"),
   turnLog: document.getElementById("turn-log"),
@@ -165,6 +180,8 @@ let handVisibility = {
   1: state.currentPlayer === 1,
   2: state.currentPlayer === 2,
 };
+// Pass & Play: true while waiting for the next player to reveal their hand after a handoff.
+let awaitingHandReveal = false;
 let activeRoomCode = null;
 let waitingRoomState = createWaitingRoomState();
 const aiConfig = createAiConfig();
@@ -182,6 +199,17 @@ let suppressBoardClickOnce = false;
 let activeFeedTab = "turn";
 let onlineChatMessages = [];
 let hasUnreadChat = false;
+
+const tutorialController = createTutorialController({
+  elements,
+  onPromptSeen: () => markTutorialPromptSeen(),
+  onSetEnabled: (enabled) => setTutorialEnabled(enabled),
+  onSequenceSeen: (sequenceKey) => markTutorialSequenceSeen(sequenceKey),
+  onTriggerShown: (triggerId) => markTutorialTriggerShown(triggerId),
+  onCompleted: () => markTutorialCompleted(),
+  onPromptResolved: () => render(),
+});
+tutorialController.loadProfileTutorialState(getTutorialState());
 
 registerServiceWorker();
 
@@ -339,8 +367,10 @@ function bindEvents() {
     }
 
     currentLocalMode = MODE_PASSPLAY;
+    const savedPassplay = getSavedStateForMode(MODE_PASSPLAY);
+    const resuming = isResumableSave(savedPassplay);
     state = restoreState(
-      getSavedStateForMode(MODE_PASSPLAY) || createInitialState(getLocalGameOptions()),
+      resuming ? savedPassplay : createInitialState(getLocalGameOptions()),
       getLocalGameOptions(),
     );
     setAiSettings(aiConfig, false, aiConfig.playerId, aiConfig.depth);
@@ -348,9 +378,10 @@ function bindEvents() {
       1: state.currentPlayer === 1,
       2: state.currentPlayer === 2,
     };
+    awaitingHandReveal = state.phase === "round";
     persistState();
     enterGameScreen("passplay");
-    setStatus("Pass & Play resumed.");
+    setStatus(resuming ? "Pass & Play resumed." : "New Pass & Play game started.");
     render();
   });
 
@@ -361,9 +392,12 @@ function bindEvents() {
     }
 
     const savedAi = loadModeSave(MODE_AI);
-    const canResumeAi = Boolean(savedAi?.state);
-    if (!canResumeAi) {
+    if (!savedAi?.state) {
       setStatus("No saved AI game found. Start a new game instead.");
+      return;
+    }
+    if (!isResumableSave(savedAi.state)) {
+      setStatus("That AI game is already finished. Start a new game instead.");
       return;
     }
 
@@ -695,6 +729,7 @@ function bindEvents() {
       return;
     }
 
+    const prevPlayer = state.currentPlayer;
     const result = state.pendingAction
       ? resolvePendingBoardChoice(state, { row, col: column, column })
       : playTurn(state, column, { row, col: column });
@@ -704,6 +739,7 @@ function bindEvents() {
       setStatus(result.error);
     }
 
+    maybeQueuePassDevice(prevPlayer);
     persistState();
     render();
     scheduleAiTurnIfNeeded();
@@ -733,12 +769,14 @@ function bindEvents() {
       return;
     }
 
+    const prevPlayer = state.currentPlayer;
     const result = resolvePendingBoardChoice(state, { awayIndex });
     state = result.state;
     if (result.error) {
       setStatus(result.error);
     }
 
+    maybeQueuePassDevice(prevPlayer);
     persistState();
     render();
     scheduleAiTurnIfNeeded();
@@ -779,25 +817,8 @@ function bindEvents() {
     });
   });
 
-  elements.player1Toggle.addEventListener("click", () => {
-    if (aiConfig.enabled && aiConfig.playerId === 1) {
-      return;
-    }
-    if (getForcedVisiblePlayers(state)[1]) {
-      return;
-    }
-    handVisibility[1] = !handVisibility[1];
-    render();
-  });
-
-  elements.player2Toggle.addEventListener("click", () => {
-    if (aiConfig.enabled && aiConfig.playerId === 2) {
-      return;
-    }
-    if (getForcedVisiblePlayers(state)[2]) {
-      return;
-    }
-    handVisibility[2] = !handVisibility[2];
+  elements.passDeviceRevealBtn.addEventListener("click", () => {
+    awaitingHandReveal = false;
     render();
   });
 
@@ -837,10 +858,7 @@ function bindEvents() {
           if (state.shop.players[1].ready && state.shop.players[2].ready) {
             result = startRoundFromShop(state);
             if (!result.error) {
-              handVisibility = {
-                1: result.state.currentPlayer === 1,
-                2: result.state.currentPlayer === 2,
-              };
+              awaitingHandReveal = true;
             }
           }
         }
@@ -1164,9 +1182,32 @@ function render() {
 
   if (state.phase === "round" && !state.pendingAction) {
     const constraints = state.nextTurnConstraints?.[state.currentPlayer] || [];
-    if (constraints.length > 0) {
-      forcedColumns = constraints.filter((col) => state.board[0][col] === 0);
+    const perthColumns = constraints.length > 0
+      ? constraints.filter((col) => state.board[0][col] === 0)
+      : null;
+
+    // Jera/Inguz: when selected in hand, highlight the columns they may be played in (item 11).
+    const selectedRuneId = state.players[state.currentPlayer]?.selectedRuneInstanceId;
+    const selectedHandRune = selectedRuneId
+      ? state.players[state.currentPlayer].hand.find((rune) => rune.instanceId === selectedRuneId)
+      : null;
+    const catalogRune = selectedHandRune ? getRuneById(selectedHandRune.id) : null;
+    const runeAllowedColumns = catalogRune && catalogRune.columnRule && catalogRune.columnRule !== "any"
+      ? getAllowedColumns(catalogRune, state.columns).filter((col) => state.board[0][col] === 0)
+      : null;
+
+    if (runeAllowedColumns) {
+      forcedColumns = perthColumns
+        ? runeAllowedColumns.filter((col) => perthColumns.includes(col))
+        : runeAllowedColumns;
+    } else if (perthColumns) {
+      forcedColumns = perthColumns;
     }
+  }
+
+  // The Pass & Play handoff gate only applies during an active local round.
+  if (!isPassPlayMode() || state.phase !== "round") {
+    awaitingHandReveal = false;
   }
 
   if (state.phase === "round") {
@@ -1186,6 +1227,9 @@ function render() {
         2: false,
       };
       handVisibility[humanPlayerId] = state.currentPlayer === humanPlayerId;
+    } else if (awaitingHandReveal) {
+      // Pass & Play: keep both hands hidden until the incoming player reveals.
+      handVisibility = { 1: false, 2: false };
     } else {
       handVisibility = {
         1: state.currentPlayer === 1,
@@ -1201,36 +1245,11 @@ function render() {
     handVisibility[aiConfig.playerId] = false;
   }
 
-  if (state.phase === "shop") {
-    elements.player1Toggle.hidden = true;
-    elements.player2Toggle.hidden = true;
-  } else if (online.isOnlineActive()) {
-    elements.player1Toggle.hidden = true;
-    elements.player2Toggle.hidden = true;
-    const yourId = waitingRoomState.playerId;
-    const opponentId = yourId === 1 ? 2 : 1;
-
-    if (opponentId) {
-      const oppToggle = opponentId === 1 ? elements.player1Toggle : elements.player2Toggle;
-      if (!forcedVisible[opponentId]) {
-        oppToggle.textContent = "Hidden online";
-      }
-      oppToggle.disabled = true;
-    }
-
-    if (yourId) {
-      const yourToggle = yourId === 1 ? elements.player1Toggle : elements.player2Toggle;
-      if (!forcedVisible[yourId]) {
-        yourToggle.textContent = "Your Hand";
-        yourToggle.disabled = true;
-      }
-    }
-  } else if (aiConfig.enabled) {
-    elements.player1Toggle.hidden = true;
-    elements.player2Toggle.hidden = true;
-  } else {
-    elements.player1Toggle.hidden = false;
-    elements.player2Toggle.hidden = false;
+  // Pass & Play: show the "pass the device" overlay between turns.
+  elements.passDeviceOverlay.hidden = !awaitingHandReveal;
+  if (awaitingHandReveal) {
+    elements.passDeviceText.textContent =
+      `Hand the device to ${getDisplayPlayerName(state.currentPlayer)}, then reveal your hand.`;
   }
 
   const animationFrame = buildBoardAnimationFrame(
@@ -1255,6 +1274,7 @@ function render() {
   updateTopStatus();
   updateTopButtons();
   updateOnlineConnectionStatus();
+  tutorialController.onGameStateUpdated(state);
 
   scheduleAiTurnIfNeeded();
 }
@@ -1377,6 +1397,8 @@ function renderShopPanel() {
   elements.shopRemoveBtn.disabled = playerReady && isPassPlayMode();
   elements.shopCombineBtn.disabled = playerReady && isPassPlayMode();
 
+  tutorialController.onShopAvailabilityChanged(playerId, Boolean(actions.combineVisible));
+
   if (previousShopPlayer !== playerId) {
     state.shop.currentPlayer = previousShopPlayer;
   }
@@ -1492,9 +1514,7 @@ function updateMeta() {
   renderPointRunes(elements.p1Points, "Points", state.players[1].points);
   renderPointRunes(elements.p2Points, "Points", state.players[2].points);
   elements.p1Bag.textContent = `Bag: ${state.players[1].bag.length}`;
-  elements.p1Discard.textContent = `Discard: ${state.players[1].discard.length}`;
   elements.p2Bag.textContent = `Bag: ${state.players[2].bag.length}`;
-  elements.p2Discard.textContent = `Discard: ${state.players[2].discard.length}`;
   renderPointRunes(elements.pointPool, "Points", state.pointPoolRemaining);
   elements.neutralSupply.textContent = `Neutral Supply: ${state.neutralSupply}`;
   const visibleAway = state.roundAwayRunes.map((entry, awayIndex) => ({ ...entry, awayIndex }));
@@ -1502,7 +1522,7 @@ function updateMeta() {
   elements.roundDiscards.hidden = !shouldShowAway;
   elements.roundAwayList.hidden = !shouldShowAway;
   if (shouldShowAway) {
-    elements.roundDiscards.textContent = `Away this round: ${visibleAway.length}`;
+    elements.roundDiscards.textContent = `Discarded this round: ${visibleAway.length}`;
     renderRoundAwayRunes(visibleAway);
   } else {
     renderRoundAwayRunes([]);
@@ -1586,7 +1606,7 @@ function renderRoundAwayRunes(entries) {
     title.textContent = `${rune.name} L${entry.level}`;
     const subtitle = document.createElement("small");
     const ownerLabel = entry.owner === 1 ? "Black" : entry.owner === 2 ? "White" : "Neutral";
-    subtitle.textContent = `Away (${entry.source}, ${ownerLabel})`;
+    subtitle.textContent = `Discarded (${entry.source}, ${ownerLabel})`;
 
     textWrap.appendChild(title);
     textWrap.appendChild(subtitle);
@@ -1598,11 +1618,19 @@ function renderRoundAwayRunes(entries) {
 
 function renderChatPanel() {
   const isOnline = online.isOnlineActive();
-  const showChat = activeFeedTab === "chat";
 
+  // Offline (AI / Pass & Play): no chat, no tabs — just the plain turn log.
   if (!isOnline) {
+    activeFeedTab = "turn";
     hasUnreadChat = false;
+    elements.logTabs.hidden = true;
+    elements.turnLog.hidden = false;
+    elements.chatPanel.hidden = true;
+    return;
   }
+
+  elements.logTabs.hidden = false;
+  const showChat = activeFeedTab === "chat";
 
   if (showChat) {
     hasUnreadChat = false;
@@ -1610,28 +1638,20 @@ function renderChatPanel() {
 
   elements.logTabTurn.classList.toggle("active", !showChat);
   elements.logTabChat.classList.toggle("active", showChat);
-  elements.logTabChat.classList.toggle("has-notification", isOnline && hasUnreadChat && !showChat);
+  elements.logTabChat.classList.toggle("has-notification", hasUnreadChat && !showChat);
   elements.logTabTurn.setAttribute("aria-selected", String(!showChat));
   elements.logTabChat.setAttribute("aria-selected", String(showChat));
 
   elements.turnLog.hidden = showChat;
   elements.chatPanel.hidden = !showChat;
-  elements.logTabChat.disabled = !isOnline;
-  elements.chatInput.disabled = !isOnline;
+  elements.logTabChat.disabled = false;
+  elements.chatInput.disabled = false;
 
   if (!showChat) {
     return;
   }
 
   elements.chatLog.innerHTML = "";
-  if (!isOnline) {
-    const row = document.createElement("div");
-    row.className = "chat-row";
-    row.textContent = "Chat is available only in online matches.";
-    elements.chatLog.appendChild(row);
-    return;
-  }
-
   if (!onlineChatMessages.length) {
     const row = document.createElement("div");
     row.className = "chat-row";
@@ -1676,6 +1696,19 @@ function getCurrentShopMode() {
 
 function isPassPlayMode() {
   return !online.isOnlineActive() && !aiConfig.enabled;
+}
+
+// Pass & Play: after a turn hands control to the other player, hide both hands
+// behind the "pass the device" overlay until the incoming player reveals.
+function maybeQueuePassDevice(prevPlayerId) {
+  if (
+    isPassPlayMode()
+    && state.phase === "round"
+    && !state.pendingAction
+    && state.currentPlayer !== prevPlayerId
+  ) {
+    awaitingHandReveal = true;
+  }
 }
 
 function isCurrentLocalShopPlayerReady() {
@@ -1766,6 +1799,7 @@ function showMainMenu() {
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
+  tutorialController.hideAll();
 }
 
 function showAiPanel() {
@@ -1783,7 +1817,7 @@ function showAiPanel() {
   if (savedAi?.ai?.depth) {
     elements.aiDepthSelect.value = String(savedAi.ai.depth);
   }
-  elements.aiContinueBtn.disabled = !savedAi?.state;
+  elements.aiContinueBtn.disabled = !isResumableSave(savedAi?.state);
 }
 
 function showOnlinePanel() {
@@ -1834,6 +1868,7 @@ function enterGameScreen(mode, roomCode = null) {
     clearRoomQuery();
   }
 
+  tutorialController.onGameEntered(mode, state.phase);
   render();
 }
 
@@ -2100,6 +2135,16 @@ function getSavedStateForMode(mode) {
     return null;
   }
   return saved.state || null;
+}
+
+// A saved game can only be continued if it exists and is not already finished.
+function isResumableSave(savedState) {
+  return Boolean(
+    savedState
+    && typeof savedState === "object"
+    && savedState.phase !== "game-over"
+    && !savedState.gameWinner,
+  );
 }
 
 function getLocalGameOptions() {

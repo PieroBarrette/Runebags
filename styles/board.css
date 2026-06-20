@@ -18,6 +18,12 @@
   overflow: hidden;
 }
 
+@media (max-width: 700px) {
+  .board {
+    grid-template-columns: repeat(var(--columns), minmax(0, 1fr));
+  }
+}
+
 .cell {
   position: relative;
   width: 100%;

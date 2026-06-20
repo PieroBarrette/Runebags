@@ -228,12 +228,12 @@ export function resolvePendingBoardChoice(state, choice) {
 
   if (action.type === "fehu-recover") {
     if (!action.validAwayIndexes.includes(choice.awayIndex)) {
-      return { state, error: "Choose one highlighted away rune for Fehu." };
+      return { state, error: "Choose one highlighted discarded rune for Fehu." };
     }
 
     const recoveredRune = recoverAwayRuneForFehu(state, action.playerId, choice.awayIndex);
     if (!recoveredRune) {
-      return { state, error: "Selected away rune is no longer available." };
+      return { state, error: "Selected discarded rune is no longer available." };
     }
 
     const recoveredCount = (action.recoveredCount || 0) + 1;
@@ -251,7 +251,7 @@ export function resolvePendingBoardChoice(state, choice) {
       return { state, error: null };
     }
 
-    state.log.unshift(`Fehu recovered ${recoveredCount} away rune(s) into ${playerName(action.playerId)} bag.`);
+    state.log.unshift(`Fehu recovered ${recoveredCount} discarded rune(s) into ${playerName(action.playerId)} bag.`);
     const turnContext = action.turnContext;
     state.pendingAction = null;
     return finalizeTurn(state, turnContext.playerId, turnContext.extraTurn);
@@ -510,7 +510,7 @@ export function getPendingActionPrompt(state) {
     return "Kenaz: choose one occupied rune to destroy permanently.";
   }
   if (action.type === "fehu-recover") {
-    return `Fehu: choose an away rune to recover (${action.remainingRecovers} remaining).`;
+    return `Fehu: choose a discarded rune to recover (${action.remainingRecovers} remaining).`;
   }
   if (action.type === "perth-l2-column") {
     return "Perth L2: choose the adjacent column the opponent must play next turn.";

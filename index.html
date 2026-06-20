@@ -69,7 +69,11 @@
 
         <label for="sound-volume">SFX Volume</label>
         <input id="sound-volume" class="settings-range" type="range" min="0" max="100" step="1" value="18" aria-label="Sound effects volume">
+
+        <label for="tutorial-toggle">Tutorial</label>
+        <input id="tutorial-toggle" class="settings-checkbox" type="checkbox">
       </div>
+      <p class="settings-note">Guided tutorial dialogs appear while you play local games. It turns itself off once every tip has been shown.</p>
       <section class="settings-rune-picker" aria-labelledby="settings-rune-heading">
         <h3 id="settings-rune-heading">Runes in Local Games</h3>
         <p class="settings-rune-hint">Choose which rune symbols are included for AI and Pass &amp; Play. Online always uses all runes.</p>
@@ -165,20 +169,20 @@
         <p>- Add up to 2 runes from the 5 offered.</p>
 
         <h3>8. Rune Effects</h3>
-        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/inguz.svg" alt="Inguz symbol"></span> <strong>Inguz:</strong> center column only; goes back to shop when removed.</p>
-        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/jera.svg" alt="Jera symbol"></span> <strong>Jera:</strong> edge columns only; goes back to shop when removed.</p>
-        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/kenaz.svg" alt="Kenaz symbol"></span> <strong>Kenaz:</strong> One Kenaz does nothing. When your second Kenaz enters play, destroy 1 board rune permanently.</p>
-        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/laguz.svg" alt="Laguz symbol"></span> <strong>Laguz:</strong> cannot be moved or removed.</p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/algiz.svg" alt="Algiz symbol"></span> <strong>Algiz:</strong> inserts from column bottom and pushes upward; cursed.</p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/ansuz.svg" alt="Ansuz symbol"></span> <strong>Ansuz:</strong> returns rune directly beneath to owner bag (not neutral).</p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/berkana.svg" alt="Berkana symbol"></span> <strong>Berkana:</strong> if in owner winning line, grants +1 bonus point once for that round.</p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/dagaz.svg" alt="Dagaz symbol"></span> <strong>Dagaz:</strong> copies the effect of the rune directly below it; corrupted (adds 1 Neutral rune to owner bag whenever played).</p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/ehwaz.svg" alt="Ehwaz symbol"></span> <strong>Ehwaz:</strong> increases owner max hand size to 3 while on board. L2 : max hand size to 4.</p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/eihwaz.svg" alt="Eihwaz symbol"></span> <strong>Eihwaz:</strong> if removed or discarded for the round, its owner gains 1 point without ending the round.</p>
-        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/fehu.svg" alt="Fehu symbol"></span> <strong>Fehu:</strong> return away rune(s) to your bag (L1: 1, L2: 2). Recovered runes can include opponent runes.</p>
+        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/fehu.svg" alt="Fehu symbol"></span> <strong>Fehu:</strong> return discarded rune(s) to your bag (L1: 1, L2: 2). Recovered runes can include opponent runes.</p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/gebo.svg" alt="Gebo symbol"></span> <strong>Gebo:</strong> removes rune directly beneath for the round (L2 : chooses adjacent target) ; cursed.</p>
-        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/hagalz.svg" alt="Hagalz symbol"></span> <strong>Hagalz:</strong> adjacent neutral runes can count for owner wins, one Hagalz per converted neutral in a line.</p>
+        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/hagalz.svg" alt="Hagalz symbol"></span> <strong>Hagalz:</strong> One adjacent neutral rune can count towards your winning line.</p>
+        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/inguz.svg" alt="Inguz symbol"></span> <strong>Inguz:</strong> center column only; goes back to shop when removed.</p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/isa.svg" alt="Isa symbol"></span> <strong>Isa:</strong> remains on board across rounds.</p>
+        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/jera.svg" alt="Jera symbol"></span> <strong>Jera:</strong> edge columns only; goes back to shop when removed.</p>
+        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/kenaz.svg" alt="Kenaz symbol"></span> <strong>Kenaz:</strong> One Kenaz does nothing. When your second Kenaz enters play, destroy 1 board rune permanently.</p>
+        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/laguz.svg" alt="Laguz symbol"></span> <strong>Laguz:</strong> cannot be moved or removed.</p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/mannaz.svg" alt="Mannaz symbol"></span> <strong>Mannaz:</strong> adds neutral rune(s) to opponent bag (L1: 1, L2: 2).</p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/nauthiz.svg" alt="Nauthiz symbol"></span> <strong>Nauthiz:</strong> can float and be placed on any free cell; ethereal and cursed.</p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/odal.svg" alt="Odal symbol"></span> <strong>Odal:</strong> if played on the top row, owner gains 1 point without ending the round.</p>
@@ -213,15 +217,14 @@
         <aside class="panel player-panel" id="player-1-panel">
           <h2 class="player-title"><span id="p1-name">Black</span><span id="p1-online-dot" class="online-dot" hidden aria-label="Player online status"></span></h2>
           <p class="bag-meta"><span id="p1-points">Points:</span></p>
-          <p class="bag-meta"><span id="p1-bag">Bag: 0</span> | <span id="p1-discard">Discard: 0</span></p>
-          <button id="p1-hand-toggle" class="hand-toggle" type="button">Reveal Hand</button>
+          <p class="bag-meta"><span id="p1-bag">Bag: 0</span></p>
           <div id="p1-hand" class="hand hidden-hand" aria-live="polite"></div>
         </aside>
 
         <section id="board-panel" class="board-panel panel">
           <div id="turn-pill" class="turn-pill">Turn: White</div>
           <p class="bag-meta"><span id="point-pool">Points:</span> | <span id="neutral-supply">Neutral Supply: 0</span></p>
-          <p class="bag-meta" id="round-discards" hidden>Away this round: none</p>
+          <p class="bag-meta" id="round-discards" hidden>Discarded this round: none</p>
           <div id="round-away-list" class="round-away-list" aria-live="polite" hidden></div>
           <div class="shop-toolbar">
             <button id="phase-btn" type="button">Phase Action</button>
@@ -238,6 +241,11 @@
             </div>
             <div id="shop-bag" class="shop-bag"></div>
           </div>
+          <div id="board" class="board" role="grid" aria-label="RuneBags board"></div>
+          <div id="board-rune-info" class="board-rune-info" role="status" aria-live="polite" hidden>
+            <p id="board-rune-info-title" class="board-rune-info-title"></p>
+            <p id="board-rune-info-description" class="board-rune-info-description"></p>
+          </div>
           <div id="endgame-bags-panel" class="endgame-bags" hidden>
             <h3>Final Bag Contents</h3>
             <p class="bag-meta">Black bag</p>
@@ -245,24 +253,22 @@
             <p class="bag-meta">White bag</p>
             <div id="endgame-bag-white" class="shop-bag endgame-bag-list"></div>
           </div>
-          <div id="board" class="board" role="grid" aria-label="RuneBags board"></div>
-          <div id="board-rune-info" class="board-rune-info" role="status" aria-live="polite" hidden>
-            <p id="board-rune-info-title" class="board-rune-info-title"></p>
-            <p id="board-rune-info-description" class="board-rune-info-description"></p>
+          <div id="tutorial-dialog" class="tutorial-dialog" data-position="status" hidden>
+            <p id="tutorial-dialog-text" class="tutorial-dialog-text"></p>
+            <p class="tutorial-dialog-hint">Click once to finish the text, click again to close.</p>
           </div>
         </section>
 
         <aside class="panel player-panel" id="player-2-panel">
           <h2 class="player-title"><span id="p2-name">White</span><span id="p2-online-dot" class="online-dot" hidden aria-label="Player online status"></span></h2>
           <p class="bag-meta"><span id="p2-points">Points:</span></p>
-          <p class="bag-meta"><span id="p2-bag">Bag: 0</span> | <span id="p2-discard">Discard: 0</span></p>
-          <button id="p2-hand-toggle" class="hand-toggle" type="button">Reveal Hand</button>
+          <p class="bag-meta"><span id="p2-bag">Bag: 0</span></p>
           <div id="p2-hand" class="hand hidden-hand" aria-live="polite"></div>
         </aside>
       </section>
 
       <section class="panel log-panel">
-        <div class="log-tabs" role="tablist" aria-label="Game feed tabs">
+        <div id="log-tabs" class="log-tabs" role="tablist" aria-label="Game feed tabs">
           <button id="log-tab-turn" class="log-tab active" type="button" role="tab" aria-selected="true" aria-controls="turn-log">Turn Log</button>
           <button id="log-tab-chat" class="log-tab" type="button" role="tab" aria-selected="false" aria-controls="chat-panel">Chat</button>
         </div>
@@ -274,6 +280,25 @@
             <button id="chat-send" type="submit">Send</button>
           </form>
         </section>
+      </section>
+
+      <section id="pass-device-overlay" class="pass-device-overlay" hidden>
+        <article class="pass-device-card" role="dialog" aria-modal="true" aria-labelledby="pass-device-title">
+          <h2 id="pass-device-title">Pass the device</h2>
+          <p id="pass-device-text" class="pass-device-text">Hand the device to the next player.</p>
+          <button id="pass-device-reveal-btn" class="menu-btn" type="button">Reveal hand</button>
+        </article>
+      </section>
+
+      <section id="tutorial-prompt" class="tutorial-prompt-screen" hidden>
+        <article class="tutorial-prompt-card" role="dialog" aria-modal="true" aria-labelledby="tutorial-prompt-title">
+          <h2 id="tutorial-prompt-title">Tutorial</h2>
+          <p class="tutorial-prompt-text">New to RuneBags? Would you like a guided tutorial with quick tips while you play?</p>
+          <div class="menu-actions compact tutorial-prompt-actions">
+            <button id="tutorial-prompt-sure-btn" class="menu-btn" type="button">Sure</button>
+            <button id="tutorial-prompt-skip-btn" class="menu-btn secondary" type="button">Skip tutorial</button>
+          </div>
+        </article>
       </section>
     </section>
   </main>
