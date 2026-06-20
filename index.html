@@ -322,6 +322,31 @@
         </article>
       </section>
 
+      <section id="endgame-overlay" class="endgame-overlay" hidden>
+        <article class="endgame-card" role="dialog" aria-modal="true" aria-labelledby="endgame-title">
+          <p class="endgame-eyebrow">Game over</p>
+          <h2 id="endgame-title" class="endgame-title">Game over</h2>
+          <p id="endgame-reason" class="endgame-reason"></p>
+          <div class="endgame-scores">
+            <div id="endgame-score-1" class="endgame-score">
+              <span class="endgame-score-name" id="endgame-p1-name">Black</span>
+              <span class="endgame-score-points" id="endgame-p1-points">0</span>
+              <span class="endgame-score-bag" id="endgame-p1-bag">Bag 0</span>
+            </div>
+            <div id="endgame-score-2" class="endgame-score">
+              <span class="endgame-score-name" id="endgame-p2-name">White</span>
+              <span class="endgame-score-points" id="endgame-p2-points">0</span>
+              <span class="endgame-score-bag" id="endgame-p2-bag">Bag 0</span>
+            </div>
+          </div>
+          <div class="menu-actions compact endgame-actions">
+            <button id="endgame-rematch-btn" class="menu-btn primary" type="button">Play again</button>
+            <button id="endgame-menu-btn" class="menu-btn secondary" type="button">Main menu</button>
+            <button id="endgame-dismiss-btn" class="menu-btn secondary" type="button">View board</button>
+          </div>
+        </article>
+      </section>
+
       <section id="tutorial-prompt" class="tutorial-prompt-screen" hidden>
         <article class="tutorial-prompt-card" role="dialog" aria-modal="true" aria-labelledby="tutorial-prompt-title">
           <h2 id="tutorial-prompt-title">Tutorial</h2>

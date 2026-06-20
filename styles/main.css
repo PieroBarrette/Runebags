@@ -1090,6 +1090,92 @@ body[data-theme="dark"] .chat-row.you {
   min-width: 160px;
 }
 
+/* End-game summary overlay */
+.endgame-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.2rem;
+  background: rgba(12, 17, 24, 0.78);
+}
+
+.endgame-overlay[hidden] {
+  display: none;
+}
+
+.endgame-card {
+  width: min(460px, 94vw);
+  text-align: center;
+  padding: 1.7rem 1.5rem;
+  border-radius: 18px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  box-shadow: 0 22px 56px rgba(0, 0, 0, 0.45);
+}
+
+.endgame-eyebrow {
+  margin: 0 0 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-size: 0.72rem;
+  color: var(--text-soft);
+}
+
+.endgame-title {
+  margin: 0 0 0.3rem;
+  font-size: 1.7rem;
+}
+
+.endgame-reason {
+  margin: 0 0 1.2rem;
+  color: var(--text-soft);
+  font-size: 0.95rem;
+}
+
+.endgame-scores {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.7rem;
+  margin-bottom: 1.3rem;
+}
+
+.endgame-score {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.75rem 0.5rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  background: rgba(127, 127, 127, 0.06);
+}
+
+.endgame-score.winner {
+  border-color: var(--cta);
+  box-shadow: inset 0 0 0 1px var(--cta);
+}
+
+.endgame-score-name {
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.95rem;
+}
+
+.endgame-score-points {
+  font-size: 1.7rem;
+  font-weight: 700;
+}
+
+.endgame-score-bag {
+  font-size: 0.78rem;
+  color: var(--text-soft);
+}
+
+.endgame-actions {
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
 /* Tutorial (standalone port) */
 .tutorial-dialog {
   position: absolute;

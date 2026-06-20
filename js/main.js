@@ -165,6 +165,20 @@ const elements = {
   endgameBagsPanel: document.getElementById("endgame-bags-panel"),
   endgameBagBlack: document.getElementById("endgame-bag-black"),
   endgameBagWhite: document.getElementById("endgame-bag-white"),
+  endgameOverlay: document.getElementById("endgame-overlay"),
+  endgameTitle: document.getElementById("endgame-title"),
+  endgameReason: document.getElementById("endgame-reason"),
+  endgameScore1: document.getElementById("endgame-score-1"),
+  endgameScore2: document.getElementById("endgame-score-2"),
+  endgameP1Name: document.getElementById("endgame-p1-name"),
+  endgameP1Points: document.getElementById("endgame-p1-points"),
+  endgameP1Bag: document.getElementById("endgame-p1-bag"),
+  endgameP2Name: document.getElementById("endgame-p2-name"),
+  endgameP2Points: document.getElementById("endgame-p2-points"),
+  endgameP2Bag: document.getElementById("endgame-p2-bag"),
+  endgameRematchBtn: document.getElementById("endgame-rematch-btn"),
+  endgameMenuBtn: document.getElementById("endgame-menu-btn"),
+  endgameDismissBtn: document.getElementById("endgame-dismiss-btn"),
   shopInstruction: document.getElementById("shop-instruction"),
   shopSwitchPlayer: document.getElementById("shop-switch-player"),
   shopRemoveBtn: document.getElementById("shop-remove-btn"),
@@ -183,6 +197,8 @@ let handVisibility = {
 };
 // Pass & Play: true while waiting for the next player to reveal their hand after a handoff.
 let awaitingHandReveal = false;
+// True once the player dismisses the end-game summary to inspect the final board.
+let endgameOverlayDismissed = false;
 let activeRoomCode = null;
 let waitingRoomState = createWaitingRoomState();
 const aiConfig = createAiConfig();
@@ -824,6 +840,21 @@ function bindEvents() {
     render();
   });
 
+  elements.endgameRematchBtn.addEventListener("click", () => {
+    endgameOverlayDismissed = false;
+    elements.newGameBtn.click();
+  });
+
+  elements.endgameMenuBtn.addEventListener("click", () => {
+    endgameOverlayDismissed = false;
+    elements.menuBtn.click();
+  });
+
+  elements.endgameDismissBtn.addEventListener("click", () => {
+    endgameOverlayDismissed = true;
+    render();
+  });
+
   elements.phaseBtn.addEventListener("click", () => {
     if (online.isOnlineActive()) {
       if (state.phase === "shop") {
@@ -1272,6 +1303,7 @@ function render() {
   renderChatPanel();
   renderShopPanel();
   renderEndgameBags();
+  renderEndgameOverlay();
   updateMeta();
   updateTopStatus();
   updateTopButtons();
@@ -1416,6 +1448,39 @@ function renderEndgameBags() {
 
   renderRuneList(elements.endgameBagBlack, state.players[1].bag, 1, [], { readOnly: true });
   renderRuneList(elements.endgameBagWhite, state.players[2].bag, 2, [], { readOnly: true });
+}
+
+const GAME_END_REASONS = {
+  majority: "Won the majority of the available points.",
+  "points-supply-empty": "Held the most points when the supply ran out.",
+  "fewest-bag-runes": "Points tied — won with fewer runes left in the bag.",
+  "full-tie": "Dead even, down to the last rune.",
+};
+
+function renderEndgameOverlay() {
+  if (state.phase !== "game-over") {
+    endgameOverlayDismissed = false;
+    elements.endgameOverlay.hidden = true;
+    return;
+  }
+
+  const winner = state.gameWinner;
+  elements.endgameTitle.textContent = winner
+    ? `${getDisplayPlayerName(winner)} wins!`
+    : "It's a draw";
+  elements.endgameReason.textContent =
+    GAME_END_REASONS[state.gameWinnerReason] || (winner ? "" : "The game ended level.");
+
+  elements.endgameP1Name.textContent = getDisplayPlayerName(1);
+  elements.endgameP2Name.textContent = getDisplayPlayerName(2);
+  elements.endgameP1Points.textContent = String(state.players[1].points);
+  elements.endgameP2Points.textContent = String(state.players[2].points);
+  elements.endgameP1Bag.textContent = `Bag ${state.players[1].bag.length}`;
+  elements.endgameP2Bag.textContent = `Bag ${state.players[2].bag.length}`;
+  elements.endgameScore1.classList.toggle("winner", winner === 1);
+  elements.endgameScore2.classList.toggle("winner", winner === 2);
+
+  elements.endgameOverlay.hidden = endgameOverlayDismissed;
 }
 
 function renderRuneList(container, runes, playerId, highlightIds, options = {}) {
