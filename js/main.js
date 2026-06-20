@@ -81,6 +81,7 @@ const elements = {
   menuOnlineBtn: document.getElementById("menu-online-btn"),
   menuRulesBtn: document.getElementById("menu-rules-btn"),
   menuSettingsBtn: document.getElementById("menu-settings-btn"),
+  homeRuneGallery: document.getElementById("home-rune-gallery"),
   settingsPanel: document.getElementById("settings-panel"),
   themeSelect: document.getElementById("theme-select"),
   animationToggle: document.getElementById("animation-toggle"),
@@ -219,6 +220,7 @@ initializeTheme();
 initializeAnimations();
 initializeSound();
 renderRuneSelectionSettings();
+renderHomeRuneGallery();
 bindSoundUnlockHandlers();
 render();
 initializeEntryMode();
@@ -2227,9 +2229,38 @@ function renderRuneSelectionSettings() {
   });
 }
 
+function renderHomeRuneGallery() {
+  const gallery = elements.homeRuneGallery;
+  if (!gallery) {
+    return;
+  }
+  gallery.innerHTML = "";
+  RUNE_CATALOG
+    .filter((rune) => rune.icon && rune.id !== "basic" && rune.id !== "neutral")
+    .forEach((rune) => {
+      const chip = document.createElement("div");
+      chip.className = "home-rune";
+      chip.title = `${rune.name}: ${rune.description}`;
+
+      const icon = document.createElement("img");
+      icon.className = "home-rune-icon";
+      icon.src = rune.icon;
+      icon.alt = rune.name;
+      icon.loading = "lazy";
+
+      const name = document.createElement("span");
+      name.className = "home-rune-name";
+      name.textContent = rune.name;
+
+      chip.appendChild(icon);
+      chip.appendChild(name);
+      gallery.appendChild(chip);
+    });
+}
+
 function initializeTheme() {
   const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
-  const theme = savedTheme === "dark" ? "dark" : "light";
+  const theme = savedTheme === "light" ? "light" : "dark";
   applyTheme(theme);
   elements.themeSelect.value = theme;
 }
