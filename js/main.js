@@ -41,6 +41,7 @@ import {
   markTutorialTriggerShown,
   setTutorialEnabled,
 } from "./persistence/tutorialStore.js";
+import { getStats, recordGameResult } from "./persistence/statsStore.js";
 
 const THEME_STORAGE_KEY = "runebags-theme-v1";
 const ANIMATION_STORAGE_KEY = "runebags-animations-v1";
@@ -82,6 +83,16 @@ const elements = {
   menuRulesBtn: document.getElementById("menu-rules-btn"),
   menuSettingsBtn: document.getElementById("menu-settings-btn"),
   homeRuneGallery: document.getElementById("home-rune-gallery"),
+  homeStats: document.getElementById("home-stats"),
+  homeResume: document.getElementById("home-resume"),
+  homeResumeText: document.getElementById("home-resume-text"),
+  homeResumeBtn: document.getElementById("home-resume-btn"),
+  runeDetailOverlay: document.getElementById("rune-detail-overlay"),
+  runeDetailIcon: document.getElementById("rune-detail-icon"),
+  runeDetailName: document.getElementById("rune-detail-name"),
+  runeDetailDesc: document.getElementById("rune-detail-desc"),
+  runeDetailMeta: document.getElementById("rune-detail-meta"),
+  runeDetailClose: document.getElementById("rune-detail-close"),
   settingsPanel: document.getElementById("settings-panel"),
   themeSelect: document.getElementById("theme-select"),
   animationToggle: document.getElementById("animation-toggle"),
@@ -176,7 +187,9 @@ const elements = {
   endgameP2Name: document.getElementById("endgame-p2-name"),
   endgameP2Points: document.getElementById("endgame-p2-points"),
   endgameP2Bag: document.getElementById("endgame-p2-bag"),
+  endgameStats: document.getElementById("endgame-stats"),
   endgameRematchBtn: document.getElementById("endgame-rematch-btn"),
+  endgameShareBtn: document.getElementById("endgame-share-btn"),
   endgameMenuBtn: document.getElementById("endgame-menu-btn"),
   endgameDismissBtn: document.getElementById("endgame-dismiss-btn"),
   shopInstruction: document.getElementById("shop-instruction"),
@@ -199,6 +212,13 @@ let handVisibility = {
 let awaitingHandReveal = false;
 // True once the player dismisses the end-game summary to inspect the final board.
 let endgameOverlayDismissed = false;
+// Guards against recording the same finished game's stats more than once.
+let gameResultRecorded = false;
+// Which local mode the landing "Resume game" card will continue, if any.
+let homeResumeMode = null;
+// Track overlay show-transitions so we move focus into them only once.
+let passDeviceFocused = false;
+let endgameFocused = false;
 let activeRoomCode = null;
 let waitingRoomState = createWaitingRoomState();
 const aiConfig = createAiConfig();
@@ -237,6 +257,8 @@ initializeAnimations();
 initializeSound();
 renderRuneSelectionSettings();
 renderHomeRuneGallery();
+renderHomeStats();
+renderHomeResume();
 bindSoundUnlockHandlers();
 render();
 initializeEntryMode();
@@ -855,6 +877,111 @@ function bindEvents() {
     render();
   });
 
+  elements.endgameShareBtn.addEventListener("click", () => {
+    const text = buildShareText();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        elements.endgameShareBtn.textContent = "Copied!";
+        window.setTimeout(() => {
+          elements.endgameShareBtn.textContent = "Share result";
+        }, 1600);
+      }).catch(() => {
+        window.prompt("Copy your result:", text);
+      });
+    } else {
+      window.prompt("Copy your result:", text);
+    }
+  });
+
+  elements.homeResumeBtn.addEventListener("click", () => {
+    if (homeResumeMode === MODE_AI) {
+      elements.aiContinueBtn.click();
+    } else {
+      elements.menuPassplayBtn.click();
+    }
+  });
+
+  elements.homeRuneGallery.addEventListener("click", (event) => {
+    const chip = event.target.closest("[data-rune-id]");
+    if (chip) {
+      openRuneDetail(chip.dataset.runeId);
+    }
+  });
+
+  elements.runeDetailClose.addEventListener("click", closeRuneDetail);
+  elements.runeDetailOverlay.addEventListener("click", (event) => {
+    if (event.target === elements.runeDetailOverlay) {
+      closeRuneDetail();
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      if (!elements.runeDetailOverlay.hidden) {
+        closeRuneDetail();
+      } else if (!elements.endgameOverlay.hidden) {
+        endgameOverlayDismissed = true;
+        render();
+      }
+      return;
+    }
+
+    if (event.key === "Tab") {
+      const overlay = getActiveOverlay();
+      if (!overlay) {
+        return;
+      }
+      const focusables = [...overlay.querySelectorAll(
+        'button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])',
+      )].filter((el) => el.getClientRects().length > 0);
+      if (focusables.length === 0) {
+        return;
+      }
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      } else if (!overlay.contains(document.activeElement)) {
+        event.preventDefault();
+        first.focus();
+      }
+      return;
+    }
+
+    // Column hotkeys (1-7): drop into a column during an active round.
+    const tag = event.target && event.target.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA") {
+      return;
+    }
+    if (elements.gameScreen.hidden || getActiveOverlay()) {
+      return;
+    }
+    if (state.phase !== "round" || state.pendingAction) {
+      return;
+    }
+    const columnNumber = Number(event.key);
+    if (!Number.isInteger(columnNumber) || columnNumber < 1 || columnNumber > state.columns) {
+      return;
+    }
+    const col = columnNumber - 1;
+    let targetCell = null;
+    for (let row = state.rows - 1; row >= 0; row -= 1) {
+      const cell = elements.boardEl.querySelector(`.cell[data-column="${col}"][data-row="${row}"]`);
+      if (cell && !cell.disabled) {
+        targetCell = cell;
+        break;
+      }
+    }
+    if (targetCell) {
+      event.preventDefault();
+      targetCell.click();
+    }
+  });
+
   elements.phaseBtn.addEventListener("click", () => {
     if (online.isOnlineActive()) {
       if (state.phase === "shop") {
@@ -1283,6 +1410,12 @@ function render() {
   if (awaitingHandReveal) {
     elements.passDeviceText.textContent =
       `Hand the device to ${getDisplayPlayerName(state.currentPlayer)}, then reveal your hand.`;
+    if (!passDeviceFocused) {
+      elements.passDeviceRevealBtn.focus();
+      passDeviceFocused = true;
+    }
+  } else {
+    passDeviceFocused = false;
   }
 
   const animationFrame = buildBoardAnimationFrame(
@@ -1460,8 +1593,16 @@ const GAME_END_REASONS = {
 function renderEndgameOverlay() {
   if (state.phase !== "game-over") {
     endgameOverlayDismissed = false;
+    gameResultRecorded = false;
+    endgameFocused = false;
     elements.endgameOverlay.hidden = true;
     return;
+  }
+
+  if (!gameResultRecorded) {
+    recordGameResult(getHumanOutcome());
+    gameResultRecorded = true;
+    renderHomeStats();
   }
 
   const winner = state.gameWinner;
@@ -1480,7 +1621,72 @@ function renderEndgameOverlay() {
   elements.endgameScore1.classList.toggle("winner", winner === 1);
   elements.endgameScore2.classList.toggle("winner", winner === 2);
 
+  const stats = getStats();
+  const decisive = stats.wins + stats.losses + stats.draws;
+  elements.endgameStats.textContent = decisive > 0
+    ? `Record: ${stats.wins}W ${stats.losses}L ${stats.draws}D · current streak ${stats.currentStreak}`
+    : `${stats.gamesPlayed} game${stats.gamesPlayed === 1 ? "" : "s"} played`;
+
   elements.endgameOverlay.hidden = endgameOverlayDismissed;
+  if (!endgameOverlayDismissed) {
+    if (!endgameFocused) {
+      elements.endgameRematchBtn.focus();
+      endgameFocused = true;
+    }
+  } else {
+    endgameFocused = false;
+  }
+}
+
+function getHumanOutcome() {
+  const winner = state.gameWinner;
+  if (online.isOnlineActive()) {
+    const you = waitingRoomState.playerId;
+    if (!you) {
+      return "played";
+    }
+    if (!winner) {
+      return "draw";
+    }
+    return winner === you ? "win" : "loss";
+  }
+  if (aiConfig.enabled) {
+    const human = aiConfig.playerId === 1 ? 2 : 1;
+    if (!winner) {
+      return "draw";
+    }
+    return winner === human ? "win" : "loss";
+  }
+  return "played";
+}
+
+function renderHomeStats() {
+  if (!elements.homeStats) {
+    return;
+  }
+  const stats = getStats();
+  if (stats.gamesPlayed === 0) {
+    elements.homeStats.hidden = true;
+    return;
+  }
+  let text = `${stats.gamesPlayed} game${stats.gamesPlayed === 1 ? "" : "s"} played`;
+  const decisive = stats.wins + stats.losses + stats.draws;
+  if (decisive > 0) {
+    text += ` · ${stats.wins}W ${stats.losses}L ${stats.draws}D · streak ${stats.currentStreak} (best ${stats.bestStreak})`;
+  }
+  elements.homeStats.hidden = false;
+  elements.homeStats.textContent = text;
+}
+
+function buildShareText() {
+  const winner = state.gameWinner;
+  const title = winner ? `${getDisplayPlayerName(winner)} wins` : "Draw";
+  const grid = state.board
+    .map((row) => row
+      .map((v) => (v === 1 ? "\u{1F535}" : v === 2 ? "⚪" : v === 3 ? "\u{1F7EB}" : "⬛"))
+      .join(""))
+    .join("\n");
+  return `RuneBags — ${title}\nRound ${state.roundNumber} · Black ${state.players[1].points} – White ${state.players[2].points}\n\u{1F535} Black  ⚪ White  \u{1F7EB} Neutral\n${grid}\nhttps://runebags.onrender.com`;
 }
 
 function renderRuneList(container, runes, playerId, highlightIds, options = {}) {
@@ -1867,6 +2073,7 @@ function showMainMenu() {
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
   tutorialController.hideAll();
+  renderHomeResume();
 }
 
 function showAiPanel() {
@@ -2303,8 +2510,10 @@ function renderHomeRuneGallery() {
   RUNE_CATALOG
     .filter((rune) => rune.icon && rune.id !== "basic" && rune.id !== "neutral")
     .forEach((rune) => {
-      const chip = document.createElement("div");
+      const chip = document.createElement("button");
+      chip.type = "button";
       chip.className = "home-rune";
+      chip.dataset.runeId = rune.id;
       chip.title = `${rune.name}: ${rune.description}`;
 
       const icon = document.createElement("img");
@@ -2321,6 +2530,70 @@ function renderHomeRuneGallery() {
       chip.appendChild(name);
       gallery.appendChild(chip);
     });
+}
+
+function renderHomeResume() {
+  if (!elements.homeResume) {
+    return;
+  }
+  const aiSave = loadModeSave(MODE_AI);
+  const passSave = loadModeSave(MODE_PASSPLAY);
+  const candidates = [];
+  if (isResumableSave(aiSave?.state)) {
+    candidates.push({ mode: MODE_AI, updatedAt: aiSave.updatedAt || 0, round: aiSave.state.roundNumber || 1 });
+  }
+  if (isResumableSave(passSave?.state)) {
+    candidates.push({ mode: MODE_PASSPLAY, updatedAt: passSave.updatedAt || 0, round: passSave.state.roundNumber || 1 });
+  }
+
+  if (candidates.length === 0) {
+    homeResumeMode = null;
+    elements.homeResume.hidden = true;
+    return;
+  }
+
+  candidates.sort((a, b) => b.updatedAt - a.updatedAt);
+  const best = candidates[0];
+  homeResumeMode = best.mode;
+  const label = best.mode === MODE_AI ? "Play Against AI" : "Pass & Play";
+  elements.homeResumeText.textContent = `Resume your ${label} game — round ${best.round}`;
+  elements.homeResume.hidden = false;
+}
+
+function openRuneDetail(runeId) {
+  const rune = getRuneById(runeId);
+  if (!rune) {
+    return;
+  }
+  elements.runeDetailIcon.src = rune.icon || "";
+  elements.runeDetailIcon.alt = rune.name;
+  elements.runeDetailName.textContent = rune.name;
+  elements.runeDetailDesc.textContent = rune.description;
+  const metaBits = [];
+  if (rune.supportsLevels) {
+    metaBits.push(`Levels 1–${rune.maxLevel || 2}`);
+  }
+  if (rune.shopEffect) {
+    metaBits.push(rune.shopEffect);
+  }
+  elements.runeDetailMeta.textContent = metaBits.join(" · ");
+  elements.runeDetailMeta.hidden = metaBits.length === 0;
+  elements.runeDetailOverlay.hidden = false;
+  elements.runeDetailClose.focus();
+}
+
+function closeRuneDetail() {
+  elements.runeDetailOverlay.hidden = true;
+}
+
+function getActiveOverlay() {
+  const overlays = [
+    elements.runeDetailOverlay,
+    elements.endgameOverlay,
+    elements.passDeviceOverlay,
+    elements.tutorialPrompt,
+  ];
+  return overlays.find((el) => el && !el.hidden && el.getClientRects().length > 0) || null;
 }
 
 function initializeTheme() {

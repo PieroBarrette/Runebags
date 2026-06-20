@@ -1,10 +1,15 @@
 {
+  "id": "/",
   "name": "RuneBags",
   "short_name": "RuneBags",
-  "description": "Runic tactics, hidden hands, and evolving rounds.",
+  "description": "Runic tactics, hidden hands, and evolving rounds. Drop runes, build winning lines of four, and bend the rules with 24 unique rune powers.",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["games", "board"],
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#0f131a",
   "theme_color": "#131820",
   "icons": [

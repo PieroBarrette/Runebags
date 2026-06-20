@@ -4,9 +4,24 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#131820">
-  <title>RuneBags</title>
+  <title>RuneBags — runic tactics board game</title>
+  <meta name="description" content="Runic tactics, hidden hands, and evolving rounds. Drop runes, build winning lines of four, and bend the rules with 24 unique rune powers. Play the AI, pass &amp; play, or online.">
+  <link rel="canonical" href="https://runebags.onrender.com/">
   <link rel="icon" type="image/svg+xml" href="./assets/RuneBags_Logo.svg">
+  <link rel="apple-touch-icon" href="./assets/RuneBags_Logo.svg">
   <link rel="manifest" href="./manifest.webmanifest">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="RuneBags">
+  <meta property="og:title" content="RuneBags — runic tactics board game">
+  <meta property="og:description" content="Drop runes, build winning lines of four, and bend the rules with 24 unique rune powers. Play the AI, pass &amp; play, or online.">
+  <meta property="og:url" content="https://runebags.onrender.com/">
+  <meta property="og:image" content="https://runebags.onrender.com/assets/RuneBags_Logo.svg">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="RuneBags — runic tactics board game">
+  <meta name="twitter:description" content="Drop runes, build winning lines of four, and bend the rules with 24 unique rune powers.">
+  <meta name="twitter:image" content="https://runebags.onrender.com/assets/RuneBags_Logo.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -18,6 +33,10 @@
   <main class="app-shell">
     <section id="main-menu" class="home-screen">
       <div class="home-hero">
+        <div id="home-resume" class="home-resume" hidden>
+          <span id="home-resume-text" class="home-resume-text"></span>
+          <button id="home-resume-btn" class="menu-btn primary" type="button">Resume game</button>
+        </div>
         <img class="menu-logo" src="./assets/RuneBags_Logo.svg" alt="RuneBags logo">
         <h1>RuneBags</h1>
         <p class="menu-subtitle">Runic tactics, hidden hands, and evolving rounds.</p>
@@ -55,10 +74,22 @@
         <div id="home-rune-gallery" class="home-rune-gallery" aria-label="Rune gallery"></div>
       </section>
 
+      <p id="home-stats" class="home-stats" hidden></p>
+
       <footer class="home-footer">
         <span class="home-footer-brand">RuneBags</span>
         <a class="home-footer-link" href="https://github.com/PieroBarrette/Runebags" target="_blank" rel="noopener">View on GitHub</a>
       </footer>
+    </section>
+
+    <section id="rune-detail-overlay" class="rune-detail-overlay" hidden>
+      <article class="rune-detail-card" role="dialog" aria-modal="true" aria-labelledby="rune-detail-name">
+        <img id="rune-detail-icon" class="rune-detail-icon" src="" alt="">
+        <h2 id="rune-detail-name" class="rune-detail-name"></h2>
+        <p id="rune-detail-desc" class="rune-detail-desc"></p>
+        <p id="rune-detail-meta" class="rune-detail-meta"></p>
+        <button id="rune-detail-close" class="menu-btn secondary" type="button">Close</button>
+      </article>
     </section>
 
     <section id="ai-panel" class="panel menu-panel" hidden>
@@ -339,8 +370,10 @@
               <span class="endgame-score-bag" id="endgame-p2-bag">Bag 0</span>
             </div>
           </div>
+          <p id="endgame-stats" class="endgame-stats"></p>
           <div class="menu-actions compact endgame-actions">
             <button id="endgame-rematch-btn" class="menu-btn primary" type="button">Play again</button>
+            <button id="endgame-share-btn" class="menu-btn secondary" type="button">Share result</button>
             <button id="endgame-menu-btn" class="menu-btn secondary" type="button">Main menu</button>
             <button id="endgame-dismiss-btn" class="menu-btn secondary" type="button">View board</button>
           </div>

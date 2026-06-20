@@ -291,6 +291,13 @@ body[data-theme="dark"] .menu-logo {
   border: 1px solid var(--panel-border);
   border-radius: 12px;
   box-shadow: 0 8px 16px var(--shadow);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.home-rune:hover {
+  border-color: var(--accent);
 }
 
 .home-rune-icon {
@@ -1174,6 +1181,101 @@ body[data-theme="dark"] .chat-row.you {
 .endgame-actions {
   justify-content: center;
   flex-wrap: wrap;
+}
+
+.endgame-stats {
+  margin: 0 0 1rem;
+  color: var(--text-soft);
+  font-size: 0.85rem;
+}
+
+.home-stats {
+  margin: 0;
+  text-align: center;
+  color: var(--text-soft);
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+}
+
+.home-resume {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding: 0.6rem 0.9rem;
+  margin-bottom: 0.3rem;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 16px var(--shadow);
+}
+
+.home-resume-text {
+  color: var(--text-soft);
+  font-size: 0.92rem;
+}
+
+.rune-detail-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.2rem;
+  background: rgba(12, 17, 24, 0.78);
+}
+
+.rune-detail-overlay[hidden] {
+  display: none;
+}
+
+.rune-detail-card {
+  width: min(380px, 92vw);
+  text-align: center;
+  padding: 1.5rem 1.4rem;
+  border-radius: 16px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  box-shadow: 0 22px 56px rgba(0, 0, 0, 0.45);
+}
+
+.rune-detail-icon {
+  width: 48px;
+  height: 48px;
+  filter: grayscale(1) brightness(0.3);
+}
+
+body[data-theme="dark"] .rune-detail-icon {
+  filter: grayscale(1) brightness(0) invert(0.86);
+}
+
+.rune-detail-name {
+  margin: 0.5rem 0 0.4rem;
+  font-size: 1.3rem;
+}
+
+.rune-detail-desc {
+  margin: 0 0 0.6rem;
+  color: var(--text-main);
+  line-height: 1.5;
+}
+
+.rune-detail-meta {
+  margin: 0 0 1.1rem;
+  color: var(--text-soft);
+  font-size: 0.85rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }
 
 /* Tutorial (standalone port) */
