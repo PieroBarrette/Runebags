@@ -1560,12 +1560,12 @@ function renderShopPanel() {
 
   elements.phaseBtn.hidden = state.phase === "round" || state.phase === "game-over";
   if (online.isOnlineActive() && state.phase === "shop") {
-    elements.phaseBtn.textContent = waitingRoomState.shopReadyYou ? "Cancel Ready" : "Shop Ready";
+    elements.phaseBtn.textContent = waitingRoomState.shopReadyYou ? t("shop.cancelReady") : t("shop.ready");
   } else if (isPassPlayMode() && state.phase === "shop") {
     const playerReady = Boolean(state.shop.players[state.shop.currentPlayer]?.ready);
-    elements.phaseBtn.textContent = playerReady ? "Cancel Ready" : "Shop Ready";
+    elements.phaseBtn.textContent = playerReady ? t("shop.cancelReady") : t("shop.ready");
   } else {
-    elements.phaseBtn.textContent = state.phase === "shop" ? "Start Next Round" : "Start Shop Phase";
+    elements.phaseBtn.textContent = state.phase === "shop" ? t("shop.startNextRound") : t("shop.startShop");
   }
 
   if (!inShop) {
@@ -1575,16 +1575,16 @@ function renderShopPanel() {
   if (online.isOnlineActive()) {
     const opponentId = waitingRoomState.playerId === 1 ? 2 : 1;
     const opponentPseudo = opponentId ? getDisplayPlayerName(opponentId) : (waitingRoomState.opponentName || "Opponent");
-    const opponentStatus = waitingRoomState.shopReadyOpponent ? "ready" : "not ready";
+    const opponentStatus = waitingRoomState.shopReadyOpponent ? t("common.ready") : t("common.notReady");
     elements.shopInstruction.textContent = waitingRoomState.shopReadyYou
-      ? `You are ready. ${opponentPseudo} is ${opponentStatus}.`
-      : `Shop your own bag and offer, then click Shop Ready. ${opponentPseudo} is ${opponentStatus}.`;
+      ? t("shop.instrReady", { opp: opponentPseudo, status: opponentStatus })
+      : t("shop.instrOnline", { opp: opponentPseudo, status: opponentStatus });
   } else if (isPassPlayMode()) {
-    const blackReady = state.shop.players[1]?.ready ? "ready" : "not ready";
-    const whiteReady = state.shop.players[2]?.ready ? "ready" : "not ready";
-    elements.shopInstruction.textContent = `Shop your own bag and offer, then click Shop Ready. Black is ${blackReady}, White is ${whiteReady}.`;
+    const blackReady = state.shop.players[1]?.ready ? t("common.ready") : t("common.notReady");
+    const whiteReady = state.shop.players[2]?.ready ? t("common.ready") : t("common.notReady");
+    elements.shopInstruction.textContent = t("shop.instrPassplay", { black: blackReady, white: whiteReady });
   } else {
-    elements.shopInstruction.textContent = "Shop: remove once, combine pair, add up to 2 from offer.";
+    elements.shopInstruction.textContent = t("shop.instrAi");
   }
 
   const playerId = online.isOnlineActive() && waitingRoomState.playerId
@@ -1602,9 +1602,16 @@ function renderShopPanel() {
   const playerReady = Boolean(data.ready);
 
   elements.shopPlayerTitle.textContent = online.isOnlineActive()
-    ? `Your Shop - ${getDisplayPlayerName(playerId)}`
-    : `Shop - ${getDisplayPlayerName(playerId)}`;
-  elements.shopModeLabel.textContent = `Mode: ${data.mode || "none"} | Added: ${data.addedCount}/${data.addLimit} | Removes: ${data.removeCount}/${data.removeLimit} | Ready: ${playerReady ? "yes" : "no"}`;
+    ? t("shop.titleYour", { player: getDisplayPlayerName(playerId) })
+    : t("shop.title", { player: getDisplayPlayerName(playerId) });
+  elements.shopModeLabel.textContent = t("shop.mode", {
+    mode: data.mode || t("shop.modeNone"),
+    added: data.addedCount,
+    addLimit: data.addLimit,
+    removed: data.removeCount,
+    removeLimit: data.removeLimit,
+    ready: playerReady ? t("common.yes") : t("common.no"),
+  });
 
   renderRuneList(elements.shopOffer, data.offer, playerId, highlights.offerHighlightIds);
   renderRuneList(elements.shopBag, state.players[playerId].bag, playerId, highlights.bagHighlightIds);
