@@ -96,6 +96,10 @@ const translations = {
     "share.draw": "Draw",
     "share.line": "Round {round} · Black {b} – White {w}",
     "share.legend": "\u{1F535} Black  ⚪ White  \u{1F7EB} Neutral",
+    "game.levelPrefix": "L",
+    "game.ethereal": "Ethereal",
+    "rune.levels": "Levels 1–{max}",
+    "rune.shopEffect": "When picked from shop, add a neutral rune to owner bag.",
   },
   fr: {
     "home.tagline": "Tactique runique, mains cachées, manches qui évoluent.",
@@ -189,6 +193,36 @@ const translations = {
     "share.draw": "Nul",
     "share.line": "Manche {round} · Noir {b} – Blanc {w}",
     "share.legend": "\u{1F535} Noir  ⚪ Blanc  \u{1F7EB} Neutre",
+    "game.levelPrefix": "N",
+    "game.ethereal": "Éthérée",
+    "rune.levels": "Niveaux 1–{max}",
+    "rune.shopEffect": "Quand prise en boutique, ajoute une rune neutre au sac du propriétaire.",
+    "rune.basic.desc": "Aucun effet spécial.",
+    "rune.neutral.desc": "Bloque les deux joueurs et ne peut pas créer de ligne gagnante seule.",
+    "rune.inguz.desc": "Ne peut être jouée que dans la colonne centrale.",
+    "rune.jera.desc": "Ne peut être jouée que dans la colonne la plus à gauche ou la plus à droite.",
+    "rune.kenaz.desc": "Un seul Kenaz ne fait rien. Quand votre deuxième Kenaz entre en jeu, détruit définitivement 1 rune du plateau.",
+    "rune.laguz.desc": "Ne peut être ni déplacée ni retirée.",
+    "rune.wunjo.desc": "Si isolée des runes alliées en fin de manche, accorde +1 ajout et +1 retrait à la prochaine boutique.",
+    "rune.algiz.desc": "Insérée au bas d'une colonne, poussant les runes vers le haut.",
+    "rune.ansuz.desc": "Renvoie la rune juste en dessous dans le sac de son propriétaire.",
+    "rune.berkana.desc": "Si dans une ligne gagnante de son propriétaire, accorde +1 point bonus une fois par manche.",
+    "rune.dagaz.desc": "Copie l'effet de la rune juste en dessous (sauf Kenaz). À chaque pose, ajoute 1 rune neutre au sac du propriétaire.",
+    "rune.ehwaz.desc": "Augmente la limite de main du propriétaire tant qu'elle est sur le plateau. (N1 : 3 runes en main, N2 : 4 runes en main)",
+    "rune.eihwaz.desc": "Si défaussée ou retirée pour la manche, son propriétaire gagne 1 point.",
+    "rune.fehu.desc": "Récupère des runes défaussées dans votre sac (N1 : 1 rune, N2 : 2 runes).",
+    "rune.gebo.desc": "Retire des runes du plateau pour la manche (N1 : rune en dessous, N2 : rune adjacente).",
+    "rune.hagalz.desc": "Une rune neutre adjacente peut compter dans votre ligne gagnante.",
+    "rune.isa.desc": "Reste sur le plateau entre les manches.",
+    "rune.mannaz.desc": "Ajoute des runes neutres au sac de l'adversaire (N1 : 1, N2 : 2).",
+    "rune.nauthiz.desc": "Flotte sur n'importe quelle case libre. Éthérée.",
+    "rune.odal.desc": "Si jouée sur la rangée du haut, gagne 1 point sans terminer la manche.",
+    "rune.perth.desc": "Restreint le prochain tour de l'adversaire aux colonnes adjacentes. (N1 : l'adversaire choisit, N2 : vous choisissez)",
+    "rune.raido.desc": "Accorde immédiatement un tour supplémentaire. (N1 : éthérée, N2 : non éthérée)",
+    "rune.sowelu.desc": "L'adversaire perd des runes aléatoires de son sac pour la manche. (N1 : 1 rune aléatoire, N2 : 2 runes aléatoires)",
+    "rune.teiwaz.desc": "Déplace les runes du sommet entre colonnes. (N1 : vers une colonne adjacente, N2 : vers n'importe quelle colonne)",
+    "rune.thurisa.desc": "Ajoute des runes neutres de la réserve sur le plateau. (N1 : 1 rune, N2 : 2 runes)",
+    "rune.uruz.desc": "L'adversaire ne peut plus cacher sa main tant que cette rune est sur le plateau.",
   },
 };
 
@@ -236,6 +270,15 @@ export function t(key, params) {
     str = str.replace(/\{(\w+)\}/g, (match, name) => (params[name] != null ? String(params[name]) : match));
   }
   return str;
+}
+
+export function runeDescription(rune) {
+  if (!rune) {
+    return "";
+  }
+  const key = `rune.${rune.id}.desc`;
+  const localized = t(key);
+  return localized === key ? (rune.description || "") : localized;
 }
 
 export function applyTranslations(root = document) {

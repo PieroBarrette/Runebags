@@ -1,3 +1,5 @@
+import { t, runeDescription } from "../i18n.js";
+
 export function renderHands(state, elements, handVisibility, forcedVisible) {
   renderPlayerHand(state, 1, elements, handVisibility[1], forcedVisible[1]);
   renderPlayerHand(state, 2, elements, handVisibility[2], forcedVisible[2]);
@@ -70,8 +72,8 @@ function renderPlayerHand(state, playerId, elements, isVisible, isForcedVisible)
     const subtitle = document.createElement("small");
     const shouldShowLevelPrefix = RUNES_WITH_LEVEL_PREFIX.has(rune.id) && (rune.maxLevel || 1) >= 2;
     subtitle.textContent = shouldShowLevelPrefix
-      ? `L${rune.level} - ${rune.description}`
-      : rune.description;
+      ? `${t("game.levelPrefix")}${rune.level} - ${runeDescription(rune)}`
+      : runeDescription(rune);
 
     textWrap.appendChild(title);
     textWrap.appendChild(subtitle);

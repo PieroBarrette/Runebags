@@ -42,7 +42,7 @@ import {
   setTutorialEnabled,
 } from "./persistence/tutorialStore.js";
 import { getStats, recordGameResult } from "./persistence/statsStore.js";
-import { t, getLang, setLang, applyTranslations } from "./i18n.js";
+import { t, getLang, setLang, applyTranslations, runeDescription } from "./i18n.js";
 
 const THEME_STORAGE_KEY = "runebags-theme-v1";
 const ANIMATION_STORAGE_KEY = "runebags-animations-v1";
@@ -1315,10 +1315,10 @@ function showBoardRuneInfoForCell(cell, fromTouch) {
     return false;
   }
 
-  const levelLabel = runeMeta.supportsLevels && rune.level >= 2 ? ` Lv${rune.level}` : "";
-  const etherealLabel = rune.ethereal ? " (Ethereal)" : "";
+  const levelLabel = runeMeta.supportsLevels && rune.level >= 2 ? ` ${t("game.levelPrefix")}${rune.level}` : "";
+  const etherealLabel = rune.ethereal ? ` (${t("game.ethereal")})` : "";
   elements.boardRuneInfoTitle.textContent = `${runeMeta.name}${levelLabel}${etherealLabel}`;
-  elements.boardRuneInfoDescription.textContent = runeMeta.description;
+  elements.boardRuneInfoDescription.textContent = runeDescription(runeMeta);
 
   const panelRect = elements.boardPanel.getBoundingClientRect();
   const cellRect = cell.getBoundingClientRect();
@@ -1800,8 +1800,8 @@ function renderRuneList(container, runes, playerId, highlightIds, options = {}) 
     const subtitle = document.createElement("small");
     const shouldShowLevelPrefix = RUNES_WITH_LEVEL_PREFIX.has(rune.id) && (rune.maxLevel || 1) >= 2;
     subtitle.textContent = shouldShowLevelPrefix
-      ? `L${rune.level} - ${rune.description}`
-      : rune.description;
+      ? `${t("game.levelPrefix")}${rune.level} - ${runeDescription(rune)}`
+      : runeDescription(rune);
 
     if (rune.shopEffect) {
       const effect = document.createElement("small");
@@ -1927,7 +1927,7 @@ function renderRoundAwayRunes(entries) {
 
     const textWrap = document.createElement("div");
     const title = document.createElement("strong");
-    title.textContent = `${rune.name} L${entry.level}`;
+    title.textContent = `${rune.name} ${t("game.levelPrefix")}${entry.level}`;
     const subtitle = document.createElement("small");
     const ownerLabel = entry.owner === 1 ? "Black" : entry.owner === 2 ? "White" : "Neutral";
     subtitle.textContent = `Discarded (${entry.source}, ${ownerLabel})`;
@@ -2532,7 +2532,7 @@ function renderRuneSelectionSettings() {
     title.textContent = rune.name;
 
     const effect = document.createElement("small");
-    effect.textContent = rune.description;
+    effect.textContent = runeDescription(rune);
 
     textWrap.appendChild(title);
     textWrap.appendChild(effect);
@@ -2565,7 +2565,7 @@ function renderHomeRuneGallery() {
       chip.type = "button";
       chip.className = "home-rune";
       chip.dataset.runeId = rune.id;
-      chip.title = `${rune.name}: ${rune.description}`;
+      chip.title = `${rune.name}: ${runeDescription(rune)}`;
 
       const icon = document.createElement("img");
       icon.className = "home-rune-icon";
@@ -2619,13 +2619,13 @@ function openRuneDetail(runeId) {
   elements.runeDetailIcon.src = rune.icon || "";
   elements.runeDetailIcon.alt = rune.name;
   elements.runeDetailName.textContent = rune.name;
-  elements.runeDetailDesc.textContent = rune.description;
+  elements.runeDetailDesc.textContent = runeDescription(rune);
   const metaBits = [];
   if (rune.supportsLevels) {
-    metaBits.push(`Levels 1–${rune.maxLevel || 2}`);
+    metaBits.push(t("rune.levels", { max: rune.maxLevel || 2 }));
   }
   if (rune.shopEffect) {
-    metaBits.push(rune.shopEffect);
+    metaBits.push(t("rune.shopEffect"));
   }
   elements.runeDetailMeta.textContent = metaBits.join(" · ");
   elements.runeDetailMeta.hidden = metaBits.length === 0;
