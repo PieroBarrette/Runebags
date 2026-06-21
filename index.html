@@ -91,30 +91,30 @@
         <h2 id="rune-detail-name" class="rune-detail-name"></h2>
         <p id="rune-detail-desc" class="rune-detail-desc"></p>
         <p id="rune-detail-meta" class="rune-detail-meta"></p>
-        <button id="rune-detail-close" class="menu-btn secondary" type="button">Close</button>
+        <button id="rune-detail-close" class="menu-btn secondary" type="button" data-i18n="common.close">Close</button>
       </article>
     </section>
 
     <section id="ai-panel" class="panel menu-panel" hidden>
-      <h2>Play Against AI</h2>
+      <h2 data-i18n="ai.title">Play Against AI</h2>
       <div class="ai-config">
-        <label for="ai-side-select">AI Side</label>
+        <label for="ai-side-select" data-i18n="ai.side">AI Side</label>
         <select id="ai-side-select">
-          <option value="1">Black</option>
-          <option value="2" selected>White</option>
+          <option value="1" data-i18n="side.black">Black</option>
+          <option value="2" selected data-i18n="side.white">White</option>
         </select>
-        <label for="ai-depth-select">AI Depth</label>
+        <label for="ai-depth-select" data-i18n="ai.depth">AI Depth</label>
         <select id="ai-depth-select">
-          <option value="1">Easy</option>
-          <option value="2" selected>Medium</option>
-          <option value="3">Hard</option>
-          <option value="4">Harder</option>
+          <option value="1" data-i18n="ai.easy">Easy</option>
+          <option value="2" selected data-i18n="ai.medium">Medium</option>
+          <option value="3" data-i18n="ai.hard">Hard</option>
+          <option value="4" data-i18n="ai.harder">Harder</option>
         </select>
       </div>
       <div class="menu-actions compact">
-        <button id="ai-continue-btn" class="menu-btn" type="button">Continue Game</button>
-        <button id="ai-start-btn" class="menu-btn" type="button">Start New Game</button>
-        <button id="ai-back-btn" class="menu-btn secondary" type="button">Back</button>
+        <button id="ai-continue-btn" class="menu-btn" type="button" data-i18n="ai.continue">Continue Game</button>
+        <button id="ai-start-btn" class="menu-btn" type="button" data-i18n="ai.start">Start New Game</button>
+        <button id="ai-back-btn" class="menu-btn secondary" type="button" data-i18n="nav.back">Back</button>
       </div>
     </section>
 
@@ -280,8 +280,8 @@
         </h1>
         <div class="status-wrap">
           <p id="game-status" class="sr-only" aria-live="polite">Loading match...</p>
-          <button id="menu-btn" type="button">Main Menu</button>
-          <button id="new-game-btn" type="button">New Game</button>
+          <button id="menu-btn" type="button" data-i18n="topbar.menu">Main Menu</button>
+          <button id="new-game-btn" type="button" data-i18n="topbar.newGame">New Game</button>
         </div>
       </header>
 
@@ -327,7 +327,7 @@
           </div>
           <div id="tutorial-dialog" class="tutorial-dialog" data-position="status" hidden>
             <p id="tutorial-dialog-text" class="tutorial-dialog-text"></p>
-            <p class="tutorial-dialog-hint">Click once to finish the text, click again to close.</p>
+            <p class="tutorial-dialog-hint" data-i18n="tutorial.dialogHint">Click once to finish the text, click again to close.</p>
           </div>
         </section>
 
@@ -356,15 +356,15 @@
 
       <section id="pass-device-overlay" class="pass-device-overlay" hidden>
         <article class="pass-device-card" role="dialog" aria-modal="true" aria-labelledby="pass-device-title">
-          <h2 id="pass-device-title">Pass the device</h2>
+          <h2 id="pass-device-title" data-i18n="passDevice.title">Pass the device</h2>
           <p id="pass-device-text" class="pass-device-text">Hand the device to the next player.</p>
-          <button id="pass-device-reveal-btn" class="menu-btn" type="button">Reveal hand</button>
+          <button id="pass-device-reveal-btn" class="menu-btn" type="button" data-i18n="passDevice.reveal">Reveal hand</button>
         </article>
       </section>
 
       <section id="endgame-overlay" class="endgame-overlay" hidden>
         <article class="endgame-card" role="dialog" aria-modal="true" aria-labelledby="endgame-title">
-          <p class="endgame-eyebrow">Game over</p>
+          <p class="endgame-eyebrow" data-i18n="endgame.eyebrow">Game over</p>
           <h2 id="endgame-title" class="endgame-title">Game over</h2>
           <p id="endgame-reason" class="endgame-reason"></p>
           <div class="endgame-scores">
@@ -381,21 +381,21 @@
           </div>
           <p id="endgame-stats" class="endgame-stats"></p>
           <div class="menu-actions compact endgame-actions">
-            <button id="endgame-rematch-btn" class="menu-btn primary" type="button">Play again</button>
-            <button id="endgame-share-btn" class="menu-btn secondary" type="button">Share result</button>
-            <button id="endgame-menu-btn" class="menu-btn secondary" type="button">Main menu</button>
-            <button id="endgame-dismiss-btn" class="menu-btn secondary" type="button">View board</button>
+            <button id="endgame-rematch-btn" class="menu-btn primary" type="button" data-i18n="endgame.playAgain">Play again</button>
+            <button id="endgame-share-btn" class="menu-btn secondary" type="button" data-i18n="endgame.share">Share result</button>
+            <button id="endgame-menu-btn" class="menu-btn secondary" type="button" data-i18n="endgame.mainMenu">Main menu</button>
+            <button id="endgame-dismiss-btn" class="menu-btn secondary" type="button" data-i18n="endgame.viewBoard">View board</button>
           </div>
         </article>
       </section>
 
       <section id="tutorial-prompt" class="tutorial-prompt-screen" hidden>
         <article class="tutorial-prompt-card" role="dialog" aria-modal="true" aria-labelledby="tutorial-prompt-title">
-          <h2 id="tutorial-prompt-title">Tutorial</h2>
-          <p class="tutorial-prompt-text">New to RuneBags? Would you like a guided tutorial with quick tips while you play?</p>
+          <h2 id="tutorial-prompt-title" data-i18n="tutorial.promptTitle">Tutorial</h2>
+          <p class="tutorial-prompt-text" data-i18n="tutorial.promptText">New to RuneBags? Would you like a guided tutorial with quick tips while you play?</p>
           <div class="menu-actions compact tutorial-prompt-actions">
-            <button id="tutorial-prompt-sure-btn" class="menu-btn" type="button">Sure</button>
-            <button id="tutorial-prompt-skip-btn" class="menu-btn secondary" type="button">Skip tutorial</button>
+            <button id="tutorial-prompt-sure-btn" class="menu-btn" type="button" data-i18n="tutorial.sure">Sure</button>
+            <button id="tutorial-prompt-skip-btn" class="menu-btn secondary" type="button" data-i18n="tutorial.skip">Skip tutorial</button>
           </div>
         </article>
       </section>
