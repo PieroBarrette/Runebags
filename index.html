@@ -37,43 +37,43 @@
       <div class="home-hero">
         <div id="home-resume" class="home-resume" hidden>
           <span id="home-resume-text" class="home-resume-text"></span>
-          <button id="home-resume-btn" class="menu-btn primary" type="button">Resume game</button>
+          <button id="home-resume-btn" class="menu-btn primary" type="button" data-i18n="home.resumeBtn">Resume game</button>
         </div>
         <img class="menu-logo" src="./assets/RuneBags_Logo.svg" alt="RuneBags logo">
         <h1>RuneBags</h1>
-        <p class="menu-subtitle">Runic tactics, hidden hands, and evolving rounds.</p>
+        <p class="menu-subtitle" data-i18n="home.tagline">Runic tactics, hidden hands, and evolving rounds.</p>
         <div class="home-cta">
-          <button id="menu-ai-btn" class="menu-btn primary" type="button">Play Against AI</button>
-          <button id="menu-passplay-btn" class="menu-btn primary" type="button">Pass &amp; Play</button>
-          <button id="menu-online-btn" class="menu-btn primary" type="button">Play Online</button>
+          <button id="menu-ai-btn" class="menu-btn primary" type="button" data-i18n="home.playAi">Play Against AI</button>
+          <button id="menu-passplay-btn" class="menu-btn primary" type="button" data-i18n="home.passplay">Pass &amp; Play</button>
+          <button id="menu-online-btn" class="menu-btn primary" type="button" data-i18n="home.online">Play Online</button>
         </div>
         <div class="home-cta home-cta-secondary">
-          <button id="menu-rules-btn" class="menu-btn secondary" type="button">Rules</button>
-          <button id="menu-settings-btn" class="menu-btn secondary" type="button">Settings</button>
-          <button id="home-install" class="menu-btn secondary" type="button" hidden>Install app</button>
+          <button id="menu-rules-btn" class="menu-btn secondary" type="button" data-i18n="nav.rules">Rules</button>
+          <button id="menu-settings-btn" class="menu-btn secondary" type="button" data-i18n="nav.settings">Settings</button>
+          <button id="home-install" class="menu-btn secondary" type="button" data-i18n="home.install" hidden>Install app</button>
         </div>
       </div>
 
       <div class="home-pillars">
         <article class="home-pillar">
           <span class="home-pillar-rune" aria-hidden="true">&#5839;</span>
-          <h3>Pure tactics</h3>
-          <p>Connect four of your runes in a line to take the point from the shared supply.</p>
+          <h3 data-i18n="pillar.tactics.title">Pure tactics</h3>
+          <p data-i18n="pillar.tactics.desc">Connect four of your runes in a line to take the point from the shared supply.</p>
         </article>
         <article class="home-pillar">
           <span class="home-pillar-rune" aria-hidden="true">&#5832;</span>
-          <h3>Hidden hands</h3>
-          <p>A pass-the-device prompt keeps each player's hand secret in local play.</p>
+          <h3 data-i18n="pillar.hands.title">Hidden hands</h3>
+          <p data-i18n="pillar.hands.desc">A pass-the-device prompt keeps each player's hand secret in local play.</p>
         </article>
         <article class="home-pillar">
           <span class="home-pillar-rune" aria-hidden="true">&#5827;</span>
-          <h3>Evolving bag</h3>
-          <p>Shop between rounds to add, remove, and combine your runes into stronger ones.</p>
+          <h3 data-i18n="pillar.bag.title">Evolving bag</h3>
+          <p data-i18n="pillar.bag.desc">Shop between rounds to add, remove, and combine your runes into stronger ones.</p>
         </article>
       </div>
 
       <section class="home-runes" aria-labelledby="home-runes-title">
-        <h2 id="home-runes-title" class="home-section-title">24 runes, each with a unique power</h2>
+        <h2 id="home-runes-title" class="home-section-title" data-i18n="home.runesTitle">24 runes, each with a unique power</h2>
         <div id="home-rune-gallery" class="home-rune-gallery" aria-label="Rune gallery"></div>
       </section>
 
@@ -81,7 +81,7 @@
 
       <footer class="home-footer">
         <span class="home-footer-brand">RuneBags</span>
-        <a class="home-footer-link" href="https://github.com/PieroBarrette/Runebags" target="_blank" rel="noopener">View on GitHub</a>
+        <a class="home-footer-link" href="https://github.com/PieroBarrette/Runebags" target="_blank" rel="noopener" data-i18n="home.footerGithub">View on GitHub</a>
       </footer>
     </section>
 
@@ -119,34 +119,40 @@
     </section>
 
     <section id="settings-panel" class="panel menu-panel" hidden>
-      <h2>Settings</h2>
+      <h2 data-i18n="settings.title">Settings</h2>
       <div class="settings-grid">
-        <label for="theme-select">Theme Mode</label>
-        <select id="theme-select" class="settings-select">
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
+        <label for="language-select" data-i18n="settings.language">Language</label>
+        <select id="language-select" class="settings-select">
+          <option value="en">English</option>
+          <option value="fr">Français</option>
         </select>
 
-        <label for="animation-toggle">Animations</label>
+        <label for="theme-select" data-i18n="settings.theme">Theme Mode</label>
+        <select id="theme-select" class="settings-select">
+          <option value="light" data-i18n="settings.themeLight">Light</option>
+          <option value="dark" data-i18n="settings.themeDark">Dark</option>
+        </select>
+
+        <label for="animation-toggle" data-i18n="settings.animations">Animations</label>
         <input id="animation-toggle" class="settings-checkbox" type="checkbox" checked>
 
-        <label for="sound-toggle">Sound Effects</label>
+        <label for="sound-toggle" data-i18n="settings.sound">Sound Effects</label>
         <input id="sound-toggle" class="settings-checkbox" type="checkbox" checked>
 
-        <label for="sound-volume">SFX Volume</label>
+        <label for="sound-volume" data-i18n="settings.volume">SFX Volume</label>
         <input id="sound-volume" class="settings-range" type="range" min="0" max="100" step="1" value="18" aria-label="Sound effects volume">
 
-        <label for="tutorial-toggle">Tutorial</label>
+        <label for="tutorial-toggle" data-i18n="settings.tutorial">Tutorial</label>
         <input id="tutorial-toggle" class="settings-checkbox" type="checkbox">
       </div>
-      <p class="settings-note">Guided tutorial dialogs appear while you play local games. It turns itself off once every tip has been shown.</p>
+      <p class="settings-note" data-i18n="settings.tutorialNote">Guided tutorial dialogs appear while you play local games. It turns itself off once every tip has been shown.</p>
       <section class="settings-rune-picker" aria-labelledby="settings-rune-heading">
-        <h3 id="settings-rune-heading">Runes in Local Games</h3>
-        <p class="settings-rune-hint">Choose which rune symbols are included for AI and Pass &amp; Play. Online always uses all runes.</p>
+        <h3 id="settings-rune-heading" data-i18n="settings.runesHeading">Runes in Local Games</h3>
+        <p class="settings-rune-hint" data-i18n="settings.runesHint">Choose which rune symbols are included for AI and Pass &amp; Play. Online always uses all runes.</p>
         <div id="settings-rune-list" class="settings-rune-list" role="group" aria-label="Runes to include in local games"></div>
       </section>
       <div class="menu-actions compact">
-        <button id="settings-back-btn" class="menu-btn secondary" type="button">Back</button>
+        <button id="settings-back-btn" class="menu-btn secondary" type="button" data-i18n="nav.back">Back</button>
       </div>
     </section>
 

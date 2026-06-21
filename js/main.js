@@ -42,6 +42,7 @@ import {
   setTutorialEnabled,
 } from "./persistence/tutorialStore.js";
 import { getStats, recordGameResult } from "./persistence/statsStore.js";
+import { t, getLang, setLang, applyTranslations } from "./i18n.js";
 
 const THEME_STORAGE_KEY = "runebags-theme-v1";
 const ANIMATION_STORAGE_KEY = "runebags-animations-v1";
@@ -96,6 +97,7 @@ const elements = {
   runeDetailClose: document.getElementById("rune-detail-close"),
   settingsPanel: document.getElementById("settings-panel"),
   themeSelect: document.getElementById("theme-select"),
+  languageSelect: document.getElementById("language-select"),
   animationToggle: document.getElementById("animation-toggle"),
   soundToggle: document.getElementById("sound-toggle"),
   soundVolume: document.getElementById("sound-volume"),
@@ -258,6 +260,7 @@ registerServiceWorker();
 
 wireOnlineEvents();
 bindEvents();
+initializeLanguage();
 initializeTheme();
 initializeAnimations();
 initializeSound();
@@ -930,6 +933,14 @@ function bindEvents() {
   window.addEventListener("appinstalled", () => {
     deferredInstallPrompt = null;
     elements.homeInstallBtn.hidden = true;
+  });
+
+  elements.languageSelect.addEventListener("change", () => {
+    setLang(elements.languageSelect.value);
+    applyTranslations();
+    renderHomeStats();
+    renderHomeResume();
+    render();
   });
 
   elements.homeRuneGallery.addEventListener("click", (event) => {
@@ -2633,6 +2644,14 @@ function getActiveOverlay() {
     elements.tutorialPrompt,
   ];
   return overlays.find((el) => el && !el.hidden && el.getClientRects().length > 0) || null;
+}
+
+function initializeLanguage() {
+  setLang(getLang());
+  if (elements.languageSelect) {
+    elements.languageSelect.value = getLang();
+  }
+  applyTranslations();
 }
 
 function initializeTheme() {
