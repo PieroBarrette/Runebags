@@ -342,6 +342,63 @@ body[data-theme="dark"] .home-rune-icon {
   color: var(--text-main);
 }
 
+/* Entrance animations + micro-interactions */
+@keyframes home-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.home-hero {
+  animation: home-fade-up 480ms ease-out both;
+}
+
+.home-pillars {
+  animation: home-fade-up 480ms ease-out 0.08s both;
+}
+
+.home-runes {
+  animation: home-fade-up 480ms ease-out 0.16s both;
+}
+
+.home-footer {
+  animation: home-fade-up 480ms ease-out 0.24s both;
+}
+
+.menu-btn {
+  transition: transform 120ms ease, border-color 120ms ease, filter 120ms ease;
+}
+
+.menu-btn:hover {
+  transform: translateY(-1px);
+}
+
+.menu-btn:active {
+  transform: translateY(0);
+}
+
+.home-pillar {
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.home-pillar:hover {
+  transform: translateY(-3px);
+  border-color: var(--accent);
+}
+
+.home-rune {
+  transition: transform 140ms ease, border-color 140ms ease;
+}
+
+.home-rune:hover {
+  transform: translateY(-2px);
+}
+
 @media (max-width: 560px) {
   .home-hero {
     padding-top: 1rem;

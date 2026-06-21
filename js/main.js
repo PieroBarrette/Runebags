@@ -87,6 +87,7 @@ const elements = {
   homeResume: document.getElementById("home-resume"),
   homeResumeText: document.getElementById("home-resume-text"),
   homeResumeBtn: document.getElementById("home-resume-btn"),
+  homeInstallBtn: document.getElementById("home-install"),
   runeDetailOverlay: document.getElementById("rune-detail-overlay"),
   runeDetailIcon: document.getElementById("rune-detail-icon"),
   runeDetailName: document.getElementById("rune-detail-name"),
@@ -222,6 +223,8 @@ let passDeviceFocused = false;
 let endgameFocused = false;
 // Last rendered phase, used to play a soft fade when the phase changes.
 let previousRenderPhase = null;
+// Stashed beforeinstallprompt event so we can offer an "Install app" button.
+let deferredInstallPrompt = null;
 let activeRoomCode = null;
 let waitingRoomState = createWaitingRoomState();
 const aiConfig = createAiConfig();
@@ -904,6 +907,31 @@ function bindEvents() {
     }
   });
 
+  elements.homeInstallBtn.addEventListener("click", async () => {
+    if (!deferredInstallPrompt) {
+      return;
+    }
+    deferredInstallPrompt.prompt();
+    try {
+      await deferredInstallPrompt.userChoice;
+    } catch (error) {
+      // ignore dismissal
+    }
+    deferredInstallPrompt = null;
+    elements.homeInstallBtn.hidden = true;
+  });
+
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+    elements.homeInstallBtn.hidden = false;
+  });
+
+  window.addEventListener("appinstalled", () => {
+    deferredInstallPrompt = null;
+    elements.homeInstallBtn.hidden = true;
+  });
+
   elements.homeRuneGallery.addEventListener("click", (event) => {
     const chip = event.target.closest("[data-rune-id]");
     if (chip) {
@@ -1335,6 +1363,7 @@ function render() {
   const boardSnapshot = snapshotBoard(state);
   const audioSnapshot = snapshotAudioState(state, boardSnapshot);
   playSoundTransitions(previousAudioSnapshot, audioSnapshot);
+  playHapticTransitions(previousAudioSnapshot, audioSnapshot);
   previousAudioSnapshot = audioSnapshot;
 
   const forcedVisible = getForcedVisiblePlayers(state);
@@ -2747,6 +2776,28 @@ function playSoundTransitions(previousSnapshot, currentSnapshot) {
     } else {
       sfx.play("round-draw");
     }
+  }
+}
+
+function playHapticTransitions(previousSnapshot, currentSnapshot) {
+  if (!previousSnapshot || typeof navigator.vibrate !== "function") {
+    return;
+  }
+
+  if (previousSnapshot.phase !== "game-over" && currentSnapshot.phase === "game-over") {
+    navigator.vibrate(currentSnapshot.gameWinner ? [0, 40, 50, 40, 50, 60] : 20);
+    return;
+  }
+
+  if (previousSnapshot.phase !== "round-end" && currentSnapshot.phase === "round-end") {
+    navigator.vibrate(currentSnapshot.winner ? [0, 25, 35, 25] : 15);
+    return;
+  }
+
+  const enteredRound = previousSnapshot.phase !== "round" && currentSnapshot.phase === "round";
+  const moved = previousSnapshot.boardSignature !== currentSnapshot.boardSignature;
+  if (moved && currentSnapshot.phase !== "shop" && !enteredRound) {
+    navigator.vibrate(8);
   }
 }
 
