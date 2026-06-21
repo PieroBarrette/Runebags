@@ -157,24 +157,24 @@
     </section>
 
     <section id="online-panel" class="panel menu-panel" hidden>
-      <h2>Play Online</h2>
+      <h2 data-i18n="online.title">Play Online</h2>
       <p class="online-server-status">
         <span id="online-server-dot" class="online-dot" aria-hidden="true"></span>
         <span id="online-server-text">Server: Disconnected</span>
       </p>
       <div class="settings-grid online-name-grid">
-        <label for="online-pseudo">Temporary Name</label>
-        <input id="online-pseudo" type="text" maxlength="14" placeholder="Your name">
+        <label for="online-pseudo" data-i18n="online.tempName">Temporary Name</label>
+        <input id="online-pseudo" type="text" maxlength="14" placeholder="Your name" data-i18n-attr="placeholder:online.yourName">
       </div>
       <div class="menu-actions compact">
-        <button id="online-quick-btn" class="menu-btn" type="button">Quick Play</button>
-        <button id="online-friend-btn" class="menu-btn" type="button">Play with Friend</button>
+        <button id="online-quick-btn" class="menu-btn" type="button" data-i18n="online.quickPlay">Quick Play</button>
+        <button id="online-friend-btn" class="menu-btn" type="button" data-i18n="online.playFriend">Play with Friend</button>
       </div>
       <div class="settings-grid online-join-grid">
-        <label for="online-join-code">Join with Room Code</label>
+        <label for="online-join-code" data-i18n="online.joinLabel">Join with Room Code</label>
         <div class="menu-actions compact">
           <input id="online-join-code" type="text" maxlength="6" placeholder="ABC123">
-          <button id="online-join-btn" class="menu-btn" type="button">Join</button>
+          <button id="online-join-btn" class="menu-btn" type="button" data-i18n="online.join">Join</button>
         </div>
       </div>
         <div id="online-queue-status" class="online-queue-status" hidden>
@@ -183,21 +183,21 @@
         </div>
         <p id="online-room-code" class="bag-meta" hidden>Room: -</p>
       <div id="online-room-link-wrap" hidden>
-          <label for="online-room-link">Invite Code</label>
+          <label for="online-room-link" data-i18n="online.inviteCode">Invite Code</label>
           <p id="online-room-link" class="bag-meta online-room-link-code">-</p>
         <img id="online-room-qr" class="online-room-qr" alt="QR code for room link" loading="lazy" referrerpolicy="no-referrer">
       </div>
         <div id="online-waiting-room" class="waiting-room" hidden>
-        <h3>Waiting Room</h3>
+        <h3 data-i18n="online.waitingRoom">Waiting Room</h3>
         <p id="waiting-role" class="bag-meta">You are: -</p>
           <p id="waiting-summary" class="bag-meta">Share your invite code and wait for your opponent.</p>
         <p id="waiting-you-status" class="bag-meta">You: Not ready</p>
         <p id="waiting-opponent-status" class="bag-meta">Opponent: Waiting to join...</p>
       </div>
       <div class="menu-actions compact">
-        <button id="online-copy-link-btn" class="menu-btn" type="button">Send Link</button>
-        <button id="online-ready-btn" class="menu-btn" type="button">Set Ready</button>
-        <button id="online-back-btn" class="menu-btn secondary" type="button">Back</button>
+        <button id="online-copy-link-btn" class="menu-btn" type="button" data-i18n="online.sendLink">Send Link</button>
+        <button id="online-ready-btn" class="menu-btn" type="button" data-i18n="online.setReady">Set Ready</button>
+        <button id="online-back-btn" class="menu-btn secondary" type="button" data-i18n="nav.back">Back</button>
       </div>
     </section>
 
@@ -300,7 +300,7 @@
           <div id="round-away-list" class="round-away-list" aria-live="polite" hidden></div>
           <div class="shop-toolbar">
             <button id="phase-btn" type="button">Phase Action</button>
-            <button id="shop-switch-player" type="button">Pass Device</button>
+            <button id="shop-switch-player" type="button" data-i18n="shop.passDevice">Pass Device</button>
           </div>
           <p id="shop-instruction" class="shop-instruction" hidden></p>
           <div id="shop-panel" class="shop-panel" hidden>
@@ -308,8 +308,8 @@
             <p id="shop-mode-label" class="bag-meta">Mode: none</p>
             <div id="shop-offer" class="shop-offer"></div>
             <div class="shop-actions-row">
-              <button id="shop-remove-btn" type="button">Remove 1 Rune</button>
-              <button id="shop-combine-btn" type="button">Combine 2 Runes</button>
+              <button id="shop-remove-btn" type="button" data-i18n="shop.remove">Remove 1 Rune</button>
+              <button id="shop-combine-btn" type="button" data-i18n="shop.combine">Combine 2 Runes</button>
             </div>
             <div id="shop-bag" class="shop-bag"></div>
           </div>
