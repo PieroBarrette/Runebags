@@ -1498,57 +1498,57 @@ function render() {
 
 function updateTopStatus() {
   if (state.pendingAction) {
-    elements.turnPill.textContent = `Round ${state.roundNumber} - ${getDisplayPlayerName(state.currentPlayer)} choice`;
+    elements.turnPill.textContent = t("status.choice", { round: state.roundNumber, player: getDisplayPlayerName(state.currentPlayer) });
     elements.status.textContent = getPendingActionPrompt(state);
     return;
   }
 
   if (state.phase === "game-over") {
     elements.turnPill.textContent = state.gameWinner
-      ? `Game Winner: ${getDisplayPlayerName(state.gameWinner)}`
-      : "Game End: Draw";
+      ? t("status.gameWinner", { player: getDisplayPlayerName(state.gameWinner) })
+      : t("status.gameDraw");
     elements.status.textContent = state.gameWinner
-      ? `${getDisplayPlayerName(state.gameWinner)} wins the game.`
-      : "Game ended in a full tie.";
+      ? t("status.winsGame", { player: getDisplayPlayerName(state.gameWinner) })
+      : t("status.fullTie");
     return;
   }
 
   if (state.phase === "round-end") {
     if (state.winner) {
-      elements.turnPill.textContent = `Round Winner: ${getDisplayPlayerName(state.winner)}`;
-      elements.status.textContent = `Round ${state.roundNumber} won by ${getDisplayPlayerName(state.winner)}. Click Phase Action for shop.`;
+      elements.turnPill.textContent = t("status.roundWinner", { player: getDisplayPlayerName(state.winner) });
+      elements.status.textContent = t("status.roundWonBy", { round: state.roundNumber, player: getDisplayPlayerName(state.winner) });
     } else {
-      elements.turnPill.textContent = `Round ${state.roundNumber}: Draw`;
-      elements.status.textContent = "Round draw. Click Phase Action for shop.";
+      elements.turnPill.textContent = t("status.roundDrawPill", { round: state.roundNumber });
+      elements.status.textContent = t("status.roundDraw");
     }
     return;
   }
 
   if (state.phase === "shop") {
     elements.turnPill.textContent = online.isOnlineActive()
-      ? "Shop Phase - Simultaneous"
-      : `Shop Phase - ${getDisplayPlayerName(state.shop.currentPlayer)}`;
-    elements.status.textContent = "Shop phase.";
+      ? t("status.shopSimultaneous")
+      : t("status.shopPlayer", { player: getDisplayPlayerName(state.shop.currentPlayer) });
+    elements.status.textContent = t("status.shopPhase");
     return;
   }
 
-  elements.turnPill.textContent = `Round ${state.roundNumber} - Turn: ${getDisplayPlayerName(state.currentPlayer)}`;
+  elements.turnPill.textContent = t("status.turnPill", { round: state.roundNumber, player: getDisplayPlayerName(state.currentPlayer) });
   const selectedRuneId = state.players[state.currentPlayer]?.selectedRuneInstanceId;
   const selectedRune = selectedRuneId
     ? state.players[state.currentPlayer].hand.find((rune) => rune.instanceId === selectedRuneId)
     : null;
   if (selectedRune?.id === "nauthiz") {
-    elements.status.textContent = `${getDisplayPlayerName(state.currentPlayer)}: choose any highlighted empty cell for Nauthiz.`;
+    elements.status.textContent = t("status.nauthiz", { player: getDisplayPlayerName(state.currentPlayer) });
     return;
   }
 
   const forcedColumns = state.nextTurnConstraints?.[state.currentPlayer] || [];
   if (forcedColumns.length > 0) {
-    elements.status.textContent = `${getDisplayPlayerName(state.currentPlayer)}: forced to play adjacent columns (${forcedColumns.map((col) => col + 1).join(", ")}).`;
+    elements.status.textContent = t("status.forced", { player: getDisplayPlayerName(state.currentPlayer), cols: forcedColumns.map((col) => col + 1).join(", ") });
     return;
   }
 
-  elements.status.textContent = `${getDisplayPlayerName(state.currentPlayer)}: choose a rune, then click a column.`;
+  elements.status.textContent = t("status.chooseRune", { player: getDisplayPlayerName(state.currentPlayer) });
 }
 
 function renderShopPanel() {
@@ -1633,11 +1633,11 @@ function renderEndgameBags() {
   renderRuneList(elements.endgameBagWhite, state.players[2].bag, 2, [], { readOnly: true });
 }
 
-const GAME_END_REASONS = {
-  majority: "Won the majority of the available points.",
-  "points-supply-empty": "Held the most points when the supply ran out.",
-  "fewest-bag-runes": "Points tied — won with fewer runes left in the bag.",
-  "full-tie": "Dead even, down to the last rune.",
+const GAME_END_REASON_KEYS = {
+  majority: "reason.majority",
+  "points-supply-empty": "reason.supplyEmpty",
+  "fewest-bag-runes": "reason.fewestBag",
+  "full-tie": "reason.fullTie",
 };
 
 function renderEndgameOverlay() {
@@ -1657,25 +1657,25 @@ function renderEndgameOverlay() {
 
   const winner = state.gameWinner;
   elements.endgameTitle.textContent = winner
-    ? `${getDisplayPlayerName(winner)} wins!`
-    : "It's a draw";
-  elements.endgameReason.textContent =
-    GAME_END_REASONS[state.gameWinnerReason] || (winner ? "" : "The game ended level.");
+    ? t("endgame.wins", { player: getDisplayPlayerName(winner) })
+    : t("endgame.draw");
+  const reasonKey = GAME_END_REASON_KEYS[state.gameWinnerReason];
+  elements.endgameReason.textContent = reasonKey ? t(reasonKey) : (winner ? "" : t("endgame.endedLevel"));
 
   elements.endgameP1Name.textContent = getDisplayPlayerName(1);
   elements.endgameP2Name.textContent = getDisplayPlayerName(2);
   elements.endgameP1Points.textContent = String(state.players[1].points);
   elements.endgameP2Points.textContent = String(state.players[2].points);
-  elements.endgameP1Bag.textContent = `Bag ${state.players[1].bag.length}`;
-  elements.endgameP2Bag.textContent = `Bag ${state.players[2].bag.length}`;
+  elements.endgameP1Bag.textContent = t("endgame.bag", { n: state.players[1].bag.length });
+  elements.endgameP2Bag.textContent = t("endgame.bag", { n: state.players[2].bag.length });
   elements.endgameScore1.classList.toggle("winner", winner === 1);
   elements.endgameScore2.classList.toggle("winner", winner === 2);
 
   const stats = getStats();
   const decisive = stats.wins + stats.losses + stats.draws;
   elements.endgameStats.textContent = decisive > 0
-    ? `Record: ${stats.wins}W ${stats.losses}L ${stats.draws}D · current streak ${stats.currentStreak}`
-    : `${stats.gamesPlayed} game${stats.gamesPlayed === 1 ? "" : "s"} played`;
+    ? t("endgame.record", { w: stats.wins, l: stats.losses, d: stats.draws, s: stats.currentStreak })
+    : t("stats.gamesPlayed", { n: stats.gamesPlayed });
 
   elements.endgameOverlay.hidden = endgameOverlayDismissed;
   if (!endgameOverlayDismissed) {
@@ -1719,10 +1719,10 @@ function renderHomeStats() {
     elements.homeStats.hidden = true;
     return;
   }
-  let text = `${stats.gamesPlayed} game${stats.gamesPlayed === 1 ? "" : "s"} played`;
+  let text = t("stats.gamesPlayed", { n: stats.gamesPlayed });
   const decisive = stats.wins + stats.losses + stats.draws;
   if (decisive > 0) {
-    text += ` · ${stats.wins}W ${stats.losses}L ${stats.draws}D · streak ${stats.currentStreak} (best ${stats.bestStreak})`;
+    text += t("stats.recordSuffix", { w: stats.wins, l: stats.losses, d: stats.draws, s: stats.currentStreak, b: stats.bestStreak });
   }
   elements.homeStats.hidden = false;
   elements.homeStats.textContent = text;
@@ -1730,13 +1730,13 @@ function renderHomeStats() {
 
 function buildShareText() {
   const winner = state.gameWinner;
-  const title = winner ? `${getDisplayPlayerName(winner)} wins` : "Draw";
+  const title = winner ? t("share.wins", { player: getDisplayPlayerName(winner) }) : t("share.draw");
   const grid = state.board
     .map((row) => row
       .map((v) => (v === 1 ? "\u{1F535}" : v === 2 ? "⚪" : v === 3 ? "\u{1F7EB}" : "⬛"))
       .join(""))
     .join("\n");
-  return `RuneBags — ${title}\nRound ${state.roundNumber} · Black ${state.players[1].points} – White ${state.players[2].points}\n\u{1F535} Black  ⚪ White  \u{1F7EB} Neutral\n${grid}\nhttps://runebags.onrender.com`;
+  return `RuneBags — ${title}\n${t("share.line", { round: state.roundNumber, b: state.players[1].points, w: state.players[2].points })}\n${t("share.legend")}\n${grid}\nhttps://runebags.onrender.com`;
 }
 
 function renderRuneList(container, runes, playerId, highlightIds, options = {}) {
@@ -1834,18 +1834,19 @@ function getRuneDisplayOwner(playerId, rune) {
 }
 
 function updateMeta() {
-  renderPointRunes(elements.p1Points, "Points", state.players[1].points);
-  renderPointRunes(elements.p2Points, "Points", state.players[2].points);
-  elements.p1Bag.textContent = `Bag: ${state.players[1].bag.length}`;
-  elements.p2Bag.textContent = `Bag: ${state.players[2].bag.length}`;
-  renderPointRunes(elements.pointPool, "Points", state.pointPoolRemaining);
-  elements.neutralSupply.textContent = `Neutral Supply: ${state.neutralSupply}`;
+  const pointsLabel = t("game.points");
+  renderPointRunes(elements.p1Points, pointsLabel, state.players[1].points);
+  renderPointRunes(elements.p2Points, pointsLabel, state.players[2].points);
+  elements.p1Bag.textContent = t("game.bag", { n: state.players[1].bag.length });
+  elements.p2Bag.textContent = t("game.bag", { n: state.players[2].bag.length });
+  renderPointRunes(elements.pointPool, pointsLabel, state.pointPoolRemaining);
+  elements.neutralSupply.textContent = t("game.neutralSupply", { n: state.neutralSupply });
   const visibleAway = state.roundAwayRunes.map((entry, awayIndex) => ({ ...entry, awayIndex }));
   const shouldShowAway = state.phase !== "shop" && visibleAway.length > 0;
   elements.roundDiscards.hidden = !shouldShowAway;
   elements.roundAwayList.hidden = !shouldShowAway;
   if (shouldShowAway) {
-    elements.roundDiscards.textContent = `Discarded this round: ${visibleAway.length}`;
+    elements.roundDiscards.textContent = t("game.discardedThisRound", { n: visibleAway.length });
     renderRoundAwayRunes(visibleAway);
   } else {
     renderRoundAwayRunes([]);
@@ -2380,7 +2381,7 @@ function getDisplayPlayerName(playerId) {
   if (online.isOnlineActive() && mapped) {
     return mapped;
   }
-  return getPlayerName(playerId);
+  return t(playerId === 1 ? "side.black" : "side.white");
 }
 
 function applyOnlinePlayerNames() {
@@ -2605,8 +2606,8 @@ function renderHomeResume() {
   candidates.sort((a, b) => b.updatedAt - a.updatedAt);
   const best = candidates[0];
   homeResumeMode = best.mode;
-  const label = best.mode === MODE_AI ? "Play Against AI" : "Pass & Play";
-  elements.homeResumeText.textContent = `Resume your ${label} game — round ${best.round}`;
+  const label = best.mode === MODE_AI ? t("home.playAi") : t("home.passplay");
+  elements.homeResumeText.textContent = t("home.resumeText", { mode: label, round: best.round });
   elements.homeResume.hidden = false;
 }
 
