@@ -3,6 +3,21 @@
   overflow: hidden;
 }
 
+.board-panel.phase-enter {
+  animation: board-phase-enter 320ms ease-out;
+}
+
+@keyframes board-phase-enter {
+  from {
+    opacity: 0.4;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .board {
   --board-anim-duration: 500ms;
   --algiz-anim-duration: 780ms;

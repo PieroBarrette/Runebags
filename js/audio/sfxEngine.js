@@ -122,6 +122,20 @@ function createWoodFeltProfile(context, destination, eventName) {
     return;
   }
 
+  if (eventName === "round-start") {
+    createTone(context, destination, {
+      type: "sine",
+      frequency: 196,
+      endFrequency: 262,
+      start: t0,
+      duration: 0.16,
+      gain: 0.04,
+      attack: 0.004,
+      release: 0.11,
+    });
+    return;
+  }
+
   if (eventName === "round-win") {
     createTone(context, destination, {
       type: "triangle",

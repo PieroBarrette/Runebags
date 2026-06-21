@@ -129,6 +129,7 @@ const elements = {
   turnPill: document.getElementById("turn-pill"),
   boardPanel: document.getElementById("board-panel"),
   boardEl: document.getElementById("board"),
+  boardPanel: document.getElementById("board-panel"),
   boardRuneInfo: document.getElementById("board-rune-info"),
   boardRuneInfoTitle: document.getElementById("board-rune-info-title"),
   boardRuneInfoDescription: document.getElementById("board-rune-info-description"),
@@ -219,6 +220,8 @@ let homeResumeMode = null;
 // Track overlay show-transitions so we move focus into them only once.
 let passDeviceFocused = false;
 let endgameFocused = false;
+// Last rendered phase, used to play a soft fade when the phase changes.
+let previousRenderPhase = null;
 let activeRoomCode = null;
 let waitingRoomState = createWaitingRoomState();
 const aiConfig = createAiConfig();
@@ -1426,6 +1429,13 @@ function render() {
     previousPendingActionSnapshot,
     pendingSnapshot,
   );
+  if (animationsEnabled && state.phase !== previousRenderPhase && !elements.gameScreen.hidden) {
+    elements.boardPanel.classList.remove("phase-enter");
+    void elements.boardPanel.offsetWidth;
+    elements.boardPanel.classList.add("phase-enter");
+  }
+  previousRenderPhase = state.phase;
+
   renderBoard(state, elements, pendingTargets, winningLine, forcedColumns, animationFrame);
   previousBoardSnapshot = boardSnapshot;
   previousPendingActionSnapshot = pendingSnapshot;
@@ -2710,8 +2720,13 @@ function playSoundTransitions(previousSnapshot, currentSnapshot) {
     return;
   }
 
+  const enteredRound = previousSnapshot.phase !== "round" && currentSnapshot.phase === "round";
+  if (enteredRound) {
+    sfx.play("round-start");
+  }
+
   const moved = previousSnapshot.boardSignature !== currentSnapshot.boardSignature;
-  if (moved && currentSnapshot.phase !== "shop") {
+  if (moved && currentSnapshot.phase !== "shop" && !enteredRound) {
     sfx.play("move");
   }
 
