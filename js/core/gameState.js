@@ -59,7 +59,7 @@ export function createInitialState(options = {}) {
       2: white,
     },
     shop: createShopState(playerFromPointPool(POINT_POOL_TOTAL), createEmptyShopBonuses()),
-    log: ["New game started in Shop Phase. White starts because point supply is even."],
+    log: [{ k: "log.newGameStarted", p: { player: WHITE }, shop: false }],
   };
 
   initializeShopOffers(state);
@@ -193,9 +193,13 @@ export function playTurn(state, column, options = {}) {
 
   consumeSelectedRune(state, player, selectedRune.instanceId);
   state.nextTurnConstraints[state.currentPlayer] = null;
-  state.log.unshift(
-    `Turn ${state.turnNumber}: ${playerName(state.currentPlayer)} played ${selectedRune.name} (L${selectedRune.level}) in column ${column + 1}.`,
-  );
+  pushLog(state, "log.played", {
+    turn: state.turnNumber,
+    player: state.currentPlayer,
+    rune: selectedRune.name,
+    level: selectedRune.level,
+    col: column + 1,
+  });
 
   const effectResult = applyRuneEffect(state, selectedRune, move, state.currentPlayer);
   effectResult.notes.forEach((note) => state.log.unshift(note));
@@ -251,7 +255,7 @@ export function resolvePendingBoardChoice(state, choice) {
       return { state, error: null };
     }
 
-    state.log.unshift(`Fehu recovered ${recoveredCount} discarded rune(s) into ${playerName(action.playerId)} bag.`);
+    pushLog(state, "log.fehuRecovered", { n: recoveredCount, player: action.playerId });
     const turnContext = action.turnContext;
     state.pendingAction = null;
     return finalizeTurn(state, turnContext.playerId, turnContext.extraTurn);
@@ -266,7 +270,7 @@ export function resolvePendingBoardChoice(state, choice) {
 
     const removed = removeRuneAt(state, choice.row, choice.col, "gebo", "round");
     if (removed) {
-      state.log.unshift("Gebo removed the chosen adjacent rune for this round.");
+      pushLog(state, "log.geboRemovedChosen");
     }
 
     const turnContext = action.turnContext;
@@ -283,7 +287,7 @@ export function resolvePendingBoardChoice(state, choice) {
 
     const destroyed = removeRuneAt(state, choice.row, choice.col, "kenaz", "destroy");
     if (destroyed) {
-      state.log.unshift("Kenaz destroyed the chosen rune permanently.");
+      pushLog(state, "log.kenazDestroyed");
     }
 
     const turnContext = action.turnContext;
@@ -297,9 +301,7 @@ export function resolvePendingBoardChoice(state, choice) {
     }
 
     state.nextTurnConstraints[action.opponentId] = [choice.column];
-    state.log.unshift(
-      `Perth L2 forces ${playerName(action.opponentId)} to play in column ${choice.column + 1} next turn.`,
-    );
+    pushLog(state, "log.perthForces", { player: action.opponentId, col: choice.column + 1 });
 
     const turnContext = action.turnContext;
     state.pendingAction = null;
@@ -342,9 +344,7 @@ export function resolvePendingBoardChoice(state, choice) {
       return { state, error: "Could not move Teiwaz target rune." };
     }
 
-    state.log.unshift(
-      `Teiwaz moved the top rune from column ${action.sourceCol + 1} to column ${choice.column + 1}.`,
-    );
+    pushLog(state, "log.teiwazMoved", { from: action.sourceCol + 1, to: choice.column + 1 });
 
     const turnContext = action.turnContext;
     state.pendingAction = null;
@@ -369,7 +369,7 @@ export function resolvePendingBoardChoice(state, choice) {
 
     setRuneOnBoard(state, placement, createRuneInstance("neutral", 1));
     state.neutralSupply -= 1;
-    state.log.unshift(`Thurisa placed a neutral rune in column ${choice.column + 1}.`);
+    pushLog(state, "log.thurisaPlaced", { col: choice.column + 1 });
 
     const remaining = action.remainingDrops - 1;
     if (remaining <= 0 || state.neutralSupply <= 0 || getAvailableColumns(state.board).length === 0) {
@@ -499,33 +499,33 @@ export function getLegalMovesForPlayer(state, playerId) {
 
 export function getPendingActionPrompt(state) {
   if (!state.pendingAction) {
-    return "";
+    return { k: "", p: null, shop: false };
   }
 
   const action = state.pendingAction;
   if (action.type === "gebo-l2-target") {
-    return "Gebo L2: choose one adjacent occupied rune to remove for this round.";
+    return { k: "prompt.geboL2", p: null, shop: false };
   }
   if (action.type === "kenaz-destroy-target") {
-    return "Kenaz: choose one occupied rune to destroy permanently.";
+    return { k: "prompt.kenaz", p: null, shop: false };
   }
   if (action.type === "fehu-recover") {
-    return `Fehu: choose a discarded rune to recover (${action.remainingRecovers} remaining).`;
+    return { k: "prompt.fehu", p: { remaining: action.remainingRecovers }, shop: false };
   }
   if (action.type === "perth-l2-column") {
-    return "Perth L2: choose the adjacent column the opponent must play next turn.";
+    return { k: "prompt.perthL2", p: null, shop: false };
   }
   if (action.type === "teiwaz-source") {
-    return "Teiwaz: choose a source column with a movable top rune.";
+    return { k: "prompt.teiwazSource", p: null, shop: false };
   }
   if (action.type === "teiwaz-target") {
-    return "Teiwaz: choose a destination column for the moved top rune.";
+    return { k: "prompt.teiwazTarget", p: null, shop: false };
   }
   if (action.type === "thurisa-drop") {
-    return `Thurisa: choose a column for neutral drop (${action.remainingDrops} remaining).`;
+    return { k: "prompt.thurisa", p: { remaining: action.remainingDrops }, shop: false };
   }
 
-  return "Resolve the pending rune choice.";
+  return { k: "prompt.fallback", p: null, shop: false };
 }
 
 export function enterShopPhase(state) {
@@ -577,8 +577,10 @@ export function startRoundFromShop(state) {
   ensureHand(state.players[WHITE], getMaxHandSize(state, WHITE));
   clearHandSelections(state);
 
-  state.log.unshift(
-    `Round ${state.roundNumber} begins. ${playerName(state.currentPlayer)} starts because point supply is ${state.pointPoolRemaining % 2 === 0 ? "even" : "odd"}.`,
+  pushLog(
+    state,
+    state.pointPoolRemaining % 2 === 0 ? "log.roundBeginsEven" : "log.roundBeginsOdd",
+    { round: state.roundNumber, player: state.currentPlayer },
   );
 
   const passResult = forcePassIfNeeded(state);
@@ -659,7 +661,7 @@ export function shopSelectBagRune(state, runeInstanceId) {
     data.mode = null;
 
     if ((rune.capturedOwner === BLACK || rune.capturedOwner === WHITE) && rune.capturedOwner !== playerId) {
-      state.log.unshift(`${playerName(playerId)} permanently removed captured ${rune.name} from ${playerName(rune.capturedOwner)}.`);
+      pushLog(state, "log.shopRemovedCaptured", { player: playerId, rune: rune.name, owner: rune.capturedOwner }, true);
       return { state, error: null };
     }
 
@@ -674,7 +676,7 @@ export function shopSelectBagRune(state, runeInstanceId) {
         `${playerName(playerId)} removed ${rune.name} and returned it to their shop supply.`,
       );
     } else {
-      state.log.unshift(`${playerName(playerId)} removed ${rune.name} permanently.`);
+      pushLog(state, "log.shopRemovedPermanently", { player: playerId, rune: rune.name }, true);
     }
 
     return { state, error: null };
@@ -1001,7 +1003,7 @@ function consumeSelectedRune(state, player, runeInstanceId) {
   player.selectedRuneInstanceId = null;
 
   if (isRuneEthereal(usedRune)) {
-    state.log.unshift(`${usedRune.name} is ethereal and returns to shop after this round.`);
+    pushLog(state, "log.etherealReturns", { rune: usedRune.name });
     return;
   }
 }
@@ -1073,7 +1075,7 @@ function forcePassIfNeeded(state) {
   }
 
   const opponentCanPlay = canPlayerPlay(state, opponent);
-  state.log.unshift(`${playerName(current)} cannot play and must pass.`);
+  pushLog(state, "log.mustPass", { player: current });
 
   if (!opponentCanPlay) {
     finishRoundAsDraw(state, "Both players cannot play any rune. Round is a draw.");
@@ -1082,7 +1084,7 @@ function forcePassIfNeeded(state) {
 
   state.currentPlayer = opponent;
   state.turnNumber += 1;
-  state.log.unshift(`${playerName(opponent)} to play.`);
+  pushLog(state, "log.toPlay", { player: opponent });
   return { state, error: `${playerName(current)} had to pass.` };
 }
 
@@ -1145,9 +1147,9 @@ function applyRuneEffect(state, rune, move, playerId) {
     if (state.neutralSupply > 0) {
       state.players[playerId].bag.push(createRuneInstance("neutral", 1));
       state.neutralSupply -= 1;
-      notes.push("Dagaz corruption added 1 neutral rune to owner bag.");
+      notes.push({ k: "log.dagazAdded", p: null });
     } else {
-      notes.push("Dagaz corruption could not add a neutral rune (supply empty).");
+      notes.push({ k: "log.dagazNoAdd", p: null });
     }
   }
 
@@ -1155,7 +1157,7 @@ function applyRuneEffect(state, rune, move, playerId) {
   const effectRune = copiedOnPlayRune || rune;
 
   if (rune.id === "dagaz" && copiedOnPlayRune) {
-    notes.push(`Dagaz copied ${copiedOnPlayRune.name}.`);
+    notes.push({ k: "log.dagazCopied", p: { rune: copiedOnPlayRune.name } });
   }
 
   if (effectRune.id === "fehu") {
@@ -1173,11 +1175,11 @@ function applyRuneEffect(state, rune, move, playerId) {
   }
 
   if (effectRune.id === "odal" && move.row === 0) {
-    const gained = awardPointAndCheckGameEnd(state, playerId, "Odal (top row)");
+    const gained = awardPointAndCheckGameEnd(state, playerId, "reason.odalTop");
     if (gained) {
-      notes.push("Odal on top row granted 1 point from supply.");
+      notes.push({ k: "log.odalPoint", p: null });
     } else {
-      notes.push("Odal on top row triggered, but no point could be gained (supply empty).");
+      notes.push({ k: "log.odalNoPoint", p: null });
     }
   }
 
@@ -1187,7 +1189,7 @@ function applyRuneEffect(state, rune, move, playerId) {
     if (isInside(state, targetRow, targetCol) && state.board[targetRow][targetCol] !== NEUTRAL_OWNER) {
       const removed = removeRuneAt(state, targetRow, targetCol, "ansuz", "immediate");
       if (removed) {
-        notes.push("Ansuz returned the rune below to its owner bag.");
+        notes.push({ k: "log.ansuzReturned", p: null });
       }
     }
   }
@@ -1209,7 +1211,7 @@ function applyRuneEffect(state, rune, move, playerId) {
         ? null
         : removeRuneAt(state, targetRow, move.col, "gebo", "round");
       if (removed) {
-        notes.push("Gebo removed the rune below for this round.");
+        notes.push({ k: "log.geboRemovedBelow", p: null });
       }
     }
   }
@@ -1242,7 +1244,7 @@ function applyRuneEffect(state, rune, move, playerId) {
     }
 
     if (added > 0) {
-      notes.push(`Mannaz added ${added} neutral rune(s) to opponent bag.`);
+      notes.push({ k: "log.mannazAdded", p: { n: added } });
     }
   }
 
@@ -1262,13 +1264,13 @@ function applyRuneEffect(state, rune, move, playerId) {
       }
     } else {
       state.nextTurnConstraints[opponentId] = adjacent;
-      notes.push("Perth forces opponent next turn into adjacent columns.");
+      notes.push({ k: "log.perthForcesAdjacent", p: null });
     }
   }
 
   if (effectRune.id === "raido") {
     extraTurn = true;
-    notes.push("Raido grants an extra turn.");
+    notes.push({ k: "log.raidoExtra", p: null });
   }
 
   if (effectRune.id === "sowelu") {
@@ -1287,7 +1289,7 @@ function applyRuneEffect(state, rune, move, playerId) {
     }
 
     if (discarded > 0) {
-      notes.push(`Sowelu removed ${discarded} random rune(s) from opponent bag for this round.`);
+      notes.push({ k: "log.soweluRemoved", p: { n: discarded } });
     }
   }
 
@@ -1397,7 +1399,7 @@ function removeRuneAt(state, row, col, source, returnMode) {
 
   sendRuneAwayForRound(state, owner, rune.id, rune.level, source);
   if (removedAsEihwaz && rune.id !== "eihwaz" && (owner === BLACK || owner === WHITE)) {
-    awardPointAndCheckGameEnd(state, owner, "Eihwaz discard");
+    awardPointAndCheckGameEnd(state, owner, "reason.eihwaz");
   }
 
   return { owner, rune };
@@ -1412,7 +1414,7 @@ function sendRuneAwayForRound(state, owner, runeId, level, source) {
   });
 
   if ((owner === BLACK || owner === WHITE) && runeId === "eihwaz") {
-    awardPointAndCheckGameEnd(state, owner, "Eihwaz discard");
+    awardPointAndCheckGameEnd(state, owner, "reason.eihwaz");
   }
 }
 
@@ -1655,12 +1657,12 @@ function finalizeTurn(state, activePlayerId, extraTurn) {
 
   if (winners.length > 1) {
     const highlightedLines = winners.flatMap((winnerId) => winningLinesByPlayer[winnerId]);
-    finishRoundAsDraw(state, "Both Black and White formed winning lines. Round is a draw.", highlightedLines);
+    finishRoundAsDraw(state, { k: "log.drawBothWin", p: null, shop: false }, highlightedLines);
     return { state, error: null };
   }
 
   if (isBoardFull(state.board)) {
-    finishRoundAsDraw(state, "The board is full. Round is a draw.");
+    finishRoundAsDraw(state, { k: "log.drawBoardFull", p: null, shop: false });
     return { state, error: null };
   }
 
@@ -1673,10 +1675,10 @@ function finalizeTurn(state, activePlayerId, extraTurn) {
     return passResult;
   }
 
-  state.log.unshift(
-    extraTurn
-      ? `${playerName(state.currentPlayer)} takes an extra turn.`
-      : `${playerName(state.currentPlayer)} to play.`,
+  pushLog(
+    state,
+    extraTurn ? "log.extraTurn" : "log.toPlay",
+    { player: state.currentPlayer },
   );
 
   return { state, error: null };
@@ -1893,7 +1895,7 @@ function finishRoundWithWinner(state, winnerId, winningLines) {
   state.phase = "round-end";
   state.winningLine = getUniqueWinningCells(winningLines);
 
-  awardPointIfAvailable(state, winnerId, "Round win");
+  awardPointIfAvailable(state, winnerId, "reason.roundWin");
 
   const hasBerkanaInWin = winningLines.some((line) =>
     line.some(([row, col]) => {
@@ -1903,10 +1905,10 @@ function finishRoundWithWinner(state, winnerId, winningLines) {
   );
 
   if (hasBerkanaInWin) {
-    awardPointIfAvailable(state, winnerId, "Berkana bonus");
+    awardPointIfAvailable(state, winnerId, "reason.berkana");
   }
 
-  state.log.unshift(`${playerName(winnerId)} wins Round ${state.roundNumber}.`);
+  pushLog(state, "log.winsRound", { player: winnerId, round: state.roundNumber });
   evaluateMajorityWinner(state);
 }
 
@@ -1932,7 +1934,7 @@ function awardPointIfAvailable(state, playerId, reason) {
 
   state.players[playerId].points += 1;
   state.pointPoolRemaining -= 1;
-  state.log.unshift(`${reason}: ${playerName(playerId)} gains 1 point.`);
+  pushLog(state, "log.pointGain", { reasonKey: reason, player: playerId });
 }
 
 function awardPointAndCheckGameEnd(state, playerId, reason) {
@@ -1973,12 +1975,12 @@ function evaluateMajorityWinner(state) {
     state.gameWinner = BLACK;
     state.gameWinnerReason = "majority";
     state.phase = "game-over";
-    state.log.unshift(`Black wins the game with majority points (${state.players[BLACK].points}).`);
+    pushLog(state, "log.gameMajority", { player: BLACK, points: state.players[BLACK].points });
   } else if (state.players[WHITE].points >= majorityThreshold) {
     state.gameWinner = WHITE;
     state.gameWinnerReason = "majority";
     state.phase = "game-over";
-    state.log.unshift(`White wins the game with majority points (${state.players[WHITE].points}).`);
+    pushLog(state, "log.gameMajority", { player: WHITE, points: state.players[WHITE].points });
   }
 }
 
@@ -2065,14 +2067,14 @@ function finalizeGameAtZeroPoints(state) {
   if (blackPoints > whitePoints) {
     state.gameWinner = BLACK;
     state.gameWinnerReason = "points-supply-empty";
-    state.log.unshift("Point supply is empty. Black wins on points.");
+    pushLog(state, "log.supplyEmptyWins", { player: BLACK });
     return;
   }
 
   if (whitePoints > blackPoints) {
     state.gameWinner = WHITE;
     state.gameWinnerReason = "points-supply-empty";
-    state.log.unshift("Point supply is empty. White wins on points.");
+    pushLog(state, "log.supplyEmptyWins", { player: WHITE });
     return;
   }
 
@@ -2082,20 +2084,20 @@ function finalizeGameAtZeroPoints(state) {
   if (blackBag < whiteBag) {
     state.gameWinner = BLACK;
     state.gameWinnerReason = "fewest-bag-runes";
-    state.log.unshift("Point supply is empty and points are tied. Black wins with fewer bag runes.");
+    pushLog(state, "log.supplyTieFewerBag", { player: BLACK });
     return;
   }
 
   if (whiteBag < blackBag) {
     state.gameWinner = WHITE;
     state.gameWinnerReason = "fewest-bag-runes";
-    state.log.unshift("Point supply is empty and points are tied. White wins with fewer bag runes.");
+    pushLog(state, "log.supplyTieFewerBag", { player: WHITE });
     return;
   }
 
   state.gameWinner = null;
   state.gameWinnerReason = "full-tie";
-  state.log.unshift("Point supply is empty and all tie-breakers are equal. Game ends in full tie.");
+  pushLog(state, "log.fullTie");
 }
 
 function applyWunjoShopBonuses(state) {
@@ -2124,7 +2126,7 @@ function applyWunjoShopBonuses(state) {
   }
 
   for (const playerId of granted) {
-    state.log.unshift(`${playerName(playerId)} earned Wunjo bonus for next shop (+1 add, +1 remove).`);
+    pushLog(state, "log.wunjoBonus", { player: playerId });
   }
 }
 
@@ -2245,6 +2247,14 @@ function playerFromPointPool(pointPoolRemaining) {
 
 function playerName(playerId) {
   return playerId === BLACK ? "Black" : "White";
+}
+
+// Push a structured, translatable log entry. Kept as plain data (no i18n
+// import) so this engine stays usable by the Node server. The client
+// formats entries via formatLogEntry(); shop entries are filtered from the
+// turn log. Legacy string entries remain supported by the client formatter.
+function pushLog(state, k, p = null, shop = false) {
+  state.log.unshift({ k, p, shop });
 }
 
 function cellKey(row, col) {

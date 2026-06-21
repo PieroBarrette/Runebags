@@ -1,4 +1,4 @@
-export function renderLog(state, elements) {
+export function renderLog(state, elements, formatEntry) {
   elements.turnLog.innerHTML = "";
 
   state.log
@@ -7,7 +7,9 @@ export function renderLog(state, elements) {
     .forEach((entry) => {
     const row = document.createElement("div");
     row.className = "log-row";
-    row.textContent = entry;
+    row.textContent = formatEntry
+      ? formatEntry(entry)
+      : (typeof entry === "string" ? entry : "");
     elements.turnLog.appendChild(row);
     });
 }
@@ -15,6 +17,10 @@ export function renderLog(state, elements) {
 function isShopLogEntry(entry) {
   if (!entry) {
     return false;
+  }
+
+  if (typeof entry === "object") {
+    return Boolean(entry.shop);
   }
 
   return (

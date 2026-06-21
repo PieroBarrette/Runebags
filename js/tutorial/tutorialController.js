@@ -400,11 +400,21 @@ export function createTutorialController(options) {
     }
 
     newEntries.forEach((entry) => {
-      if (!/cannot play and must pass\.$/.test(entry)) {
+      let playerId = null;
+      if (entry && typeof entry === "object") {
+        if (entry.k !== "log.mustPass") {
+          return;
+        }
+        playerId = Number(entry.p?.player);
+      } else if (typeof entry === "string") {
+        if (!/cannot play and must pass\.$/.test(entry)) {
+          return;
+        }
+        playerId = getPlayerIdFromLogPrefix(entry);
+      } else {
         return;
       }
 
-      const playerId = getPlayerIdFromLogPrefix(entry);
       if (playerId !== 1 && playerId !== 2) {
         return;
       }

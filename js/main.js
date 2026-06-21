@@ -1055,7 +1055,7 @@ function bindEvents() {
             setShopMode(state, null);
           }
           data.ready = !data.ready;
-          state.log.unshift(`${getDisplayPlayerName(playerId)} marked ${data.ready ? "ready" : "not ready"} in shop.`);
+          state.log.unshift({ k: data.ready ? "log.markedReady" : "log.markedNotReady", p: { player: playerId }, shop: true });
 
           if (state.shop.players[1].ready && state.shop.players[2].ready) {
             result = startRoundFromShop(state);
@@ -1482,7 +1482,7 @@ function render() {
   renderHands(state, elements, handVisibility, forcedVisible);
   applyOnlinePlayerNames();
 
-  renderLog(state, elements);
+  renderLog(state, elements, formatLogEntry);
   renderChatPanel();
   renderShopPanel();
   renderEndgameBags();
@@ -1499,7 +1499,7 @@ function render() {
 function updateTopStatus() {
   if (state.pendingAction) {
     elements.turnPill.textContent = t("status.choice", { round: state.roundNumber, player: getDisplayPlayerName(state.currentPlayer) });
-    elements.status.textContent = getPendingActionPrompt(state);
+    elements.status.textContent = formatLogEntry(getPendingActionPrompt(state));
     return;
   }
 
@@ -2389,6 +2389,30 @@ function getDisplayPlayerName(playerId) {
     return mapped;
   }
   return t(playerId === 1 ? "side.black" : "side.white");
+}
+
+// Turn-log entries are structured { k, p } from the engine (legacy strings
+// still supported). Resolve player-id params to display names and translate.
+function formatLogEntry(entry) {
+  if (!entry) {
+    return "";
+  }
+  if (typeof entry === "string") {
+    return entry;
+  }
+  if (!entry.k) {
+    return "";
+  }
+  const params = { ...(entry.p || {}) };
+  ["player", "opponent", "winner", "owner"].forEach((key) => {
+    if (typeof params[key] === "number") {
+      params[key] = getDisplayPlayerName(params[key]);
+    }
+  });
+  if (params.reasonKey) {
+    params.reason = t(params.reasonKey);
+  }
+  return t(entry.k, params);
 }
 
 function applyOnlinePlayerNames() {
