@@ -2652,7 +2652,7 @@ function openRuneDetail(runeId) {
   elements.runeDetailName.textContent = rune.name;
   elements.runeDetailDesc.textContent = runeDescription(rune);
   const metaBits = [];
-  if (rune.supportsLevels) {
+  if (rune.supportsLevels && (rune.maxLevel || 1) >= 2) {
     metaBits.push(t("rune.levels", { max: rune.maxLevel || 2 }));
   }
   if (rune.shopEffect) {

@@ -158,11 +158,12 @@ export function playTurn(state, column, options = {}) {
   if (selectedRune.id === "nauthiz") {
     const targetRow = Number(options.row);
     const targetCol = Number(options.col);
+    const legalCells = getLegalFloatingCellsForRune(state, state.currentPlayer, selectedRune);
+    const canPlaceAtTarget = legalCells.some((cell) => cell.row === targetRow && cell.col === targetCol);
     if (
       !Number.isInteger(targetRow)
       || !Number.isInteger(targetCol)
-      || !isInside(state, targetRow, targetCol)
-      || state.board[targetRow][targetCol] !== EMPTY
+      || !canPlaceAtTarget
     ) {
       return { state, error: "Choose an empty target cell for Nauthiz." };
     }
@@ -398,7 +399,7 @@ export function getPendingBoardTargets(state) {
         pending: true,
         mode: "cells",
         columns: [],
-        cells: getFreeCells(state),
+        cells: getLegalFloatingCellsForRune(state, state.currentPlayer, selectedRune),
       };
     }
   }
@@ -474,7 +475,7 @@ export function getLegalMovesForPlayer(state, playerId) {
   const moves = [];
   player.hand.forEach((rune) => {
     if (rune.id === "nauthiz") {
-      const cells = getFreeCells(state);
+      const cells = getLegalFloatingCellsForRune(state, playerId, rune);
       cells.forEach((cell) => {
         moves.push({
           runeInstanceId: rune.instanceId,
@@ -646,6 +647,7 @@ export function shopSelectBagRune(state, runeInstanceId) {
   const player = state.players[playerId];
   const data = state.shop.players[playerId];
   const rune = player.bag.find((entry) => entry.instanceId === runeInstanceId);
+  const runeCombineOwner = getRuneCombineOwner(rune, playerId);
 
   if (!rune) {
     return { state, error: "Rune not found in active player bag." };
@@ -688,7 +690,7 @@ export function shopSelectBagRune(state, runeInstanceId) {
     }
 
     if (data.combineSelection.length === 0) {
-      if (!hasPairInBag(player.bag, rune.id)) {
+      if (!hasPairInBag(player.bag, rune.id, runeCombineOwner, playerId)) {
         return { state, error: "No matching pair for that rune in bag." };
       }
       data.combineSelection = [rune.instanceId];
@@ -709,9 +711,14 @@ export function shopSelectBagRune(state, runeInstanceId) {
       return { state, error: "Second rune must match the first rune symbol." };
     }
 
+    const firstCombineOwner = getRuneCombineOwner(first, playerId);
+    if (firstCombineOwner !== runeCombineOwner) {
+      return { state, error: "Second rune must match the first rune color." };
+    }
+
     removeRuneFromBag(state, playerId, first.instanceId);
     removeRuneFromBag(state, playerId, rune.instanceId);
-    player.bag.push(createRuneInstance(rune.id, 2));
+    player.bag.push(createCombinedShopRune(rune.id, 2, runeCombineOwner, playerId));
     data.combineSelection = [];
     data.mode = null;
 
@@ -765,15 +772,25 @@ export function getShopHighlights(state) {
   if (data.mode === "combine") {
     if (data.combineSelection.length === 0) {
       const combinable = bag
-        .filter((rune) => rune.level === 1 && !NON_COMBINABLE_RUNES.has(rune.id) && hasPairInBag(bag, rune.id))
+        .filter(
+          (rune) => rune.level === 1
+            && !NON_COMBINABLE_RUNES.has(rune.id)
+            && hasPairInBag(bag, rune.id, getRuneCombineOwner(rune, playerId), playerId),
+        )
         .map((rune) => rune.instanceId);
       return { bagHighlightIds: combinable, offerHighlightIds: [] };
     }
 
     const selected = bag.find((rune) => rune.instanceId === data.combineSelection[0]);
+    const selectedCombineOwner = getRuneCombineOwner(selected, playerId);
     const matches = selected
       ? bag
-          .filter((rune) => rune.instanceId !== selected.instanceId && rune.id === selected.id && rune.level === 1)
+          .filter(
+            (rune) => rune.instanceId !== selected.instanceId
+              && rune.id === selected.id
+              && rune.level === 1
+              && getRuneCombineOwner(rune, playerId) === selectedCombineOwner,
+          )
           .map((rune) => rune.instanceId)
       : [];
     return { bagHighlightIds: matches, offerHighlightIds: [] };
@@ -938,14 +955,51 @@ function removeRuneFromBag(state, playerId, runeInstanceId) {
   }
 }
 
-function hasPairInBag(bag, runeId) {
-  return bag.filter((rune) => rune.id === runeId && rune.level === 1).length >= 2;
+function hasPairInBag(bag, runeId, combineOwner, bagOwnerId) {
+  return bag.filter(
+    (rune) => rune.id === runeId
+      && rune.level === 1
+      && getRuneCombineOwner(rune, bagOwnerId) === combineOwner,
+  ).length >= 2;
 }
 
 function hasCombinablePair(state, playerId) {
   const bag = state.players[playerId].bag;
-  const ids = [...new Set(bag.map((rune) => rune.id))];
-  return ids.some((id) => !NON_COMBINABLE_RUNES.has(id) && hasPairInBag(bag, id));
+  const keys = [...new Set(
+    bag
+      .filter((rune) => rune.level === 1 && !NON_COMBINABLE_RUNES.has(rune.id))
+      .map((rune) => `${rune.id}:${getRuneCombineOwner(rune, playerId)}`),
+  )];
+
+  return keys.some((key) => {
+    const [id, ownerText] = key.split(":");
+    return hasPairInBag(bag, id, Number(ownerText), playerId);
+  });
+}
+
+function getRuneCombineOwner(rune, playerId) {
+  if (!rune) {
+    return null;
+  }
+
+  if (rune.capturedOwner === BLACK || rune.capturedOwner === WHITE) {
+    return rune.capturedOwner;
+  }
+
+  return playerId;
+}
+
+function createCombinedShopRune(runeId, level, combineOwner, bagOwnerId) {
+  const combined = createRuneInstance(runeId, level);
+  if (!combined) {
+    return combined;
+  }
+
+  if ((combineOwner === BLACK || combineOwner === WHITE) && combineOwner !== bagOwnerId) {
+    combined.capturedOwner = combineOwner;
+  }
+
+  return combined;
 }
 
 function applyShopEffectIfAny(state, playerId, rune) {
@@ -974,6 +1028,7 @@ function clearHandSelections(state) {
 
 function setRuneOnBoard(state, placement, rune) {
   state.boardRunes[placement.row][placement.col] = {
+    instanceId: rune.instanceId || null,
     id: rune.id,
     level: rune.level,
     ethereal: isRuneEthereal(rune),
@@ -1058,7 +1113,22 @@ function canPlayerPlay(state, playerId) {
     return false;
   }
 
-  return player.hand.some((rune) => getLegalColumnsForRune(state, playerId, rune).length > 0);
+  return player.hand.some((rune) => {
+    if (rune.id === "nauthiz") {
+      return getLegalFloatingCellsForRune(state, playerId, rune).length > 0;
+    }
+
+    return getLegalColumnsForRune(state, playerId, rune).length > 0;
+  });
+}
+
+function getLegalFloatingCellsForRune(state, playerId, rune) {
+  const allowedColumns = getAllowedColumns(rune, state.columns);
+  const constrainedColumns = getConstrainedColumns(state, playerId, allColumns(state.columns));
+  return getFreeCells(state).filter(
+    (cell) => allowedColumns.includes(cell.col)
+      && constrainedColumns.includes(cell.col),
+  );
 }
 
 function forcePassIfNeeded(state) {
@@ -1075,6 +1145,9 @@ function forcePassIfNeeded(state) {
   }
 
   const opponentCanPlay = canPlayerPlay(state, opponent);
+  // Next-turn constraints (e.g. Perth) are single-opportunity effects and
+  // expire even when the constrained player is forced to pass.
+  state.nextTurnConstraints[current] = null;
   pushLog(state, "log.mustPass", { player: current });
 
   if (!opponentCanPlay) {
@@ -1392,7 +1465,7 @@ function removeRuneAt(state, row, col, source, returnMode) {
 
   if (returnMode === "immediate") {
     if (owner !== NEUTRAL_OWNER) {
-      state.players[owner].bag.push(createRuneInstance(rune.id, rune.level));
+      addRuneToBagAndShuffle(state, owner, rune.id, rune.level);
     }
     return { owner, rune };
   }
@@ -1406,6 +1479,13 @@ function removeRuneAt(state, row, col, source, returnMode) {
 }
 
 function sendRuneAwayForRound(state, owner, runeId, level, source) {
+  // Neutral runes removed by Sowelu/Gebo return straight to neutral supply
+  // (they must not sit in the discard pile where Fehu could recover them).
+  if (runeId === "neutral" && (source === "sowelu" || source === "gebo")) {
+    state.neutralSupply += 1;
+    return;
+  }
+
   state.roundAwayRunes.push({
     owner,
     runeId,
@@ -1438,6 +1518,18 @@ function recoverAwayRuneForFehu(state, playerId, awayIndex) {
   }
 
   state.players[playerId].bag.push(restored);
+  state.players[playerId].bag = shuffle(state.players[playerId].bag);
+  return restored;
+}
+
+function addRuneToBagAndShuffle(state, playerId, runeId, level) {
+  const restored = createRuneInstance(runeId, level);
+  if (!restored) {
+    return null;
+  }
+
+  state.players[playerId].bag.push(restored);
+  state.players[playerId].bag = shuffle(state.players[playerId].bag);
   return restored;
 }
 
