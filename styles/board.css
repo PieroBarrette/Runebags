@@ -306,20 +306,15 @@ body[data-animations="on"] .cell.anim-thurisa-drop.has-piece::before {
   animation: thurisa-neutral-drop 520ms cubic-bezier(0.2, 0.82, 0.24, 1);
 }
 
-body[data-animations="on"] .cell.anim-ansuz-drop .effect-fade-ghost {
-  animation: ansuz-target-fade 280ms ease-out forwards;
+/* A destroyed/returned rune fades on its own, independent of whether another rune
+   falls into the cleared cell. (Gebo L2 destroying a top-of-stack rune leaves no
+   backfilling drop, so gating the fade on .anim-gebo-drop used to strand the ghost.) */
+body[data-animations="on"] .cell .effect-fade-ghost {
+  animation: effect-target-fade 360ms ease-out forwards;
 }
 
-body[data-animations="on"] .cell.anim-ansuz-drop .effect-fade-ghost-symbol {
-  animation: ansuz-target-fade 280ms ease-out forwards;
-}
-
-body[data-animations="on"] .cell.anim-gebo-drop .effect-fade-ghost {
-  animation: gebo-target-fade 280ms ease-out forwards;
-}
-
-body[data-animations="on"] .cell.anim-gebo-drop .effect-fade-ghost-symbol {
-  animation: gebo-target-fade 280ms ease-out forwards;
+body[data-animations="on"] .cell .effect-fade-ghost-symbol {
+  animation: effect-target-fade 360ms ease-out forwards;
 }
 
 body[data-animations="on"] .cell .effect-lift-ghost {
@@ -429,25 +424,17 @@ body[data-animations="on"] .cell.anim-shift-up .rune-symbol {
   }
 }
 
-@keyframes ansuz-target-fade {
-  from {
+@keyframes effect-target-fade {
+  0% {
     opacity: 1;
-    transform: scale(1);
+    transform: translateY(0) scale(1);
   }
-  to {
+  55% {
+    opacity: 0.45;
+  }
+  100% {
     opacity: 0;
-    transform: scale(0.9);
-  }
-}
-
-@keyframes gebo-target-fade {
-  from {
-    opacity: 1;
-    transform: scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: scale(0.88);
+    transform: translateY(10%) scale(0.55);
   }
 }
 

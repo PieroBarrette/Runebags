@@ -48,16 +48,11 @@ const THEME_STORAGE_KEY = "runebags-theme-v1";
 const ANIMATION_STORAGE_KEY = "runebags-animations-v1";
 const SOUND_STORAGE_KEY = "runebags-sound-v1";
 const SOUND_VOLUME_STORAGE_KEY = "runebags-sound-volume-v1";
-const RUNE_SELECTION_STORAGE_KEY = "runebags-rune-selection-v1";
 const ONLINE_NAME_MAX = 14;
 const MODE_PASSPLAY = "passplay";
 const MODE_AI = "ai";
 const MODE_ONLINE = "online";
 const DEFAULT_SFX_VOLUME = 0.18;
-const SELECTABLE_RUNES = RUNE_CATALOG.filter(
-  (rune) => rune.type === "special" && rune.id !== "inguz" && rune.id !== "jera",
-);
-const SELECTABLE_RUNE_IDS = SELECTABLE_RUNES.map((rune) => rune.id);
 const RUNES_WITH_LEVEL_PREFIX = new Set([
   "ehwaz",
   "fehu",
@@ -101,7 +96,6 @@ const elements = {
   animationToggle: document.getElementById("animation-toggle"),
   soundToggle: document.getElementById("sound-toggle"),
   soundVolume: document.getElementById("sound-volume"),
-  runeList: document.getElementById("settings-rune-list"),
   settingsBackBtn: document.getElementById("settings-back-btn"),
   onlinePanel: document.getElementById("online-panel"),
   onlineServerDot: document.getElementById("online-server-dot"),
@@ -202,7 +196,6 @@ const elements = {
   shopCombineBtn: document.getElementById("shop-combine-btn"),
 };
 
-let selectedLocalRuneIds = loadRuneSelectionPreference();
 let state = restoreState(
   getSavedStateForMode(MODE_PASSPLAY) || createInitialState(getLocalGameOptions()),
   getLocalGameOptions(),
@@ -238,6 +231,7 @@ let animationsEnabled = true;
 let soundEnabled = true;
 let sfxVolume = DEFAULT_SFX_VOLUME;
 let previousBoardSnapshot = null;
+let ghostCleanupTimer = null;
 let previousPendingActionSnapshot = null;
 let previousAudioSnapshot = null;
 let suppressBoardClickOnce = false;
@@ -264,7 +258,6 @@ initializeLanguage();
 initializeTheme();
 initializeAnimations();
 initializeSound();
-renderRuneSelectionSettings();
 renderHomeRuneGallery();
 renderHomeStats();
 renderHomeResume();
@@ -636,29 +629,6 @@ function bindEvents() {
     saveSoundVolumePreference(nextVolume);
   });
 
-  elements.runeList.addEventListener("change", (event) => {
-    const checkbox = event.target.closest("input[type=checkbox][data-rune-id]");
-    if (!checkbox) {
-      return;
-    }
-
-    const runeId = String(checkbox.dataset.runeId || "");
-    if (!SELECTABLE_RUNE_IDS.includes(runeId)) {
-      return;
-    }
-
-    const selectedSet = new Set(selectedLocalRuneIds);
-    if (checkbox.checked) {
-      selectedSet.add(runeId);
-    } else {
-      selectedSet.delete(runeId);
-    }
-
-    selectedLocalRuneIds = normalizeRuneSelection([...selectedSet]);
-    saveRuneSelectionPreference(selectedLocalRuneIds);
-    setStatus("Local rune set updated. Starts from your next new AI or Pass & Play game.");
-  });
-
   elements.onlineBackBtn.addEventListener("click", () => {
     saveModeSave(MODE_ONLINE, {
       roomCode: activeRoomCode || online.getSession().roomCode || null,
@@ -938,6 +908,7 @@ function bindEvents() {
   elements.languageSelect.addEventListener("change", () => {
     setLang(elements.languageSelect.value);
     applyTranslations();
+    tutorialController.refreshActiveText();
     renderHomeStats();
     renderHomeResume();
     render();
@@ -1478,6 +1449,7 @@ function render() {
 
   renderBoard(state, elements, pendingTargets, winningLine, forcedColumns, animationFrame);
   previousBoardSnapshot = boardSnapshot;
+  scheduleGhostCleanup(animationFrame);
   previousPendingActionSnapshot = pendingSnapshot;
   renderHands(state, elements, handVisibility, forcedVisible);
   applyOnlinePlayerNames();
@@ -2364,7 +2336,7 @@ function isOnlineServerConnected() {
 function updateTopButtons() {
   const onlineGame = online.isOnlineActive();
   elements.newGameBtn.hidden = false;
-  elements.newGameBtn.textContent = onlineGame ? "Leave Game" : "New Game";
+  elements.newGameBtn.textContent = onlineGame ? t("topbar.leaveGame") : t("topbar.newGame");
 }
 
 function getValidatedOnlinePseudo() {
@@ -2504,83 +2476,7 @@ function isResumableSave(savedState) {
 }
 
 function getLocalGameOptions() {
-  return {
-    allowedSpecialRuneIds: selectedLocalRuneIds,
-  };
-}
-
-function normalizeRuneSelection(candidate) {
-  const requested = Array.isArray(candidate) ? candidate : [];
-  const requestedSet = new Set(requested.filter((id) => SELECTABLE_RUNE_IDS.includes(id)));
-  return SELECTABLE_RUNE_IDS.filter((id) => requestedSet.has(id));
-}
-
-function loadRuneSelectionPreference() {
-  const raw = localStorage.getItem(RUNE_SELECTION_STORAGE_KEY);
-  if (!raw) {
-    return [...SELECTABLE_RUNE_IDS];
-  }
-
-  try {
-    const parsed = JSON.parse(raw);
-    const normalized = normalizeRuneSelection(parsed);
-    return normalized.length > 0 ? normalized : [];
-  } catch {
-    return [...SELECTABLE_RUNE_IDS];
-  }
-}
-
-function saveRuneSelectionPreference(runeIds) {
-  localStorage.setItem(RUNE_SELECTION_STORAGE_KEY, JSON.stringify(normalizeRuneSelection(runeIds)));
-}
-
-function renderRuneSelectionSettings() {
-  elements.runeList.innerHTML = "";
-  const selected = new Set(selectedLocalRuneIds);
-
-  SELECTABLE_RUNES.forEach((rune) => {
-    const row = document.createElement("label");
-    row.className = "settings-rune-item";
-
-    const main = document.createElement("span");
-    main.className = "settings-rune-main";
-
-    const chip = document.createElement("span");
-    chip.className = "rune-chip neutral";
-
-    if (rune.icon) {
-      const symbol = document.createElement("img");
-      symbol.src = rune.icon;
-      symbol.alt = `${rune.name} symbol`;
-      symbol.className = "rune-chip-symbol";
-      chip.appendChild(symbol);
-    }
-
-    const textWrap = document.createElement("span");
-    textWrap.className = "settings-rune-text";
-
-    const title = document.createElement("strong");
-    title.textContent = rune.name;
-
-    const effect = document.createElement("small");
-    effect.textContent = runeDescription(rune);
-
-    textWrap.appendChild(title);
-    textWrap.appendChild(effect);
-    main.appendChild(chip);
-    main.appendChild(textWrap);
-
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.className = "settings-rune-checkbox";
-    checkbox.dataset.runeId = rune.id;
-    checkbox.checked = selected.has(rune.id);
-    checkbox.setAttribute("aria-label", `Include ${rune.name}`);
-
-    row.appendChild(main);
-    row.appendChild(checkbox);
-    elements.runeList.appendChild(row);
-  });
+  return {};
 }
 
 function renderHomeRuneGallery() {
@@ -2888,6 +2784,35 @@ function snapshotPendingAction(action) {
     action.remainingRecovers ?? "",
     action.remainingDrops ?? "",
   ].join(";");
+}
+
+// Transient effect ghosts (a destroyed/returned/moved rune fading out) are drawn
+// for one render only. Because render() is interaction-driven, schedule a single
+// follow-up render once the animation has finished so the ghost node is dropped
+// even if the player never clicks. previousBoardSnapshot is already advanced, so
+// this cleanup render diffs empty and re-triggers no animation.
+function scheduleGhostCleanup(animationFrame) {
+  if (ghostCleanupTimer !== null) {
+    window.clearTimeout(ghostCleanupTimer);
+    ghostCleanupTimer = null;
+  }
+
+  if (!animationFrame || !animationFrame.enabled) {
+    return;
+  }
+
+  const hasGhosts =
+    (animationFrame.geboGhostByCell && animationFrame.geboGhostByCell.size > 0) ||
+    (animationFrame.ansuzGhostByCell && animationFrame.ansuzGhostByCell.size > 0) ||
+    (animationFrame.teiwazLiftGhostByCell && animationFrame.teiwazLiftGhostByCell.size > 0);
+  if (!hasGhosts) {
+    return;
+  }
+
+  ghostCleanupTimer = window.setTimeout(() => {
+    ghostCleanupTimer = null;
+    render();
+  }, 900);
 }
 
 function buildBoardAnimationFrame(

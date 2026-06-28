@@ -1,70 +1,25 @@
+import { t } from "../i18n.js";
+
+// Tutorial copy lives in i18n.js under tutorial.step.*; each step stores the key
+// and is resolved through t() at display time, so bubbles follow the active
+// language (and re-resolve when it changes via refreshActiveText()).
 const TUTORIAL_MESSAGES = {
   shop: [
-    {
-      id: "shop-add",
-      position: "shop",
-      text: "Here is the shop, try adding new runes to your bag!",
-    },
-    {
-      id: "shop-remove",
-      position: "shop",
-      text: "You can also remove bad runes from your bag, try it!",
-    },
-    {
-      id: "shop-combine",
-      position: "shop",
-      text: "If you have 2 runes of the same symbol, you can combine them into a single powered up rune!",
-    },
-    {
-      id: "shop-next",
-      position: "shop",
-      text: "When you are ready, go next!",
-    },
+    { id: "shop-add", position: "shop", textKey: "tutorial.step.shopAdd" },
+    { id: "shop-remove", position: "shop", textKey: "tutorial.step.shopRemove" },
+    { id: "shop-combine", position: "shop", textKey: "tutorial.step.shopCombine" },
+    { id: "shop-next", position: "shop", textKey: "tutorial.step.shopNext" },
   ],
   round: [
-    {
-      id: "round-play",
-      position: "board",
-      text: "On your turn, select a rune in your hand and select a column to play it in!",
-    },
-    {
-      id: "round-hover",
-      position: "board",
-      text: "You can hover a rune on the board to see its effect!",
-    },
-    {
-      id: "round-connect-four",
-      position: "status",
-      text: "To win the round and a point, you must connect a line of 4 of your runes! (vertically, horizontally or diagonally)",
-    },
-    {
-      id: "round-pass",
-      position: "status",
-      text: "When a player has an empty bag and hand or cannot play, they must pass and the opponent plays again!",
-    },
-    {
-      id: "round-tie-remove-point",
-      position: "status",
-      text: "At the end of the round, if all players pass and no lines of 4 have been made, a point is removed from the supply.",
-    },
-    {
-      id: "round-majority-win",
-      position: "status",
-      text: "Gain a majority of the points remaining in the game to win it!",
-    },
-    {
-      id: "round-bag-tiebreak",
-      position: "status",
-      text: "If there are no points remaining in the supply and both players have an equal amount of points, the player with the fewest runes in the bag wins!",
-    },
+    { id: "round-play", position: "board", textKey: "tutorial.step.roundPlay" },
+    { id: "round-connect-four", position: "status", textKey: "tutorial.step.roundConnectFour" },
+    { id: "round-hover", position: "board", textKey: "tutorial.step.roundHover" },
+    { id: "round-pass", position: "status", textKey: "tutorial.step.roundPass" },
+    { id: "round-tie-remove-point", position: "status", textKey: "tutorial.step.roundTieRemovePoint" },
+    { id: "round-majority-win", position: "status", textKey: "tutorial.step.roundMajorityWin" },
+    { id: "round-bag-tiebreak", position: "status", textKey: "tutorial.step.roundBagTiebreak" },
   ],
 };
-
-const ALL_TRIGGER_IDS = new Set(
-  Object.values(TUTORIAL_MESSAGES)
-    .flat()
-    .map((entry) => entry.id),
-);
 
 const MESSAGE_BY_ID = new Map(
   Object.values(TUTORIAL_MESSAGES)
@@ -72,25 +27,24 @@ const MESSAGE_BY_ID = new Map(
     .map((entry) => [entry.id, entry]),
 );
 
-const MESSAGE_OBJECTIVE_LABELS = {
-  "shop-add": "Add runes from the shop offer.",
-  "shop-remove": "Remove one rune from your bag.",
-  "shop-combine": "Watch for the first combine opportunity.",
-  "shop-next": "Start the next round when shopping is done.",
-  "round-play": "Select a rune in hand, then pick a column.",
-  "round-connect-four": "Goal: make a line of four runes.",
-  "round-hover": "Hover a board rune to read its effect.",
-  "round-pass": "Learn the forced-pass rule.",
-  "round-tie-remove-point": "Learn tied-round point removal.",
-  "round-majority-win": "Learn majority point victory.",
-  "round-bag-tiebreak": "Learn the final bag-size tiebreak.",
-};
+const ALL_TRIGGER_IDS = new Set(MESSAGE_BY_ID.keys());
 
+// The linear shop flow. Combine is contextual (event-driven) and intentionally
+// excluded so it only appears when a real combine becomes available.
+const SHOP_SEQUENCE_IDS = ["shop-add", "shop-remove", "shop-next"];
+
+// Contextual tips that may never occur in a given game; they must not block the
+// tutorial from auto-completing.
 const OPTIONAL_TRIGGER_IDS = new Set([
+  "shop-combine",
   "round-pass",
   "round-tie-remove-point",
   "round-bag-tiebreak",
 ]);
+
+function messageText(message) {
+  return message ? t(message.textKey) : "";
+}
 
 function asSet(value) {
   if (!Array.isArray(value)) {
@@ -124,22 +78,10 @@ export function createTutorialController(options) {
     active: null,
     typedLength: 0,
     typingTimer: null,
-    shopAddActionSeen: false,
-    lastShopAddedCountByPlayer: {
-      1: 0,
-      2: 0,
-    },
-    lastShopAddLimitByPlayer: {
-      1: 2,
-      2: 2,
-    },
     lastCombineVisibleByPlayer: {
       1: false,
       2: false,
     },
-    shopAddLimitReachedSeen: false,
-    currentShopAddCount: 0,
-    currentShopAddLimit: 2,
     lastObservedLogCount: null,
     roundOneEnded: false,
     roundOneWasDraw: false,
@@ -184,8 +126,19 @@ export function createTutorialController(options) {
       return;
     }
     stopTyping();
-    state.typedLength = state.active.text.length;
-    elements.tutorialDialogText.textContent = state.active.text;
+    const fullText = messageText(state.active);
+    state.typedLength = fullText.length;
+    elements.tutorialDialogText.textContent = fullText;
+  }
+
+  // Re-resolve the visible bubble in the current language (called when the player
+  // switches language mid-tutorial). The text is shown in full rather than
+  // restarting the typewriter to avoid a stale half-typed line.
+  function refreshActiveText() {
+    if (!state.active) {
+      return;
+    }
+    flushTyping();
   }
 
   function maybeCompleteTutorial() {
@@ -221,6 +174,7 @@ export function createTutorialController(options) {
 
   function startTyping(message) {
     stopTyping();
+    const fullText = messageText(message);
     state.typedLength = 0;
     elements.tutorialDialogText.textContent = "";
 
@@ -232,14 +186,14 @@ export function createTutorialController(options) {
       }
 
       state.typedLength += 1;
-      if (state.typedLength >= message.text.length) {
-        state.typedLength = message.text.length;
-        elements.tutorialDialogText.textContent = message.text;
+      if (state.typedLength >= fullText.length) {
+        state.typedLength = fullText.length;
+        elements.tutorialDialogText.textContent = fullText;
         stopTyping();
         return;
       }
 
-      elements.tutorialDialogText.textContent = message.text.slice(0, state.typedLength);
+      elements.tutorialDialogText.textContent = fullText.slice(0, state.typedLength);
     }, tickMs);
   }
 
@@ -275,7 +229,7 @@ export function createTutorialController(options) {
     startTyping(next);
   }
 
-  function enqueueMessageById(id) {
+  function enqueueMessageById(id, { front = false } = {}) {
     if (!id || state.shownTriggerIds.has(id)) {
       return;
     }
@@ -290,38 +244,17 @@ export function createTutorialController(options) {
       return;
     }
 
-    const sequenceKey = message.id.startsWith("shop-") ? "shop" : "round";
-    state.queue.push({ ...message, sequenceKey });
+    const sequenceKey = id.startsWith("shop-") ? "shop" : "round";
+    const entry = { ...message, sequenceKey };
+    if (front) {
+      state.queue.unshift(entry);
+    } else {
+      state.queue.push(entry);
+    }
   }
 
   function enqueueMessages(ids) {
     ids.forEach((id) => enqueueMessageById(id));
-    showNextMessage();
-  }
-
-  function enqueueSequence(sequenceKey) {
-    if (!state.enabled || state.completed) {
-      return;
-    }
-
-    const sequence = TUTORIAL_MESSAGES[sequenceKey] || [];
-    if (sequence.length === 0) {
-      return;
-    }
-
-    const queuedIds = new Set(state.queue.map((entry) => entry.id));
-    if (state.active?.id) {
-      queuedIds.add(state.active.id);
-    }
-
-    sequence.forEach((entry) => {
-      if (state.shownTriggerIds.has(entry.id) || queuedIds.has(entry.id)) {
-        return;
-      }
-      state.queue.push({ ...entry, sequenceKey });
-      queuedIds.add(entry.id);
-    });
-
     showNextMessage();
   }
 
@@ -332,62 +265,18 @@ export function createTutorialController(options) {
     }
 
     if (phase === "shop") {
-      enqueueMessages(["shop-add"]);
+      enqueueMessages(SHOP_SEQUENCE_IDS);
     }
   }
 
-  function syncShopAddProgress(gameState) {
-    const shopPlayers = gameState?.shop?.players;
-    const shopCurrentPlayerId = Number(gameState?.shop?.currentPlayer) || 1;
-    const currentShopData = shopPlayers?.[shopCurrentPlayerId];
-    state.currentShopAddCount = Math.max(0, Number(currentShopData?.addedCount) || 0);
-    state.currentShopAddLimit = Math.max(1, Number(currentShopData?.addLimit) || 2);
-
-    [1, 2].forEach((playerId) => {
-      const addedCount = Math.max(0, Number(shopPlayers?.[playerId]?.addedCount) || 0);
-      const addLimit = Math.max(1, Number(shopPlayers?.[playerId]?.addLimit) || 2);
-      if (addedCount > 0 || addedCount > state.lastShopAddedCountByPlayer[playerId]) {
-        state.shopAddActionSeen = true;
-      }
-      if (addedCount >= addLimit) {
-        state.shopAddLimitReachedSeen = true;
-      }
-      state.lastShopAddedCountByPlayer[playerId] = addedCount;
-      state.lastShopAddLimitByPlayer[playerId] = addLimit;
-    });
-  }
-
-  function getPlayerIdFromLogPrefix(logLine) {
-    if (typeof logLine !== "string") {
-      return null;
-    }
-
-    if (logLine.startsWith("Black ")) {
-      return 1;
-    }
-
-    if (logLine.startsWith("White ")) {
-      return 2;
-    }
-
-    return null;
-  }
-
+  // The forced-pass tip fires off the structured "log.mustPass" entry (logs are
+  // newest-first), only when the passing player truly has no bag and no hand.
   function inspectRecentLogEvents(gameState) {
     const logEntries = Array.isArray(gameState?.log) ? gameState.log : [];
     const currentCount = logEntries.length;
 
-    if (state.lastObservedLogCount === null) {
+    if (state.lastObservedLogCount === null || currentCount <= state.lastObservedLogCount) {
       state.lastObservedLogCount = currentCount;
-      return;
-    }
-
-    if (currentCount < state.lastObservedLogCount) {
-      state.lastObservedLogCount = currentCount;
-      return;
-    }
-
-    if (currentCount === state.lastObservedLogCount) {
       return;
     }
 
@@ -400,21 +289,11 @@ export function createTutorialController(options) {
     }
 
     newEntries.forEach((entry) => {
-      let playerId = null;
-      if (entry && typeof entry === "object") {
-        if (entry.k !== "log.mustPass") {
-          return;
-        }
-        playerId = Number(entry.p?.player);
-      } else if (typeof entry === "string") {
-        if (!/cannot play and must pass\.$/.test(entry)) {
-          return;
-        }
-        playerId = getPlayerIdFromLogPrefix(entry);
-      } else {
+      if (!entry || typeof entry !== "object" || entry.k !== "log.mustPass") {
         return;
       }
 
+      const playerId = Number(entry.p?.player);
       if (playerId !== 1 && playerId !== 2) {
         return;
       }
@@ -448,7 +327,6 @@ export function createTutorialController(options) {
     }
 
     state.phase = gameState.phase;
-    syncShopAddProgress(gameState);
     inspectRecentLogEvents(gameState);
 
     if (!state.roundOneEnded && gameState.roundNumber === 1) {
@@ -470,21 +348,9 @@ export function createTutorialController(options) {
     }
 
     if (gameState.phase === "shop") {
-      if (!state.shownTriggerIds.has("shop-add")) {
-        enqueueMessageById("shop-add");
-      }
-      if (state.shopAddLimitReachedSeen) {
-        enqueueMessageById("shop-remove");
-      }
-      if (state.shownTriggerIds.has("shop-remove")) {
-        enqueueMessageById("shop-next");
-      }
-      showNextMessage();
-      return;
-    }
-
-    if (gameState.phase === "round" && gameState.roundNumber === 1) {
-      if (gameState.turnNumber === 1) {
+      SHOP_SEQUENCE_IDS.forEach((id) => enqueueMessageById(id));
+    } else if (gameState.phase === "round" && gameState.roundNumber === 1) {
+      if (gameState.turnNumber >= 1) {
         enqueueMessageById("round-play");
       }
       if (gameState.turnNumber >= 2) {
@@ -493,8 +359,6 @@ export function createTutorialController(options) {
       if (gameState.turnNumber >= 3) {
         enqueueMessageById("round-hover");
       }
-      showNextMessage();
-      return;
     }
 
     showNextMessage();
@@ -518,8 +382,11 @@ export function createTutorialController(options) {
       return;
     }
 
+    // Surface the combine tip as soon as a combine becomes possible, ahead of the
+    // remaining linear shop tips.
     if (isVisible && !wasVisible) {
-      enqueueMessages(["shop-combine"]);
+      enqueueMessageById("shop-combine", { front: true });
+      showNextMessage();
     }
   }
 
@@ -560,7 +427,7 @@ export function createTutorialController(options) {
       }
 
       if (state.enabled && !state.completed) {
-      maybeQueueForPhase(state.phase);
+        maybeQueueForPhase(state.phase);
       }
     }
 
@@ -604,9 +471,8 @@ export function createTutorialController(options) {
     state.shopSequenceSeen = Boolean(profileState?.shopSequenceSeen);
     state.roundSequenceSeen = Boolean(profileState?.roundSequenceSeen);
     state.shownTriggerIds = asSet(profileState?.shownTriggerIds);
-    state.shopAddActionSeen = state.shownTriggerIds.has("shop-remove") || state.shownTriggerIds.has("shop-next");
-    state.shopAddLimitReachedSeen = state.shownTriggerIds.has("shop-remove") || state.shownTriggerIds.has("shop-next");
-    state.roundOneEnded = state.shownTriggerIds.has("round-majority-win") || state.shownTriggerIds.has("round-tie-remove-point");
+    state.roundOneEnded =
+      state.shownTriggerIds.has("round-majority-win") || state.shownTriggerIds.has("round-tie-remove-point");
     state.roundOneWasDraw = state.shownTriggerIds.has("round-tie-remove-point");
     state.roundOneBagTiebreakRelevant = state.shownTriggerIds.has("round-bag-tiebreak");
     state.lastObservedLogCount = null;
@@ -648,136 +514,6 @@ export function createTutorialController(options) {
     state.lastObservedLogCount = null;
   }
 
-  function getCueTargetsForActiveMessage() {
-    const messageId = state.active?.id;
-    if (!messageId) {
-      return [];
-    }
-
-    if (messageId === "shop-add") {
-      return ["shop-offer"];
-    }
-
-    if (messageId === "shop-remove") {
-      return ["shop-bag", "shop-remove-btn"];
-    }
-
-    if (messageId === "shop-combine") {
-      return ["shop-bag", "shop-combine-btn"];
-    }
-
-    if (messageId === "shop-next") {
-      return ["phase-btn"];
-    }
-
-    if (messageId === "round-play") {
-      return ["active-hand", "board"];
-    }
-
-    if (messageId === "round-connect-four") {
-      return ["board"];
-    }
-
-    if (messageId === "round-hover") {
-      return ["board"];
-    }
-
-    if (
-      messageId === "round-pass"
-      || messageId === "round-tie-remove-point"
-      || messageId === "round-majority-win"
-      || messageId === "round-bag-tiebreak"
-    ) {
-      return ["point-pool", "turn-pill"];
-    }
-
-    return [];
-  }
-
-  function getUiState() {
-    const showOverlay = Boolean(
-      state.gameScreenVisible
-        && state.introPromptSeen
-        && state.enabled
-        && !state.completed
-        && isEligibleMode(),
-    );
-
-    if (!showOverlay) {
-      return {
-        showChecklist: false,
-        objectiveText: "",
-        checklistItems: [],
-        cueTargets: [],
-      };
-    }
-
-    const addProgress = Math.min(state.currentShopAddCount, state.currentShopAddLimit);
-    const pointsExplained = state.shownTriggerIds.has("round-majority-win")
-      && (!state.roundOneWasDraw || state.shownTriggerIds.has("round-tie-remove-point"))
-      && (!state.roundOneBagTiebreakRelevant || state.shownTriggerIds.has("round-bag-tiebreak"));
-
-    const checklistItems = [
-      {
-        key: "add",
-        label: `Add runes from the offer (${addProgress}/${state.currentShopAddLimit})`,
-        done: state.shopAddLimitReachedSeen || state.shownTriggerIds.has("shop-remove"),
-      },
-      {
-        key: "remove",
-        label: "Remove one rune in shop",
-        done: state.shownTriggerIds.has("shop-remove"),
-      },
-      {
-        key: "combine",
-        label: "See first combine opportunity",
-        done: state.shownTriggerIds.has("shop-combine"),
-      },
-      {
-        key: "round-play",
-        label: "Play your first turn",
-        done: state.shownTriggerIds.has("round-play"),
-      },
-      {
-        key: "round-goal",
-        label: "Read the round goal (line of 4)",
-        done: state.shownTriggerIds.has("round-connect-four"),
-      },
-      {
-        key: "round-hover",
-        label: "Read the hover explanation",
-        done: state.shownTriggerIds.has("round-hover"),
-      },
-      {
-        key: "pass-rule",
-        label: "See forced pass tip when a player has no bag and hand",
-        done: state.shownTriggerIds.has("round-pass"),
-      },
-      {
-        key: "points",
-        label: "Read first-round point supply explanations",
-        done: pointsExplained,
-      },
-    ];
-
-    let objectiveText = "Tutorial complete.";
-    if (state.active?.id) {
-      objectiveText = MESSAGE_OBJECTIVE_LABELS[state.active.id] || state.active.text;
-    } else {
-      const nextItem = checklistItems.find((item) => !item.done);
-      if (nextItem) {
-        objectiveText = nextItem.label;
-      }
-    }
-
-    return {
-      showChecklist: true,
-      objectiveText,
-      checklistItems,
-      cueTargets: getCueTargetsForActiveMessage(),
-    };
-  }
-
   return {
     loadProfileTutorialState,
     onGameEntered,
@@ -785,8 +521,8 @@ export function createTutorialController(options) {
     onGameStateUpdated,
     onShopAvailabilityChanged,
     setEnabled,
-    getUiState,
     hideAll,
     syncToggle,
+    refreshActiveText,
   };
 }
