@@ -102,6 +102,216 @@ function createWoodFeltProfile(context, destination, eventName) {
     return;
   }
 
+  if (eventName === "ui-hover") {
+    createTone(context, destination, {
+      type: "triangle",
+      frequency: 660,
+      start: t0,
+      duration: 0.04,
+      gain: 0.016,
+      attack: 0.002,
+      release: 0.03,
+    });
+    return;
+  }
+
+  // A point is scored — the rewarding "line of four" moment. A quick major triad up.
+  if (eventName === "capture") {
+    createTone(context, destination, {
+      type: "triangle",
+      frequency: 523.25,
+      start: t0,
+      duration: 0.12,
+      gain: 0.05,
+      release: 0.08,
+    });
+    createTone(context, destination, {
+      type: "triangle",
+      frequency: 659.25,
+      start: t0 + 0.06,
+      duration: 0.13,
+      gain: 0.05,
+      release: 0.09,
+    });
+    createTone(context, destination, {
+      type: "triangle",
+      frequency: 783.99,
+      start: t0 + 0.12,
+      duration: 0.18,
+      gain: 0.055,
+      release: 0.12,
+    });
+    createFilteredNoise(context, destination, {
+      start: t0,
+      duration: 0.05,
+      gain: 0.01,
+      lowpass: 3200,
+    });
+    return;
+  }
+
+  // A rune is destroyed (Gebo / Kenaz / Sowelu): a muffled thud sinking in pitch.
+  if (eventName === "rune-destroy") {
+    createTone(context, destination, {
+      type: "sine",
+      frequency: 200,
+      endFrequency: 70,
+      start: t0,
+      duration: 0.26,
+      gain: 0.09,
+      attack: 0.002,
+      release: 0.16,
+    });
+    createFilteredNoise(context, destination, {
+      start: t0,
+      duration: 0.18,
+      gain: 0.03,
+      lowpass: 720,
+    });
+    return;
+  }
+
+  // A rune is recalled to a bag (Ansuz / Fehu / Ethereal): an upward shimmer.
+  if (eventName === "rune-return") {
+    createTone(context, destination, {
+      type: "sine",
+      frequency: 240,
+      endFrequency: 520,
+      start: t0,
+      duration: 0.2,
+      gain: 0.05,
+      attack: 0.004,
+      release: 0.12,
+    });
+    createTone(context, destination, {
+      type: "triangle",
+      frequency: 494,
+      start: t0 + 0.08,
+      duration: 0.14,
+      gain: 0.03,
+      release: 0.1,
+    });
+    return;
+  }
+
+  // A rune slides across the board (Teiwaz): a short swish.
+  if (eventName === "rune-move") {
+    createTone(context, destination, {
+      type: "sine",
+      frequency: 320,
+      endFrequency: 430,
+      start: t0,
+      duration: 0.16,
+      gain: 0.05,
+      attack: 0.003,
+      release: 0.1,
+    });
+    createFilteredNoise(context, destination, {
+      start: t0,
+      duration: 0.12,
+      gain: 0.02,
+      lowpass: 1900,
+    });
+    return;
+  }
+
+  // A rune is conjured onto the board (Thurisa / Mannaz / Dagaz): a soft sparkle.
+  if (eventName === "rune-summon") {
+    createTone(context, destination, {
+      type: "triangle",
+      frequency: 660,
+      start: t0,
+      duration: 0.1,
+      gain: 0.035,
+      release: 0.07,
+    });
+    createTone(context, destination, {
+      type: "triangle",
+      frequency: 880,
+      start: t0 + 0.05,
+      duration: 0.12,
+      gain: 0.03,
+      release: 0.09,
+    });
+    createFilteredNoise(context, destination, {
+      start: t0,
+      duration: 0.04,
+      gain: 0.008,
+      lowpass: 4200,
+    });
+    return;
+  }
+
+  // Shop: add a rune to the bag — a light two-note lift.
+  if (eventName === "shop-add") {
+    createTone(context, destination, {
+      type: "triangle",
+      frequency: 440,
+      start: t0,
+      duration: 0.08,
+      gain: 0.04,
+      release: 0.06,
+    });
+    createTone(context, destination, {
+      type: "triangle",
+      frequency: 660,
+      start: t0 + 0.05,
+      duration: 0.11,
+      gain: 0.045,
+      release: 0.08,
+    });
+    return;
+  }
+
+  // Shop: remove a rune — a soft descending discard.
+  if (eventName === "shop-remove") {
+    createTone(context, destination, {
+      type: "sine",
+      frequency: 340,
+      endFrequency: 200,
+      start: t0,
+      duration: 0.14,
+      gain: 0.04,
+      release: 0.1,
+    });
+    createFilteredNoise(context, destination, {
+      start: t0,
+      duration: 0.06,
+      gain: 0.012,
+      lowpass: 1000,
+    });
+    return;
+  }
+
+  // Shop: combine two runes into a stronger one — an ascending power-up.
+  if (eventName === "shop-combine") {
+    createTone(context, destination, {
+      type: "triangle",
+      frequency: 392,
+      start: t0,
+      duration: 0.1,
+      gain: 0.045,
+      release: 0.07,
+    });
+    createTone(context, destination, {
+      type: "triangle",
+      frequency: 523.25,
+      start: t0 + 0.07,
+      duration: 0.11,
+      gain: 0.045,
+      release: 0.08,
+    });
+    createTone(context, destination, {
+      type: "triangle",
+      frequency: 659.25,
+      start: t0 + 0.14,
+      duration: 0.16,
+      gain: 0.05,
+      release: 0.11,
+    });
+    return;
+  }
+
   if (eventName === "move") {
     createTone(context, destination, {
       type: "sine",
@@ -219,6 +429,7 @@ export function createSfxEngine() {
   let enabled = true;
   let volume = DEFAULT_VOLUME;
   let lastUiClickAt = 0;
+  let lastHoverAt = 0;
   let resumePromise = null;
 
   function ensureContext() {
@@ -309,6 +520,15 @@ export function createSfxEngine() {
         return;
       }
       lastUiClickAt = t;
+    }
+
+    // Hover cues are frequent; throttle so sweeping the cursor never machine-guns.
+    if (eventName === "ui-hover") {
+      const t = performance.now();
+      if (t - lastHoverAt < 70) {
+        return;
+      }
+      lastHoverAt = t;
     }
 
     if (audioContext.state === "running") {

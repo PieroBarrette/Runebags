@@ -397,6 +397,7 @@ function wireOnlineEvents() {
 
 function bindEvents() {
   bindButtonSoundEvents();
+  bindButtonHoverEvents();
 
   elements.menuAiBtn.addEventListener("click", () => {
     showAiPanel();
@@ -2668,7 +2669,39 @@ function bindButtonSoundEvents() {
       return;
     }
     sfx.unlockFromGesture();
-    sfx.play("ui-click");
+    sfx.play(resolveClickSound(button));
+  });
+}
+
+// Give the recurring shop gestures their own voice instead of the generic click.
+function resolveClickSound(button) {
+  if (button.id === "shop-remove-btn") {
+    return "shop-remove";
+  }
+  if (button.id === "shop-combine-btn") {
+    return "shop-combine";
+  }
+  if (button.classList.contains("rune-card") && button.closest("#shop-offer")) {
+    return "shop-add";
+  }
+  return "ui-click";
+}
+
+function bindButtonHoverEvents() {
+  let lastHoverTarget = null;
+  document.addEventListener("pointerover", (event) => {
+    if (event.pointerType && event.pointerType !== "mouse") {
+      return;
+    }
+    const target = event.target.closest(".menu-btn, .rune-card");
+    if (target === lastHoverTarget) {
+      return;
+    }
+    lastHoverTarget = target;
+    if (!target || target.disabled) {
+      return;
+    }
+    sfx.play("ui-hover");
   });
 }
 
@@ -2683,12 +2716,44 @@ function snapshotAudioState(currentState, boardSnapshot) {
     })
     .join("|");
 
+  // Logs are newest-first, so the head holds this turn's freshly pushed entries.
+  const log = Array.isArray(currentState.log) ? currentState.log : [];
+  const logKeysHead = log
+    .slice(0, 8)
+    .map((entry) => (entry && typeof entry === "object" ? entry.k : null));
+
   return {
     phase: currentState.phase,
     winner: currentState.winner,
     gameWinner: currentState.gameWinner,
     boardSignature,
+    logLength: log.length,
+    logKeysHead,
   };
+}
+
+// Maps the structured turn-log keys produced by the engine to an effect sound,
+// in descending salience. The first matching category among a turn's new log
+// entries wins, so a play that both relocates and scores plays the score cue.
+const SFX_EFFECT_BY_LOG_KEY = [
+  { sound: "capture", keys: ["log.pointGain", "log.odalPoint", "log.wunjoBonus"] },
+  {
+    sound: "rune-destroy",
+    keys: ["log.geboRemovedBelow", "log.geboRemovedChosen", "log.kenazDestroyed", "log.soweluRemoved"],
+  },
+  { sound: "rune-return", keys: ["log.ansuzReturned", "log.fehuRecovered", "log.etherealReturns"] },
+  { sound: "rune-move", keys: ["log.teiwazMoved"] },
+  { sound: "rune-summon", keys: ["log.thurisaPlaced", "log.mannazAdded", "log.dagazAdded", "log.dagazCopied"] },
+];
+
+function pickEffectSound(newLogKeys) {
+  const present = new Set(newLogKeys.filter(Boolean));
+  for (const entry of SFX_EFFECT_BY_LOG_KEY) {
+    if (entry.keys.some((key) => present.has(key))) {
+      return entry.sound;
+    }
+  }
+  return null;
 }
 
 function playSoundTransitions(previousSnapshot, currentSnapshot) {
@@ -2701,9 +2766,20 @@ function playSoundTransitions(previousSnapshot, currentSnapshot) {
     sfx.play("round-start");
   }
 
+  // Pick a per-effect cue from this turn's new log entries; fall back to the
+  // generic placement thunk. Gated to an ongoing round so a scoring/ending play
+  // doesn't double up with the round-end / game-over fanfare below.
+  const newLogCount = currentSnapshot.logLength - previousSnapshot.logLength;
+  const effectSound = newLogCount > 0 && newLogCount <= 8
+    ? pickEffectSound(currentSnapshot.logKeysHead.slice(0, newLogCount))
+    : null;
   const moved = previousSnapshot.boardSignature !== currentSnapshot.boardSignature;
-  if (moved && currentSnapshot.phase !== "shop" && !enteredRound) {
-    sfx.play("move");
+  if (currentSnapshot.phase === "round" && !enteredRound) {
+    if (effectSound) {
+      sfx.play(effectSound);
+    } else if (moved) {
+      sfx.play("move");
+    }
   }
 
   const enteredGameOver = previousSnapshot.phase !== "game-over" && currentSnapshot.phase === "game-over";
