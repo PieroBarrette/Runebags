@@ -157,6 +157,7 @@
         <span id="online-server-dot" class="online-dot" aria-hidden="true"></span>
         <span id="online-server-text">Server: Disconnected</span>
       </p>
+      <p class="online-presence" id="online-presence" hidden><span id="online-presence-text"></span></p>
       <div class="settings-grid online-name-grid">
         <label for="online-pseudo" data-i18n="online.tempName">Temporary Name</label>
         <input id="online-pseudo" type="text" maxlength="14" placeholder="Your name" data-i18n-attr="placeholder:online.yourName">
@@ -289,6 +290,7 @@
         </aside>
 
         <section id="board-panel" class="board-panel panel">
+          <div id="online-disconnect-banner" class="online-disconnect-banner" role="status" hidden></div>
           <div id="turn-pill" class="turn-pill">Turn: White</div>
           <p class="bag-meta"><span id="point-pool">Points:</span> | <span id="neutral-supply">Neutral Supply: 0</span></p>
           <p class="bag-meta" id="round-discards" hidden>Discarded this round: none</p>
@@ -375,6 +377,7 @@
             </div>
           </div>
           <p id="endgame-stats" class="endgame-stats"></p>
+          <p id="endgame-rematch-status" class="endgame-rematch-status" hidden></p>
           <div class="menu-actions compact endgame-actions">
             <button id="endgame-rematch-btn" class="menu-btn primary" type="button" data-i18n="endgame.playAgain">Play again</button>
             <button id="endgame-share-btn" class="menu-btn secondary" type="button" data-i18n="endgame.share">Share result</button>

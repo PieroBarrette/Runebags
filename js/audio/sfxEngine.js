@@ -510,6 +510,23 @@ export function createSfxEngine() {
       return;
     }
 
+    // Hover cues fire on pointerover, which is NOT a user gesture. They must never
+    // create or resume the AudioContext — doing so trips Chrome's autoplay policy
+    // ("AudioContext was not allowed to start"). Play them only once audio is
+    // already unlocked by a real gesture (click/keydown); otherwise stay silent.
+    if (eventName === "ui-hover") {
+      if (!audioContext || !masterGain || audioContext.state !== "running") {
+        return;
+      }
+      const tHover = performance.now();
+      if (tHover - lastHoverAt < 70) {
+        return;
+      }
+      lastHoverAt = tHover;
+      createWoodFeltProfile(audioContext, masterGain, eventName);
+      return;
+    }
+
     if (!ensureContext()) {
       return;
     }
@@ -520,15 +537,6 @@ export function createSfxEngine() {
         return;
       }
       lastUiClickAt = t;
-    }
-
-    // Hover cues are frequent; throttle so sweeping the cursor never machine-guns.
-    if (eventName === "ui-hover") {
-      const t = performance.now();
-      if (t - lastHoverAt < 70) {
-        return;
-      }
-      lastHoverAt = t;
     }
 
     if (audioContext.state === "running") {

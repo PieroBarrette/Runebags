@@ -106,6 +106,9 @@ const elements = {
   onlineRoomLinkWrap: document.getElementById("online-room-link-wrap"),
   onlineRoomLink: document.getElementById("online-room-link"),
   onlineRoomQr: document.getElementById("online-room-qr"),
+  onlinePresence: document.getElementById("online-presence"),
+  onlinePresenceText: document.getElementById("online-presence-text"),
+  onlineDisconnectBanner: document.getElementById("online-disconnect-banner"),
   onlineWaitingRoom: document.getElementById("online-waiting-room"),
   waitingRole: document.getElementById("waiting-role"),
   waitingSummary: document.getElementById("waiting-summary"),
@@ -186,6 +189,7 @@ const elements = {
   endgameP2Points: document.getElementById("endgame-p2-points"),
   endgameP2Bag: document.getElementById("endgame-p2-bag"),
   endgameStats: document.getElementById("endgame-stats"),
+  endgameRematchStatus: document.getElementById("endgame-rematch-status"),
   endgameRematchBtn: document.getElementById("endgame-rematch-btn"),
   endgameShareBtn: document.getElementById("endgame-share-btn"),
   endgameMenuBtn: document.getElementById("endgame-menu-btn"),
@@ -222,6 +226,8 @@ let previousRenderPhase = null;
 let deferredInstallPrompt = null;
 let activeRoomCode = null;
 let waitingRoomState = createWaitingRoomState();
+let onlinePresenceCount = 0;
+let rematchStatus = { youRequested: false, opponentRequested: false };
 const aiConfig = createAiConfig();
 const online = createOnlineController();
 const sfx = createSfxEngine();
@@ -391,6 +397,19 @@ function wireOnlineEvents() {
         setStatus(message);
       }
       updateOnlineConnectionStatus();
+    },
+    presence: (info) => {
+      onlinePresenceCount = Math.max(0, Number(info?.count) || 0);
+      updatePresenceUI();
+    },
+    rematch: (info) => {
+      rematchStatus = {
+        youRequested: Boolean(info?.youRequested),
+        opponentRequested: Boolean(info?.opponentRequested),
+      };
+      if (!elements.endgameOverlay.hidden) {
+        renderEndgameOverlay();
+      }
     },
   });
 }
@@ -843,6 +862,17 @@ function bindEvents() {
   });
 
   elements.endgameRematchBtn.addEventListener("click", () => {
+    if (online.isOnlineActive()) {
+      // Online: keep the room, ask the server for a rematch. The fresh game state
+      // arrives as a normal state_snapshot and re-renders over this overlay.
+      if (rematchStatus.youRequested) {
+        return;
+      }
+      rematchStatus = { ...rematchStatus, youRequested: true };
+      online.sendRematch();
+      renderEndgameOverlay();
+      return;
+    }
     endgameOverlayDismissed = false;
     elements.newGameBtn.click();
   });
@@ -1625,6 +1655,11 @@ function renderEndgameOverlay() {
     endgameOverlayDismissed = false;
     gameResultRecorded = false;
     endgameFocused = false;
+    rematchStatus = { youRequested: false, opponentRequested: false };
+    if (elements.endgameRematchStatus) {
+      elements.endgameRematchStatus.hidden = true;
+      elements.endgameRematchStatus.textContent = "";
+    }
     elements.endgameOverlay.hidden = true;
     return;
   }
@@ -1657,6 +1692,8 @@ function renderEndgameOverlay() {
     ? t("endgame.record", { w: stats.wins, l: stats.losses, d: stats.draws, s: stats.currentStreak })
     : t("stats.gamesPlayed", { n: stats.gamesPlayed });
 
+  updateEndgameRematchUI();
+
   elements.endgameOverlay.hidden = endgameOverlayDismissed;
   if (!endgameOverlayDismissed) {
     if (!endgameFocused) {
@@ -1665,6 +1702,37 @@ function renderEndgameOverlay() {
     }
   } else {
     endgameFocused = false;
+  }
+}
+
+// In online play the "Play again" button becomes a true rematch: it shows pending
+// state once you opt in and surfaces when the opponent has asked. Local play keeps
+// the plain restart label.
+function updateEndgameRematchUI() {
+  if (!online.isOnlineActive()) {
+    elements.endgameRematchBtn.disabled = false;
+    elements.endgameRematchBtn.textContent = t("endgame.playAgain");
+    if (elements.endgameRematchStatus) {
+      elements.endgameRematchStatus.hidden = true;
+      elements.endgameRematchStatus.textContent = "";
+    }
+    return;
+  }
+
+  elements.endgameRematchBtn.textContent = rematchStatus.youRequested
+    ? t("endgame.rematchPending")
+    : t("endgame.rematch");
+  elements.endgameRematchBtn.disabled = rematchStatus.youRequested;
+
+  if (elements.endgameRematchStatus) {
+    let statusText = "";
+    if (rematchStatus.opponentRequested && !rematchStatus.youRequested) {
+      statusText = t("endgame.rematchOffered");
+    } else if (rematchStatus.youRequested && !rematchStatus.opponentRequested) {
+      statusText = t("endgame.rematchPending");
+    }
+    elements.endgameRematchStatus.textContent = statusText;
+    elements.endgameRematchStatus.hidden = !statusText;
   }
 }
 
@@ -2300,6 +2368,9 @@ function updateOnlineConnectionStatus() {
     elements.onlineServerText.textContent = serverConnected ? "Server: Connected" : "Server: Disconnected";
   }
 
+  updatePresenceUI();
+  updateOpponentDisconnectBanner();
+
   if (!online.isOnlineActive()) {
     elements.p1OnlineDot.hidden = true;
     elements.p2OnlineDot.hidden = true;
@@ -2332,6 +2403,31 @@ function updateOnlineConnectionStatus() {
 function isOnlineServerConnected() {
   const session = online.getSession();
   return Boolean(session.socket && session.socket.readyState === WebSocket.OPEN);
+}
+
+function updatePresenceUI() {
+  if (!elements.onlinePresence || !elements.onlinePresenceText) {
+    return;
+  }
+  const show = onlinePresenceCount > 0 && isOnlineServerConnected();
+  elements.onlinePresence.hidden = !show;
+  if (show) {
+    elements.onlinePresenceText.textContent = t("online.presence", { n: onlinePresenceCount });
+  }
+}
+
+function updateOpponentDisconnectBanner() {
+  if (!elements.onlineDisconnectBanner) {
+    return;
+  }
+  const inGame = online.isOnlineActive() && !elements.gameScreen.hidden;
+  const opponentGone = inGame
+    && waitingRoomState.opponentJoined
+    && !waitingRoomState.opponentConnected;
+  elements.onlineDisconnectBanner.hidden = !opponentGone;
+  if (opponentGone) {
+    elements.onlineDisconnectBanner.textContent = t("online.opponentDisconnected");
+  }
 }
 
 function updateTopButtons() {

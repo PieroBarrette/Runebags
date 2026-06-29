@@ -74,6 +74,7 @@ wss.on("connection", (ws) => {
 
   ws.on("close", () => {
     removeFromQueueBySocket(ws);
+    broadcastPresence();
     const session = wsToSession.get(ws);
     if (!session) {
       return;
@@ -94,7 +95,8 @@ wss.on("connection", (ws) => {
     }
   });
 
-  send(ws, { type: "hello", message: "RuneBags online socket ready." });
+  send(ws, { type: "hello", message: "RuneBags online socket ready.", online: connectedCount() });
+  broadcastPresence();
 });
 
 server.listen(PORT, () => {
@@ -171,6 +173,8 @@ function handleMessage(ws, message) {
       return onChatSend(ws, message);
     case "reconnect":
       return onReconnect(ws, message);
+    case "rematch_request":
+      return onRematchRequest(ws);
     case "leave_room":
       return onLeaveRoom(ws);
     case "ping":
@@ -475,6 +479,7 @@ function onStartMatch(ws) {
   room.state = restoreState(createInitialState());
   room.chat = [];
   room.shopSync = createShopSyncState();
+  room.rematch = { 1: false, 2: false };
   room.started = true;
   room.seq += 1;
   room.players[1].lastClientSeq = 0;
@@ -483,6 +488,63 @@ function onStartMatch(ws) {
   persistRooms().catch(() => {});
   broadcastWaitingState(room);
   broadcastState(room);
+}
+
+// A one-click rematch reuses the same room: once both players opt in, the room's
+// state is reset to a fresh game and re-broadcast, so neither player re-does the
+// lobby. Mirrors the reset performed by onStartMatch.
+function onRematchRequest(ws) {
+  const session = wsToSession.get(ws);
+  if (!session) {
+    send(ws, { type: "error", message: "Join a room first." });
+    return;
+  }
+
+  const room = rooms.get(session.roomCode);
+  if (!room || !room.started || !room.state) {
+    send(ws, { type: "error", message: "No finished match to rematch." });
+    return;
+  }
+
+  if (room.state.phase !== "game-over") {
+    send(ws, { type: "error", message: "Rematch is only available once the game is over." });
+    return;
+  }
+
+  if (!room.players[1].token || !room.players[2].token) {
+    send(ws, { type: "error", message: "Both players must be present to rematch." });
+    return;
+  }
+
+  if (!room.rematch) {
+    room.rematch = { 1: false, 2: false };
+  }
+  room.rematch[session.playerId] = true;
+  broadcastRematchStatus(room);
+
+  if (room.rematch[1] && room.rematch[2]) {
+    room.state = restoreState(createInitialState());
+    room.chat = [];
+    room.shopSync = createShopSyncState();
+    room.rematch = { 1: false, 2: false };
+    room.players[1].lastClientSeq = 0;
+    room.players[2].lastClientSeq = 0;
+    room.seq += 1;
+    persistRooms().catch(() => {});
+    broadcastState(room);
+  }
+}
+
+function broadcastRematchStatus(room) {
+  const rematch = room.rematch || { 1: false, 2: false };
+  forEachPlayerConnection(room, (ws, playerId) => {
+    const opponentId = playerId === 1 ? 2 : 1;
+    send(ws, {
+      type: "rematch_status",
+      youRequested: Boolean(rematch[playerId]),
+      opponentRequested: Boolean(rematch[opponentId]),
+    });
+  });
 }
 
 function onAction(ws, message) {
@@ -793,6 +855,25 @@ function forEachPlayerConnection(room, visitor) {
     }
     visitor(player.ws, playerId);
   });
+}
+
+function connectedCount() {
+  let count = 0;
+  for (const client of wss.clients) {
+    if (client.readyState === 1) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+function broadcastPresence() {
+  const count = connectedCount();
+  for (const client of wss.clients) {
+    if (client.readyState === 1) {
+      send(client, { type: "presence", count });
+    }
+  }
 }
 
 function attachSession(ws, roomCode, playerId, token) {

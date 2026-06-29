@@ -127,6 +127,31 @@ h2 {
   background: #2fb458;
 }
 
+.online-presence {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  opacity: 0.85;
+  text-align: center;
+}
+
+.online-disconnect-banner {
+  margin: 0 0 0.55rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 8px;
+  background: rgba(214, 158, 46, 0.16);
+  border: 1px solid rgba(214, 158, 46, 0.55);
+  color: var(--text);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.endgame-rematch-status {
+  margin: 0.1rem 0 0.35rem;
+  font-size: 0.9rem;
+  color: var(--accent);
+  text-align: center;
+}
+
 .shop-instruction {
   margin: 0 0 0.6rem;
   padding: 0.45rem 0.55rem;

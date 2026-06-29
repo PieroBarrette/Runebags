@@ -10,6 +10,8 @@ export function createOnlineController() {
     chat: () => {},
     error: () => {},
     status: () => {},
+    rematch: () => {},
+    presence: () => {},
   };
 
   const session = {
@@ -181,6 +183,10 @@ export function createOnlineController() {
     send({ type: "chat_send", text: message.slice(0, 180) });
   }
 
+  function sendRematch() {
+    send({ type: "rematch_request" });
+  }
+
   function isOnlineActive() {
     return session.started;
   }
@@ -200,6 +206,26 @@ export function createOnlineController() {
   function handleServerMessage(msg) {
     if (msg.type === "error") {
       listeners.error(msg.message || "Server error.");
+      return;
+    }
+
+    if (msg.type === "presence") {
+      listeners.presence({ count: Number(msg.count) || 0 });
+      return;
+    }
+
+    if (msg.type === "rematch_status") {
+      listeners.rematch({
+        youRequested: Boolean(msg.youRequested),
+        opponentRequested: Boolean(msg.opponentRequested),
+      });
+      return;
+    }
+
+    if (msg.type === "hello") {
+      if (typeof msg.online === "number") {
+        listeners.presence({ count: msg.online });
+      }
       return;
     }
 
@@ -297,6 +323,7 @@ export function createOnlineController() {
     cancelQueue,
     sendAction,
     sendChat,
+    sendRematch,
     isOnlineActive,
     getSession,
     setDisplayName,
