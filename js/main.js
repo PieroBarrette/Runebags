@@ -325,7 +325,7 @@ function wireOnlineEvents() {
         updatedAt: Date.now(),
       });
       if (!elements.onlinePanel.hidden) {
-        setStatus(`Room ${activeRoomCode}: ${getDisplayPlayerName(snapshot.playerId)} connected.`);
+        setStatus(t("status.roomConnected", { room: activeRoomCode, player: getDisplayPlayerName(snapshot.playerId) }));
       }
       updateOnlineConnectionStatus();
 
@@ -443,7 +443,7 @@ function bindEvents() {
     awaitingHandReveal = state.phase === "round";
     persistState();
     enterGameScreen("passplay");
-    setStatus(resuming ? "Pass & Play resumed." : "New Pass & Play game started.");
+    setStatus(resuming ? t("status.passplayResumed") : t("status.passplayNew"));
     render();
   });
 
@@ -455,11 +455,11 @@ function bindEvents() {
 
     const savedAi = loadModeSave(MODE_AI);
     if (!savedAi?.state) {
-      setStatus("No saved AI game found. Start a new game instead.");
+      setStatus(t("status.noSavedAi"));
       return;
     }
     if (!isResumableSave(savedAi.state)) {
-      setStatus("That AI game is already finished. Start a new game instead.");
+      setStatus(t("status.aiFinished"));
       return;
     }
 
@@ -474,7 +474,7 @@ function bindEvents() {
     handVisibility = { 1: aiSide !== 1, 2: aiSide !== 2 };
     elements.aiSideSelect.value = String(aiConfig.playerId);
     elements.aiDepthSelect.value = String(aiConfig.depth);
-    setStatus(`AI game resumed. ${getPlayerName(aiConfig.playerId)} is AI (depth ${aiConfig.depth}).`);
+    setStatus(t("status.aiResumed", { player: getDisplayPlayerName(aiConfig.playerId), depth: aiConfig.depth }));
 
     persistState();
     enterGameScreen("passplay");
@@ -496,7 +496,7 @@ function bindEvents() {
       switchShopPlayer(state);
     }
     handVisibility = { 1: aiSide !== 1, 2: aiSide !== 2 };
-    setStatus(`AI mode started. ${getPlayerName(aiConfig.playerId)} is AI (depth ${aiConfig.depth}).`);
+    setStatus(t("status.aiStarted", { player: getDisplayPlayerName(aiConfig.playerId), depth: aiConfig.depth }));
 
     persistState();
     enterGameScreen("passplay");
@@ -551,7 +551,7 @@ function bindEvents() {
       queuePosition: 1,
     };
     updateOnlineRoomUI("-");
-    setStatus("Searching for opponent...");
+    setStatus(t("online.searching"));
     const ok = await online.joinQueue(pseudo);
     if (!ok) {
       waitingRoomState = createWaitingRoomState();
@@ -588,7 +588,7 @@ function bindEvents() {
     online.setDisplayName(pseudo);
     const code = elements.onlineJoinCode.value.trim().toUpperCase();
     if (!/^[A-Z2-9]{6}$/.test(code)) {
-      window.alert("Enter a valid 6-character room code.");
+      window.alert(t("online.invalidCode"));
       return;
     }
 
@@ -686,7 +686,7 @@ function bindEvents() {
     if (canUseNativeShare) {
       try {
         await navigator.share(sharePayload);
-        elements.waitingSummary.textContent = "Share sent.";
+        elements.waitingSummary.textContent = t("online.shareSent");
         return;
       } catch (error) {
         if (error && error.name === "AbortError") {
@@ -698,12 +698,12 @@ function bindEvents() {
     try {
       if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
         await navigator.clipboard.writeText(link);
-        elements.waitingSummary.textContent = "Link copied. Paste it in your messaging app to send.";
+        elements.waitingSummary.textContent = t("online.linkCopied");
       } else {
-        elements.waitingSummary.textContent = "Share is not available on this device. Use the invite code above to send.";
+        elements.waitingSummary.textContent = t("online.shareUnavailable");
       }
     } catch {
-      elements.waitingSummary.textContent = "Could not copy automatically. Use the invite code above to send.";
+      elements.waitingSummary.textContent = t("online.copyFailed");
     }
   });
 
@@ -726,7 +726,7 @@ function bindEvents() {
   elements.chatForm.addEventListener("submit", (event) => {
     event.preventDefault();
     if (!online.isOnlineActive()) {
-      setStatus("Chat is available during online matches.");
+      setStatus(t("status.chatOnlineOnly"));
       return;
     }
 
@@ -847,7 +847,7 @@ function bindEvents() {
       if (result.error) {
         setStatus(result.error);
       } else {
-        setStatus(`${getPlayerName(playerId)} selected a rune.`);
+        setStatus(t("status.runeSelected", { player: getDisplayPlayerName(playerId) }));
       }
 
       persistState();
@@ -891,15 +891,15 @@ function bindEvents() {
     const text = buildShareText();
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(() => {
-        elements.endgameShareBtn.textContent = "Copied!";
+        elements.endgameShareBtn.textContent = t("endgame.copied");
         window.setTimeout(() => {
-          elements.endgameShareBtn.textContent = "Share result";
+          elements.endgameShareBtn.textContent = t("endgame.share");
         }, 1600);
       }).catch(() => {
-        window.prompt("Copy your result:", text);
+        window.prompt(t("endgame.copyPrompt"), text);
       });
     } else {
-      window.prompt("Copy your result:", text);
+      window.prompt(t("endgame.copyPrompt"), text);
     }
   });
 
@@ -1116,7 +1116,7 @@ function bindEvents() {
       clearModeSave(MODE_PASSPLAY);
     }
     persistState();
-    setStatus("New game created.");
+    setStatus(t("status.newGameCreated"));
     render();
   });
 
@@ -1146,7 +1146,7 @@ function bindEvents() {
     }
 
     if (isCurrentLocalShopPlayerReady()) {
-      setStatus("This player is marked ready. Click Cancel Ready to continue shopping.");
+      setStatus(t("status.markedReady"));
       return;
     }
 
@@ -1169,7 +1169,7 @@ function bindEvents() {
     }
 
     if (isCurrentLocalShopPlayerReady()) {
-      setStatus("This player is marked ready. Click Cancel Ready to continue shopping.");
+      setStatus(t("status.markedReady"));
       return;
     }
 
@@ -1198,7 +1198,7 @@ function bindEvents() {
     }
 
     if (isCurrentLocalShopPlayerReady()) {
-      setStatus("This player is marked ready. Click Cancel Ready to continue shopping.");
+      setStatus(t("status.markedReady"));
       return;
     }
 
@@ -1225,7 +1225,7 @@ function bindEvents() {
     }
 
     if (isCurrentLocalShopPlayerReady()) {
-      setStatus("This player is marked ready. Click Cancel Ready to continue shopping.");
+      setStatus(t("status.markedReady"));
       return;
     }
 
@@ -1795,7 +1795,7 @@ function renderRuneList(container, runes, playerId, highlightIds, options = {}) 
   if (!runes.length) {
     const empty = document.createElement("p");
     empty.className = "bag-meta";
-    empty.textContent = "No runes in bag.";
+    empty.textContent = t("bag.empty");
     container.appendChild(empty);
     return;
   }
@@ -1977,8 +1977,8 @@ function renderRoundAwayRunes(entries) {
     const title = document.createElement("strong");
     title.textContent = `${rune.name} ${t("game.levelPrefix")}${entry.level}`;
     const subtitle = document.createElement("small");
-    const ownerLabel = entry.owner === 1 ? "Black" : entry.owner === 2 ? "White" : "Neutral";
-    subtitle.textContent = `Discarded (${entry.source}, ${ownerLabel})`;
+    const ownerLabel = entry.owner === 1 ? t("side.black") : entry.owner === 2 ? t("side.white") : t("common.neutral");
+    subtitle.textContent = t("endgame.discarded", { source: entry.source, owner: ownerLabel });
 
     textWrap.appendChild(title);
     textWrap.appendChild(subtitle);
@@ -2027,7 +2027,7 @@ function renderChatPanel() {
   if (!onlineChatMessages.length) {
     const row = document.createElement("div");
     row.className = "chat-row";
-    row.textContent = "No messages yet.";
+    row.textContent = t("chat.empty");
     elements.chatLog.appendChild(row);
     return;
   }
@@ -2042,7 +2042,7 @@ function renderChatPanel() {
 
     const author = document.createElement("span");
     author.className = "chat-author";
-    author.textContent = `${entry.name || "Player"}:`;
+    author.textContent = `${entry.name || t("common.player")}:`;
 
     const text = document.createElement("span");
     text.textContent = ` ${entry.text || ""}`;
@@ -2236,7 +2236,7 @@ function enterGameScreen(mode, roomCode = null) {
 
   if (mode === "online" && roomCode) {
     applyRoomQuery(roomCode);
-    setStatus(`Online room ${roomCode}. Share your link with your opponent.`);
+    setStatus(t("status.onlineRoomShare", { room: roomCode }));
   } else {
     clearRoomQuery();
   }
@@ -2253,15 +2253,15 @@ function updateOnlineRoomUI(roomCode) {
   const roomLink = hasRoomCode ? buildRoomLink(roomCode) : "";
 
   elements.onlineRoomCode.hidden = !hasRoomCode;
-  elements.onlineRoomCode.textContent = hasRoomCode ? `Room: ${roomCode}` : "Room: -";
+  elements.onlineRoomCode.textContent = t("online.room", { code: hasRoomCode ? roomCode : "-" });
   if (elements.onlineQueueStatus) {
     elements.onlineQueueStatus.hidden = !showQueueStatus;
   }
   if (elements.onlineQueueText) {
     elements.onlineQueueText.textContent = showQueueStatus
       ? waitingRoomState.queuePosition > 1
-        ? `Searching for opponent (queue #${waitingRoomState.queuePosition})...`
-        : "Searching for opponent..."
+        ? t("online.searchingQueue", { n: waitingRoomState.queuePosition })
+        : t("online.searching")
       : "";
   }
   if (elements.onlineRoomLinkWrap) {
@@ -2284,7 +2284,7 @@ function updateOnlineRoomUI(roomCode) {
   }
   elements.waitingRole.hidden = !isFriendMode || !waitingRoomState.playerId;
   if (waitingRoomState.playerId) {
-    elements.waitingRole.textContent = `You are: ${waitingRoomState.yourName || getDisplayPlayerName(waitingRoomState.playerId)}`;
+    elements.waitingRole.textContent = t("online.youAre", { name: waitingRoomState.yourName || getDisplayPlayerName(waitingRoomState.playerId) });
   }
 
   elements.onlineReadyBtn.hidden = !isFriendMode || !waitingRoomState.opponentJoined;
@@ -2292,45 +2292,52 @@ function updateOnlineRoomUI(roomCode) {
   elements.onlineReadyBtn.disabled = !isFriendMode || !waitingRoomState.opponentJoined;
 
   elements.waitingYouStatus.textContent = isFriendMode
-    ? `${waitingRoomState.yourName || "You"}: ${waitingRoomState.youReady ? "Ready" : "Not ready"}`
-    : `You: ${waitingRoomState.queued ? "In queue" : "Not queued"}`;
+    ? t("online.youStatus", {
+        name: waitingRoomState.yourName || t("online.you"),
+        status: waitingRoomState.youReady ? t("common.ready") : t("common.notReady"),
+      })
+    : t("online.youStatus", {
+        name: t("online.you"),
+        status: waitingRoomState.queued ? t("online.inQueue") : t("online.notQueued"),
+      });
 
   if (isQueueMode) {
     elements.waitingOpponentStatus.textContent = waitingRoomState.queued
-      ? waitingRoomState.queuePosition > 1
-        ? `Queue position: ${waitingRoomState.queuePosition}`
-        : "Queue position: 1"
-      : "Queue: not active";
+      ? t("online.queuePosition", { n: waitingRoomState.queuePosition > 1 ? waitingRoomState.queuePosition : 1 })
+      : t("online.queueInactive");
   } else {
     elements.waitingOpponentStatus.textContent = waitingRoomState.opponentJoined
-      ? `${waitingRoomState.opponentName || "Opponent"}: ${waitingRoomState.opponentReady ? "Ready" : "Joined (not ready)"}${waitingRoomState.opponentConnected ? "" : " - offline"}`
-      : "Opponent: Waiting to join...";
+      ? t("online.youStatus", {
+          name: waitingRoomState.opponentName || t("online.opponent"),
+          status: waitingRoomState.opponentReady ? t("common.ready") : t("online.opponentJoinedNotReady"),
+        }) + (waitingRoomState.opponentConnected ? "" : t("online.offlineSuffix"))
+      : t("online.opponentWaiting");
   }
 
   if (waitingRoomState.started) {
-    elements.waitingSummary.textContent = "Match started. Entering game...";
+    elements.waitingSummary.textContent = t("online.matchStarted");
     return;
   }
 
   if (isQueueMode) {
     elements.waitingSummary.textContent = waitingRoomState.queued
-      ? "Searching for opponent..."
+      ? t("online.searching")
       : "";
     return;
   }
 
   if (isFriendMode) {
     if (waitingRoomState.canStart) {
-      elements.waitingSummary.textContent = "Both players are ready. Starting match...";
+      elements.waitingSummary.textContent = t("online.bothReady");
       return;
     }
     if (!waitingRoomState.opponentJoined) {
-      elements.waitingSummary.textContent = "Share your invite code. Waiting for opponent to join.";
+      elements.waitingSummary.textContent = t("online.shareInvite");
       return;
     }
     elements.waitingSummary.textContent = waitingRoomState.youReady
-      ? "You are ready. Waiting for opponent to be ready."
-      : "Opponent joined. Set Ready when you are ready to start.";
+      ? t("online.youReadyWaiting")
+      : t("online.opponentJoinedSetReady");
     return;
   }
 
@@ -2365,7 +2372,7 @@ function updateOnlineConnectionStatus() {
     elements.onlineServerDot.classList.toggle("connected", serverConnected);
   }
   if (elements.onlineServerText) {
-    elements.onlineServerText.textContent = serverConnected ? "Server: Connected" : "Server: Disconnected";
+    elements.onlineServerText.textContent = serverConnected ? t("online.serverConnected") : t("online.serverDisconnected");
   }
 
   updatePresenceUI();
@@ -2439,7 +2446,7 @@ function updateTopButtons() {
 function getValidatedOnlinePseudo() {
   const pseudo = normalizePseudo(elements.onlinePseudo.value || "");
   if (!pseudo) {
-    window.alert("Enter a temporary name (1-14 characters) before joining online.");
+    window.alert(t("online.enterName"));
     return null;
   }
 
@@ -2789,7 +2796,9 @@ function bindButtonHoverEvents() {
     if (event.pointerType && event.pointerType !== "mouse") {
       return;
     }
-    const target = event.target.closest(".menu-btn, .rune-card");
+    // Every interactive control + the home info cards get a hover tick, but board
+    // cells are excluded so sweeping the grid mid-game doesn't machine-gun.
+    const target = event.target.closest("button:not(.cell), a[href], .home-pillar");
     if (target === lastHoverTarget) {
       return;
     }
