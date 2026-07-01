@@ -57,3 +57,10 @@ export function recordGameResult(outcome) {
   write(stats);
   return stats;
 }
+
+export function resetStreak() {
+  const stats = getStats();
+  stats.currentStreak = 0;
+  write(stats);
+  return stats;
+}

@@ -41,7 +41,7 @@ import {
   markTutorialTriggerShown,
   setTutorialEnabled,
 } from "./persistence/tutorialStore.js";
-import { getStats, recordGameResult } from "./persistence/statsStore.js";
+import { getStats, recordGameResult, resetStreak } from "./persistence/statsStore.js";
 import { t, getLang, setLang, applyTranslations, runeDescription } from "./i18n.js";
 
 const THEME_STORAGE_KEY = "runebags-theme-v1";
@@ -177,6 +177,8 @@ const elements = {
   endgameBagsPanel: document.getElementById("endgame-bags-panel"),
   endgameBagBlack: document.getElementById("endgame-bag-black"),
   endgameBagWhite: document.getElementById("endgame-bag-white"),
+  endgameBagBlackLabel: document.getElementById("endgame-bag-black-label"),
+  endgameBagWhiteLabel: document.getElementById("endgame-bag-white-label"),
   endgameOverlay: document.getElementById("endgame-overlay"),
   endgameTitle: document.getElementById("endgame-title"),
   endgameReason: document.getElementById("endgame-reason"),
@@ -198,6 +200,10 @@ const elements = {
   shopSwitchPlayer: document.getElementById("shop-switch-player"),
   shopRemoveBtn: document.getElementById("shop-remove-btn"),
   shopCombineBtn: document.getElementById("shop-combine-btn"),
+  confirmDialogOverlay: document.getElementById("confirm-dialog-overlay"),
+  confirmDialogText: document.getElementById("confirm-dialog-text"),
+  confirmDialogConfirmBtn: document.getElementById("confirm-dialog-confirm-btn"),
+  confirmDialogCancelBtn: document.getElementById("confirm-dialog-cancel-btn"),
 };
 
 let state = restoreState(
@@ -481,7 +487,17 @@ function bindEvents() {
     render();
   });
 
-  elements.aiStartBtn.addEventListener("click", () => {
+  elements.aiStartBtn.addEventListener("click", async () => {
+    const savedAi = loadModeSave(MODE_AI);
+    if (isResumableSave(savedAi?.state)) {
+      const confirmed = await showConfirmDialog("confirm.newGameOverwriteStreak");
+      if (!confirmed) {
+        return;
+      }
+      resetStreak();
+      renderHomeStats();
+    }
+
     persistState();
     if (online.isOnlineActive()) {
       online.leaveRoom();
@@ -906,6 +922,8 @@ function bindEvents() {
   elements.homeResumeBtn.addEventListener("click", () => {
     if (homeResumeMode === MODE_AI) {
       elements.aiContinueBtn.click();
+    } else if (homeResumeMode === MODE_ONLINE) {
+      resumeOnlineSave();
     } else {
       elements.menuPassplayBtn.click();
     }
@@ -1087,7 +1105,7 @@ function bindEvents() {
     scheduleAiTurnIfNeeded();
   });
 
-  elements.newGameBtn.addEventListener("click", () => {
+  elements.newGameBtn.addEventListener("click", async () => {
     if (online.isOnlineActive()) {
       saveModeSave(MODE_ONLINE, {
         roomCode: activeRoomCode || online.getSession().roomCode || null,
@@ -1105,12 +1123,25 @@ function bindEvents() {
       return;
     }
 
+    const isAiGame = aiConfig.enabled || currentLocalMode === MODE_AI;
+    if (isResumableSave(state)) {
+      const confirmKey = isAiGame ? "confirm.newGameOverwriteStreak" : "confirm.newGameOverwrite";
+      const confirmed = await showConfirmDialog(confirmKey);
+      if (!confirmed) {
+        return;
+      }
+      if (isAiGame) {
+        resetStreak();
+        renderHomeStats();
+      }
+    }
+
     state = createInitialState(getLocalGameOptions());
     if (aiConfig.enabled && state.phase === "shop" && state.shop.currentPlayer !== aiConfig.playerId) {
       switchShopPlayer(state);
     }
     handVisibility = { 1: false, 2: true };
-    if (aiConfig.enabled || currentLocalMode === MODE_AI) {
+    if (isAiGame) {
       clearModeSave(MODE_AI);
     } else {
       clearModeSave(MODE_PASSPLAY);
@@ -1454,7 +1485,7 @@ function render() {
   elements.passDeviceOverlay.hidden = !awaitingHandReveal;
   if (awaitingHandReveal) {
     elements.passDeviceText.textContent =
-      `Hand the device to ${getDisplayPlayerName(state.currentPlayer)}, then reveal your hand.`;
+      t("passDevice.handOver", { player: getDisplayPlayerName(state.currentPlayer) });
     if (!passDeviceFocused) {
       elements.passDeviceRevealBtn.focus();
       passDeviceFocused = true;
@@ -1639,6 +1670,8 @@ function renderEndgameBags() {
     return;
   }
 
+  elements.endgameBagBlackLabel.textContent = t("endgame.bagLabel", { player: getDisplayPlayerName(1) });
+  elements.endgameBagWhiteLabel.textContent = t("endgame.bagLabel", { player: getDisplayPlayerName(2) });
   renderRuneList(elements.endgameBagBlack, state.players[1].bag, 1, [], { readOnly: true });
   renderRuneList(elements.endgameBagWhite, state.players[2].bag, 2, [], { readOnly: true });
 }
@@ -1739,14 +1772,9 @@ function updateEndgameRematchUI() {
 function getHumanOutcome() {
   const winner = state.gameWinner;
   if (online.isOnlineActive()) {
-    const you = waitingRoomState.playerId;
-    if (!you) {
-      return "played";
-    }
-    if (!winner) {
-      return "draw";
-    }
-    return winner === you ? "win" : "loss";
+    // Online results don't affect the local win streak (AI-only for now;
+    // online may get its own lobby streak later).
+    return "played";
   }
   if (aiConfig.enabled) {
     const human = aiConfig.playerId === 1 ? 2 : 1;
@@ -1854,7 +1882,7 @@ function renderRuneList(container, runes, playerId, highlightIds, options = {}) 
     if (rune.shopEffect) {
       const effect = document.createElement("small");
       effect.className = "shop-effect";
-      effect.textContent = rune.shopEffect;
+      effect.textContent = t("rune.shopEffect");
       textWrap.appendChild(title);
       textWrap.appendChild(subtitle);
       textWrap.appendChild(effect);
@@ -2094,6 +2122,25 @@ function isCurrentLocalShopPlayerReady() {
 
 function setStatus(text) {
   elements.status.textContent = text;
+}
+
+function showConfirmDialog(messageKey) {
+  return new Promise((resolve) => {
+    elements.confirmDialogText.textContent = t(messageKey);
+    elements.confirmDialogOverlay.hidden = false;
+
+    const cleanup = (result) => {
+      elements.confirmDialogOverlay.hidden = true;
+      elements.confirmDialogConfirmBtn.removeEventListener("click", onConfirm);
+      elements.confirmDialogCancelBtn.removeEventListener("click", onCancel);
+      resolve(result);
+    };
+    const onConfirm = () => cleanup(true);
+    const onCancel = () => cleanup(false);
+
+    elements.confirmDialogConfirmBtn.addEventListener("click", onConfirm);
+    elements.confirmDialogCancelBtn.addEventListener("click", onCancel);
+  });
 }
 
 function scheduleAiTurnIfNeeded() {
@@ -2591,6 +2638,7 @@ function renderHomeRuneGallery() {
   gallery.innerHTML = "";
   RUNE_CATALOG
     .filter((rune) => rune.icon && rune.id !== "basic" && rune.id !== "neutral")
+    .sort((a, b) => a.name.localeCompare(b.name))
     .forEach((rune) => {
       const chip = document.createElement("button");
       chip.type = "button";
@@ -2620,12 +2668,16 @@ function renderHomeResume() {
   }
   const aiSave = loadModeSave(MODE_AI);
   const passSave = loadModeSave(MODE_PASSPLAY);
+  const onlineSave = loadModeSave(MODE_ONLINE);
   const candidates = [];
   if (isResumableSave(aiSave?.state)) {
     candidates.push({ mode: MODE_AI, updatedAt: aiSave.updatedAt || 0, round: aiSave.state.roundNumber || 1 });
   }
   if (isResumableSave(passSave?.state)) {
     candidates.push({ mode: MODE_PASSPLAY, updatedAt: passSave.updatedAt || 0, round: passSave.state.roundNumber || 1 });
+  }
+  if (isResumableSave(onlineSave?.state) && /^[A-Z2-9]{6}$/.test(String(onlineSave?.roomCode || "").toUpperCase())) {
+    candidates.push({ mode: MODE_ONLINE, updatedAt: onlineSave.updatedAt || 0, round: onlineSave.state.roundNumber || 1 });
   }
 
   if (candidates.length === 0) {
@@ -2637,9 +2689,35 @@ function renderHomeResume() {
   candidates.sort((a, b) => b.updatedAt - a.updatedAt);
   const best = candidates[0];
   homeResumeMode = best.mode;
-  const label = best.mode === MODE_AI ? t("home.playAi") : t("home.passplay");
+  const label = best.mode === MODE_AI ? t("home.playAi") : (best.mode === MODE_ONLINE ? t("home.online") : t("home.passplay"));
   elements.homeResumeText.textContent = t("home.resumeText", { mode: label, round: best.round });
   elements.homeResume.hidden = false;
+}
+
+function resumeOnlineSave() {
+  const savedOnline = loadModeSave(MODE_ONLINE);
+  const roomCode = String(savedOnline?.roomCode || "").toUpperCase();
+  if (!/^[A-Z2-9]{6}$/.test(roomCode)) {
+    return;
+  }
+
+  const pseudo = normalizePseudo(online.getSession().displayName || "");
+  online.setDisplayName(pseudo);
+  online.leaveRoom();
+  activeRoomCode = roomCode;
+  waitingRoomState = {
+    ...createWaitingRoomState(),
+    mode: "friend",
+  };
+  showOnlinePanel();
+  updateOnlineRoomUI(activeRoomCode);
+  online.joinRoom(roomCode, { displayName: pseudo }).then((ok) => {
+    if (!ok) {
+      waitingRoomState = createWaitingRoomState();
+      activeRoomCode = null;
+      updateOnlineRoomUI("-");
+    }
+  });
 }
 
 function openRuneDetail(runeId) {
@@ -2762,6 +2840,7 @@ function bindSoundUnlockHandlers() {
 
   window.addEventListener("pointerdown", unlock, { passive: true });
   window.addEventListener("touchstart", unlock, { passive: true });
+  window.addEventListener("touchend", unlock, { passive: true });
   window.addEventListener("keydown", unlock);
 }
 

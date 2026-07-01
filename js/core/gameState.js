@@ -1177,19 +1177,23 @@ function insertRuneFromBottom(state, column, playerId, rune) {
     return null;
   }
 
-  let hasEmptyInSegment = false;
-  for (let row = startRow; row < state.rows; row += 1) {
+  // The push only travels through a contiguous run of occupied cells starting
+  // at the bottom of the segment. It stops at the first free cell found while
+  // scanning upward, which absorbs the shift — anything above that gap (e.g. a
+  // floating Nauthiz with room below it) is left untouched.
+  let emptyRow = -1;
+  for (let row = state.rows - 1; row >= startRow; row -= 1) {
     if (state.board[row][column] === EMPTY) {
-      hasEmptyInSegment = true;
+      emptyRow = row;
       break;
     }
   }
 
-  if (!hasEmptyInSegment) {
+  if (emptyRow === -1) {
     return null;
   }
 
-  for (let row = startRow; row < state.rows - 1; row += 1) {
+  for (let row = emptyRow; row < state.rows - 1; row += 1) {
     state.board[row][column] = state.board[row + 1][column];
     state.boardRunes[row][column] = state.boardRunes[row + 1][column];
   }

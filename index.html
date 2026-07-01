@@ -74,7 +74,7 @@
 
       <section class="home-runes" aria-labelledby="home-runes-title">
         <h2 id="home-runes-title" class="home-section-title" data-i18n="home.runesTitle">24 runes, each with a unique power</h2>
-        <div id="home-rune-gallery" class="home-rune-gallery" aria-label="Rune gallery"></div>
+        <div id="home-rune-gallery" class="home-rune-gallery" aria-label="Rune gallery" data-i18n-attr="aria-label:home.runeGalleryAria"></div>
       </section>
 
       <p id="home-stats" class="home-stats" hidden></p>
@@ -140,7 +140,7 @@
         <input id="sound-toggle" class="settings-checkbox" type="checkbox" checked>
 
         <label for="sound-volume" data-i18n="settings.volume">SFX Volume</label>
-        <input id="sound-volume" class="settings-range" type="range" min="0" max="100" step="1" value="18" aria-label="Sound effects volume">
+        <input id="sound-volume" class="settings-range" type="range" min="0" max="100" step="1" value="18" aria-label="Sound effects volume" data-i18n-attr="aria-label:settings.volumeAria">
 
         <label for="tutorial-toggle" data-i18n="settings.tutorial">Tutorial</label>
         <input id="tutorial-toggle" class="settings-checkbox" type="checkbox">
@@ -283,7 +283,7 @@
 
       <section class="game-layout">
         <aside class="panel player-panel" id="player-1-panel">
-          <h2 class="player-title"><span id="p1-name">Black</span><span id="p1-online-dot" class="online-dot" hidden aria-label="Player online status"></span></h2>
+          <h2 class="player-title"><span id="p1-name">Black</span><span id="p1-online-dot" class="online-dot" hidden aria-label="Player online status" data-i18n-attr="aria-label:online.playerStatusAria"></span></h2>
           <p class="bag-meta"><span id="p1-points">Points:</span></p>
           <p class="bag-meta"><span id="p1-bag">Bag: 0</span></p>
           <div id="p1-hand" class="hand hidden-hand" aria-live="polite"></div>
@@ -310,16 +310,16 @@
             </div>
             <div id="shop-bag" class="shop-bag"></div>
           </div>
-          <div id="board" class="board" role="grid" aria-label="RuneBags board"></div>
+          <div id="board" class="board" role="grid" aria-label="RuneBags board" data-i18n-attr="aria-label:game.boardAria"></div>
           <div id="board-rune-info" class="board-rune-info" role="status" aria-live="polite" hidden>
             <p id="board-rune-info-title" class="board-rune-info-title"></p>
             <p id="board-rune-info-description" class="board-rune-info-description"></p>
           </div>
           <div id="endgame-bags-panel" class="endgame-bags" hidden>
-            <h3>Final Bag Contents</h3>
-            <p class="bag-meta">Black bag</p>
+            <h3 data-i18n="endgame.finalBags">Final Bag Contents</h3>
+            <p class="bag-meta" id="endgame-bag-black-label">Black bag</p>
             <div id="endgame-bag-black" class="shop-bag endgame-bag-list"></div>
-            <p class="bag-meta">White bag</p>
+            <p class="bag-meta" id="endgame-bag-white-label">White bag</p>
             <div id="endgame-bag-white" class="shop-bag endgame-bag-list"></div>
           </div>
           <div id="tutorial-dialog" class="tutorial-dialog" data-position="status" hidden>
@@ -329,7 +329,7 @@
         </section>
 
         <aside class="panel player-panel" id="player-2-panel">
-          <h2 class="player-title"><span id="p2-name">White</span><span id="p2-online-dot" class="online-dot" hidden aria-label="Player online status"></span></h2>
+          <h2 class="player-title"><span id="p2-name">White</span><span id="p2-online-dot" class="online-dot" hidden aria-label="Player online status" data-i18n-attr="aria-label:online.playerStatusAria"></span></h2>
           <p class="bag-meta"><span id="p2-points">Points:</span></p>
           <p class="bag-meta"><span id="p2-bag">Bag: 0</span></p>
           <div id="p2-hand" class="hand hidden-hand" aria-live="polite"></div>
@@ -337,16 +337,16 @@
       </section>
 
       <section class="panel log-panel">
-        <div id="log-tabs" class="log-tabs" role="tablist" aria-label="Game feed tabs">
-          <button id="log-tab-turn" class="log-tab active" type="button" role="tab" aria-selected="true" aria-controls="turn-log">Turn Log</button>
-          <button id="log-tab-chat" class="log-tab" type="button" role="tab" aria-selected="false" aria-controls="chat-panel">Chat</button>
+        <div id="log-tabs" class="log-tabs" role="tablist" aria-label="Game feed tabs" data-i18n-attr="aria-label:log.gameFeedTabsAria">
+          <button id="log-tab-turn" class="log-tab active" type="button" role="tab" aria-selected="true" aria-controls="turn-log" data-i18n="log.turnTab">Turn Log</button>
+          <button id="log-tab-chat" class="log-tab" type="button" role="tab" aria-selected="false" aria-controls="chat-panel" data-i18n="log.chatTab">Chat</button>
         </div>
         <div id="turn-log" class="turn-log" aria-live="polite"></div>
         <section id="chat-panel" class="chat-panel" hidden>
           <div id="chat-log" class="chat-log" aria-live="polite"></div>
           <form id="chat-form" class="chat-form" autocomplete="off">
-            <input id="chat-input" type="text" maxlength="180" placeholder="Type a message..." aria-label="Chat message">
-            <button id="chat-send" type="submit">Send</button>
+            <input id="chat-input" type="text" maxlength="180" placeholder="Type a message..." aria-label="Chat message" data-i18n-attr="placeholder:chat.placeholder;aria-label:chat.ariaLabel">
+            <button id="chat-send" type="submit" data-i18n="chat.send">Send</button>
           </form>
         </section>
       </section>
@@ -394,6 +394,16 @@
           <div class="menu-actions compact tutorial-prompt-actions">
             <button id="tutorial-prompt-sure-btn" class="menu-btn" type="button" data-i18n="tutorial.sure">Sure</button>
             <button id="tutorial-prompt-skip-btn" class="menu-btn secondary" type="button" data-i18n="tutorial.skip">Skip tutorial</button>
+          </div>
+        </article>
+      </section>
+
+      <section id="confirm-dialog-overlay" class="tutorial-prompt-screen" hidden>
+        <article class="tutorial-prompt-card" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-text">
+          <p id="confirm-dialog-text" class="tutorial-prompt-text"></p>
+          <div class="menu-actions compact tutorial-prompt-actions">
+            <button id="confirm-dialog-confirm-btn" class="menu-btn" type="button" data-i18n="confirm.continue">Continue</button>
+            <button id="confirm-dialog-cancel-btn" class="menu-btn secondary" type="button" data-i18n="confirm.cancel">Cancel</button>
           </div>
         </article>
       </section>

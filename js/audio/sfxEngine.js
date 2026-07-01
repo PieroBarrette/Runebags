@@ -1,6 +1,10 @@
 const DEFAULT_VOLUME = 0.18;
 const MIN_VOLUME = 0;
 const MAX_VOLUME = 1;
+// The individual event gains below were tuned conservatively and stayed
+// too quiet even at 100% volume (especially on phone speakers). Boost the
+// master gain curve so the same 0-1 slider range reaches a louder ceiling.
+const VOLUME_GAIN_BOOST = 4;
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -450,7 +454,7 @@ export function createSfxEngine() {
         audioContext = new Ctor();
       }
       masterGain = audioContext.createGain();
-      masterGain.gain.value = volume;
+      masterGain.gain.value = volume * VOLUME_GAIN_BOOST;
       masterGain.connect(audioContext.destination);
       return true;
     } catch {
@@ -471,7 +475,7 @@ export function createSfxEngine() {
   function setVolume(nextVolume) {
     volume = clamp(Number(nextVolume), MIN_VOLUME, MAX_VOLUME);
     if (masterGain) {
-      masterGain.gain.setTargetAtTime(volume, masterGain.context.currentTime, 0.015);
+      masterGain.gain.setTargetAtTime(volume * VOLUME_GAIN_BOOST, masterGain.context.currentTime, 0.015);
     }
   }
 
