@@ -32,6 +32,7 @@ import { clearModeSave, loadModeSave, saveModeSave } from "./persistence/localSt
 import { createOnlineController } from "./online/onlineController.js";
 import { getRuneById, RUNE_CATALOG, getAllowedColumns } from "./runes/runeCatalog.js";
 import { createSfxEngine } from "./audio/sfxEngine.js";
+import { createMusicEngine } from "./audio/musicEngine.js";
 import { createTutorialController } from "./tutorial/tutorialController.js";
 import {
   getTutorialState,
@@ -48,11 +49,14 @@ const THEME_STORAGE_KEY = "runebags-theme-v1";
 const ANIMATION_STORAGE_KEY = "runebags-animations-v1";
 const SOUND_STORAGE_KEY = "runebags-sound-v1";
 const SOUND_VOLUME_STORAGE_KEY = "runebags-sound-volume-v1";
+const MUSIC_STORAGE_KEY = "runebags-music-v1";
+const MUSIC_VOLUME_STORAGE_KEY = "runebags-music-volume-v1";
 const ONLINE_NAME_MAX = 14;
 const MODE_PASSPLAY = "passplay";
 const MODE_AI = "ai";
 const MODE_ONLINE = "online";
 const DEFAULT_SFX_VOLUME = 0.18;
+const DEFAULT_MUSIC_VOLUME = 0.5;
 const RUNES_WITH_LEVEL_PREFIX = new Set([
   "ehwaz",
   "fehu",
@@ -95,6 +99,8 @@ const elements = {
   animationToggle: document.getElementById("animation-toggle"),
   soundToggle: document.getElementById("sound-toggle"),
   soundVolume: document.getElementById("sound-volume"),
+  musicToggle: document.getElementById("music-toggle"),
+  musicVolume: document.getElementById("music-volume"),
   settingsBackBtn: document.getElementById("settings-back-btn"),
   onlinePanel: document.getElementById("online-panel"),
   onlineServerDot: document.getElementById("online-server-dot"),
@@ -236,6 +242,9 @@ let rematchStatus = { youRequested: false, opponentRequested: false };
 const aiConfig = createAiConfig();
 const online = createOnlineController();
 const sfx = createSfxEngine();
+const music = createMusicEngine({ getContext: () => sfx.getAudioContext() });
+// Console handle for diagnosing audio on real devices (state, volume, restart).
+window.__rbMusic = music;
 let aiBusy = false;
 let aiTimer = null;
 let animationsEnabled = true;
@@ -269,6 +278,7 @@ initializeLanguage();
 initializeTheme();
 initializeAnimations();
 initializeSound();
+initializeMusic();
 renderHomeRuneGallery();
 renderHomeStats();
 renderHomeResume();
@@ -662,6 +672,28 @@ function bindEvents() {
     const nextVolume = value / 100;
     applySoundVolumeSetting(nextVolume);
     saveSoundVolumePreference(nextVolume);
+  });
+
+  elements.musicToggle.addEventListener("change", () => {
+    const enabled = Boolean(elements.musicToggle.checked);
+    applyMusicSetting(enabled);
+    saveMusicPreference(enabled);
+    if (enabled) {
+      // The change event follows a real click/keydown, so audio is unlockable here.
+      music.maybeStart({ fromGesture: true });
+    }
+  });
+
+  elements.musicVolume.addEventListener("input", () => {
+    const value = Number(elements.musicVolume.value);
+    applyMusicVolumeSetting(value / 100);
+  });
+
+  elements.musicVolume.addEventListener("change", () => {
+    const value = Number(elements.musicVolume.value);
+    const nextVolume = value / 100;
+    applyMusicVolumeSetting(nextVolume);
+    saveMusicVolumePreference(nextVolume);
   });
 
   elements.onlineBackBtn.addEventListener("click", () => {
@@ -1408,6 +1440,10 @@ function render() {
   playSoundTransitions(previousAudioSnapshot, audioSnapshot);
   playHapticTransitions(previousAudioSnapshot, audioSnapshot);
   previousAudioSnapshot = audioSnapshot;
+
+  // Fuller ambient layer during play; ease back to the calm menu profile
+  // once the endgame overlay is up.
+  music.setContext(state.phase === "game-over" ? "menu" : "game");
 
   const forcedVisible = getForcedVisiblePlayers(state);
   const pendingTargets = getPendingBoardTargets(state);
@@ -2219,6 +2255,7 @@ function showMainMenu() {
   elements.gameScreen.hidden = true;
   tutorialController.hideAll();
   renderHomeResume();
+  music.setContext("menu");
 }
 
 function showAiPanel() {
@@ -2767,12 +2804,48 @@ function initializeAnimations() {
   applyAnimationsSetting(enabled);
 }
 
+function initializeMusic() {
+  const savedMusic = localStorage.getItem(MUSIC_STORAGE_KEY);
+  const enabled = savedMusic !== "off";
+  const rawVolume = localStorage.getItem(MUSIC_VOLUME_STORAGE_KEY);
+  const parsedVolume = rawVolume === null ? NaN : Number(rawVolume);
+  const initialVolume = Number.isFinite(parsedVolume)
+    ? Math.max(0, Math.min(1, parsedVolume))
+    : DEFAULT_MUSIC_VOLUME;
+
+  applyMusicSetting(enabled);
+  applyMusicVolumeSetting(initialVolume);
+}
+
+function applyMusicSetting(enabled) {
+  music.setEnabled(Boolean(enabled));
+  elements.musicToggle.checked = Boolean(enabled);
+}
+
+function saveMusicPreference(enabled) {
+  localStorage.setItem(MUSIC_STORAGE_KEY, enabled ? "on" : "off");
+}
+
+function applyMusicVolumeSetting(volume) {
+  const safe = Math.max(0, Math.min(1, Number(volume)));
+  music.setVolume(safe);
+  elements.musicVolume.value = String(Math.round(safe * 100));
+}
+
+function saveMusicVolumePreference(volume) {
+  const safe = Math.max(0, Math.min(1, Number(volume)));
+  localStorage.setItem(MUSIC_VOLUME_STORAGE_KEY, String(safe));
+}
+
 function initializeSound() {
   const savedSound = localStorage.getItem(SOUND_STORAGE_KEY);
   const enabled = savedSound !== "off";
-  const rawVolume = Number(localStorage.getItem(SOUND_VOLUME_STORAGE_KEY));
-  const initialVolume = Number.isFinite(rawVolume)
-    ? Math.max(0, Math.min(1, rawVolume))
+  // getItem() returns null when unset and Number(null) is 0, which would
+  // silently zero the volume for first-time visitors — parse only real values.
+  const rawVolume = localStorage.getItem(SOUND_VOLUME_STORAGE_KEY);
+  const parsedVolume = rawVolume === null ? NaN : Number(rawVolume);
+  const initialVolume = Number.isFinite(parsedVolume)
+    ? Math.max(0, Math.min(1, parsedVolume))
     : DEFAULT_SFX_VOLUME;
 
   applySoundSetting(enabled);
@@ -2826,12 +2899,23 @@ function saveSoundVolumePreference(volume) {
 function bindSoundUnlockHandlers() {
   const unlock = () => {
     sfx.unlockFromGesture();
+    music.maybeStart({ fromGesture: true });
   };
 
   window.addEventListener("pointerdown", unlock, { passive: true });
   window.addEventListener("touchstart", unlock, { passive: true });
   window.addEventListener("touchend", unlock, { passive: true });
   window.addEventListener("keydown", unlock);
+
+  // Silence the music while the tab is in the background; resume on return
+  // only if the context is already running (never resumes outside a gesture).
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      music.stop();
+    } else {
+      music.maybeStart();
+    }
+  });
 }
 
 function bindButtonSoundEvents() {
@@ -2849,9 +2933,6 @@ function bindButtonSoundEvents() {
 function resolveClickSound(button) {
   if (button.id === "shop-remove-btn") {
     return "shop-remove";
-  }
-  if (button.id === "shop-combine-btn") {
-    return "shop-combine";
   }
   if (button.classList.contains("rune-card") && button.closest("#shop-offer")) {
     return "shop-add";
@@ -2895,6 +2976,7 @@ function snapshotAudioState(currentState, boardSnapshot) {
   const logKeysHead = log
     .slice(0, 8)
     .map((entry) => (entry && typeof entry === "object" ? entry.k : null));
+  const logHeadText = typeof log[0] === "string" ? log[0] : null;
 
   return {
     phase: currentState.phase,
@@ -2903,6 +2985,7 @@ function snapshotAudioState(currentState, boardSnapshot) {
     boardSignature,
     logLength: log.length,
     logKeysHead,
+    logHeadText,
   };
 }
 
@@ -2954,6 +3037,18 @@ function playSoundTransitions(previousSnapshot, currentSnapshot) {
     } else if (moved) {
       sfx.play("move");
     }
+  }
+
+  // Shop combine log entries aren't structured with a key, so match on the
+  // freshly pushed entry's text to fire the cue once the level-2 rune is
+  // actually created (second rune pick), not when entering combine mode.
+  if (
+    currentSnapshot.phase === "shop"
+    && newLogCount > 0
+    && currentSnapshot.logHeadText
+    && currentSnapshot.logHeadText.includes(" combined ")
+  ) {
+    sfx.play("shop-combine");
   }
 
   const enteredGameOver = previousSnapshot.phase !== "game-over" && currentSnapshot.phase === "game-over";

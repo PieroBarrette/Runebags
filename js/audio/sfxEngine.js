@@ -14,7 +14,7 @@ function now(context) {
   return context.currentTime;
 }
 
-function createTone(context, destination, options = {}) {
+export function createTone(context, destination, options = {}) {
   const {
     type = "sine",
     frequency = 220,
@@ -46,7 +46,7 @@ function createTone(context, destination, options = {}) {
   oscillator.stop(start + duration + 0.03);
 }
 
-function createFilteredNoise(context, destination, options = {}) {
+export function createFilteredNoise(context, destination, options = {}) {
   const {
     start = now(context),
     duration = 0.08,
@@ -556,12 +556,19 @@ export function createSfxEngine() {
     });
   }
 
+  // The music engine shares this context instead of creating a second one
+  // (cheaper, and iOS caps the number of live AudioContexts per page).
+  function getAudioContext() {
+    return audioContext;
+  }
+
   return {
     setEnabled,
     isEnabled,
     setVolume,
     getVolume,
     unlockFromGesture,
+    getAudioContext,
     play,
   };
 }
