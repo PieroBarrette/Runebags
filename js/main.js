@@ -88,7 +88,6 @@ const elements = {
   runeDetailIcon: document.getElementById("rune-detail-icon"),
   runeDetailName: document.getElementById("rune-detail-name"),
   runeDetailDesc: document.getElementById("rune-detail-desc"),
-  runeDetailMeta: document.getElementById("rune-detail-meta"),
   runeDetailClose: document.getElementById("rune-detail-close"),
   settingsPanel: document.getElementById("settings-panel"),
   themeSelect: document.getElementById("theme-select"),
@@ -2729,15 +2728,6 @@ function openRuneDetail(runeId) {
   elements.runeDetailIcon.alt = rune.name;
   elements.runeDetailName.textContent = rune.name;
   elements.runeDetailDesc.textContent = runeDescription(rune);
-  const metaBits = [];
-  if (rune.supportsLevels && (rune.maxLevel || 1) >= 2) {
-    metaBits.push(t("rune.levels", { max: rune.maxLevel || 2 }));
-  }
-  if (rune.shopEffect) {
-    metaBits.push(t("rune.shopEffect"));
-  }
-  elements.runeDetailMeta.textContent = metaBits.join(" · ");
-  elements.runeDetailMeta.hidden = metaBits.length === 0;
   elements.runeDetailOverlay.hidden = false;
   elements.runeDetailClose.focus();
 }

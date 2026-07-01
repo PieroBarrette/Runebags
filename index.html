@@ -90,7 +90,6 @@
         <img id="rune-detail-icon" class="rune-detail-icon" src="" alt="">
         <h2 id="rune-detail-name" class="rune-detail-name"></h2>
         <p id="rune-detail-desc" class="rune-detail-desc"></p>
-        <p id="rune-detail-meta" class="rune-detail-meta"></p>
         <button id="rune-detail-close" class="menu-btn secondary" type="button" data-i18n="common.close">Close</button>
       </article>
     </section>
@@ -204,67 +203,70 @@
       </div>
       <div class="rules-content">
         <h3 data-i18n="rules.s1h">1. Goal</h3>
-        <p data-i18n="rules.s1p1">Win points by creating winning lines of 4 or more contiguous runes. The game revolves around a shared 10-point supply.</p>
+        <p data-i18n="rules.s1p1">Win the majority of a shared 10-point supply by forming winning lines of 4 or more runes.</p>
 
-        <h3 data-i18n="rules.s2h">2. Core Win and Points</h3>
-        <p data-i18n="rules.s2p1">A round ends immediately when a player forms a winning line of at least 4. That player takes 1 point from supply.</p>
-        <p data-i18n="rules.s2p2">If both players form a winning line from the same resolved action, the round is a draw.</p>
-        <p data-i18n="rules.s2p3">If a round is tied, 1 point is removed from supply instead of awarded.</p>
-        <p data-i18n="rules.s2p4">A player wins the game by majority of remaining obtainable points. If supply reaches 0, highest score wins. If scores are tied, fewer runes in bag wins.</p>
+        <h3 data-i18n="rules.s2h">2. Round Flow</h3>
+        <p data-i18n="rules.s2p1">1. Shop Phase</p>
+        <p data-i18n="rules.s2p2">2. Round Phase</p>
 
-        <h3 data-i18n="rules.s3h">3. Round, Shop, and Turn Flow</h3>
-        <p data-i18n="rules.s3p1">The game starts in Shop Phase.</p>
-        <p data-i18n="rules.s3p2">After shop, a new round starts. Starter by parity: even supply means White starts, odd means Black starts.</p>
-        <p data-i18n="rules.s3p3">When a round ends, you enter Shop Phase before the next round.</p>
+        <h3 data-i18n="rules.s3h">3. Shop Phase</h3>
+        <p data-i18n="rules.s3p1">A simultaneous phase in which each player reveals 5 runes from their personal shop supply and can perform the following actions in any order:</p>
+        <p data-i18n="rules.s3p2">- Add up to 2 of the offered runes to their bag</p>
+        <p data-i18n="rules.s3p3">- Remove 1 rune from their bag: basic and symbol runes are removed permanently, except Inguz and Jera which return to that player's shop supply; neutral runes return to the supply.</p>
+        <p data-i18n="rules.s3p4">- Combine 2 matching level 1 runes into one level 2 rune (except non-combinable runes)</p>
 
-        <h3 data-i18n="rules.s4h">4. Hands and Visibility</h3>
-        <p data-i18n="rules.s4p1">Hands are pass-and-play hidden by default. Active player hand is shown during round turns.</p>
-        <p data-i18n="rules.s4p2">If Uruz is on board for one side, opponent hand is forced visible.</p>
+        <h3 data-i18n="rules.s4h">4. Round Phase</h3>
+        <p data-i18n="rules.s4p1">Each player draws a hand of 2 runes. If the number of points remaining in the supply is even, White starts. If it's odd, Black starts.</p>
+        <p data-i18n="rules.s4p2">On their turn, the active player must:</p>
+        <p data-i18n="rules.s4p3">1. Play a rune from their hand into one of the board's 7 columns (a column can never hold more than 6 runes)</p>
+        <p data-i18n="rules.s4p4">2. Apply the played rune's effect if it has one, then draw runes from their bag to refill their hand</p>
+        <p data-i18n="rules.s4p5">If a player has no legally playable rune, they must pass.</p>
+        <p data-i18n="rules.s4p6">If both players cannot play, the round is a draw.</p>
+        <p data-i18n="rules.s4p7">If both players form a winning line from the resolution of the same action, the round is a draw.</p>
+        <p data-i18n="rules.s4p8">If a round is a draw, 1 point is removed from the supply instead of being awarded.</p>
+        <p data-i18n="rules.s4p9">The round phase ends as soon as a player forms a winning line of at least 4 runes. That player takes 1 point from the supply.</p>
 
-        <h3 data-i18n="rules.s5h">5. Neutral Runes</h3>
-        <p data-i18n="rules.s5p1">Neutral runes are gray blockers. They are not Black or White ownership.</p>
-        <p data-i18n="rules.s5p2">They do not score by themselves, do not return to player bags, and return to neutral supply when removed or at round settlement.</p>
+        <h3 data-i18n="rules.s5h">5. End of Game</h3>
+        <p data-i18n="rules.s5p1">A player wins the game by obtaining the majority of the points still available. If the supply reaches 0, the highest score wins. If scores are tied, fewer runes in bag wins.</p>
 
-        <h3 data-i18n="rules.s6h">6. Forced Pass</h3>
-        <p data-i18n="rules.s6p1">If a player has no legal playable rune, they must pass.</p>
-        <p data-i18n="rules.s6p2">If both players cannot play, the round is a draw.</p>
+        <h3 data-i18n="rules.s6h">6. Neutral Runes</h3>
+        <p data-i18n="rules.s6p1">Neutral runes are gray blockers. They belong to neither Black nor White.</p>
+        <p data-i18n="rules.s6p2">They do not score points on their own, never return to player bags, and go back to the neutral supply when removed or at the end of a round.</p>
 
-        <h3 data-i18n="rules.s7h">7. Shop Phase</h3>
-        <p data-i18n="rules.s7p1">Each player reveals 5 runes from their personal shop supply and may add up to 2 to their bag.</p>
-        <p data-i18n="rules.s7p2">Shop actions in any order:</p>
-        <p data-i18n="rules.s7p3">- Remove 1 rune once per shop phase: basic and symbol runes are removed permanently, except Inguz and Jera which return to that player's shop supply; neutral returns to supply.</p>
-        <p data-i18n="rules.s7p4">- Combine 2 matching level-1 runes into one level-2 rune (except non-combinable runes).</p>
-        <p data-i18n="rules.s7p5">- Add up to 2 runes from the 5 offered.</p>
+        <h3 data-i18n="rules.s7h">7. Cursed Runes</h3>
+        <p data-i18n="rules.s7p1">Adds 1 neutral rune to the owner's bag when it is added to the bag during the shop phase.</p>
 
-        <h3 data-i18n="rules.s8h">8. Rune Effects</h3>
-        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/algiz.svg" alt="Algiz symbol"></span> <strong>Algiz:</strong> <span data-i18n="rules.rune.algiz">inserts from column bottom and pushes upward; cursed.</span></p>
-        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/ansuz.svg" alt="Ansuz symbol"></span> <strong>Ansuz:</strong> <span data-i18n="rules.rune.ansuz">returns rune directly beneath to owner bag (not neutral).</span></p>
-        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/berkana.svg" alt="Berkana symbol"></span> <strong>Berkana:</strong> <span data-i18n="rules.rune.berkana">if in owner winning line, grants +1 bonus point once for that round.</span></p>
-        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/dagaz.svg" alt="Dagaz symbol"></span> <strong>Dagaz:</strong> <span data-i18n="rules.rune.dagaz">copies the effect of the rune directly below it; corrupted (adds 1 Neutral rune to owner bag whenever played).</span></p>
-        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/ehwaz.svg" alt="Ehwaz symbol"></span> <strong>Ehwaz:</strong> <span data-i18n="rules.rune.ehwaz">increases owner max hand size to 3 while on board. L2 : max hand size to 4.</span></p>
+        <h3 data-i18n="rules.s8h">8. Corrupted Rune</h3>
+        <p data-i18n="rules.s8p1">Adds 1 neutral rune to the owner's bag every time it is played.</p>
+
+        <h3 data-i18n="rules.s9h">9. Ethereal Runes</h3>
+        <p data-i18n="rules.s9p1">They return to the shop supply instead of the bag at the end of a round.</p>
+
+        <h3 data-i18n="rules.s10h">10. Rune Effects</h3>
+        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/algiz.svg" alt="Algiz symbol"></span> <strong>Algiz:</strong> <span data-i18n="rules.rune.algiz">inserts from the bottom of the column and pushes upward; cursed.</span></p>
+        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/ansuz.svg" alt="Ansuz symbol"></span> <strong>Ansuz:</strong> <span data-i18n="rules.rune.ansuz">returns the rune directly beneath it to its owner's bag (not neutral runes).</span></p>
+        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/berkana.svg" alt="Berkana symbol"></span> <strong>Berkana:</strong> <span data-i18n="rules.rune.berkana">if inside its owner's winning line, grants +1 bonus point once for that round.</span></p>
+        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/dagaz.svg" alt="Dagaz symbol"></span> <strong>Dagaz:</strong> <span data-i18n="rules.rune.dagaz">copies the effect of the rune directly beneath it; corrupted.</span></p>
+        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/ehwaz.svg" alt="Ehwaz symbol"></span> <strong>Ehwaz:</strong> <span data-i18n="rules.rune.ehwaz">raises its owner's maximum hand size to 3 while on the board. Maximum hand size becomes 4 at level 2.</span></p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/eihwaz.svg" alt="Eihwaz symbol"></span> <strong>Eihwaz:</strong> <span data-i18n="rules.rune.eihwaz">if removed or discarded for the round, its owner gains 1 point without ending the round.</span></p>
-        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/fehu.svg" alt="Fehu symbol"></span> <strong>Fehu:</strong> <span data-i18n="rules.rune.fehu">return discarded rune(s) to your bag (L1: 1, L2: 2). Recovered runes can include opponent runes.</span></p>
-        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/gebo.svg" alt="Gebo symbol"></span> <strong>Gebo:</strong> <span data-i18n="rules.rune.gebo">removes rune directly beneath for the round (L2 : chooses adjacent target) ; cursed.</span></p>
-        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/hagalz.svg" alt="Hagalz symbol"></span> <strong>Hagalz:</strong> <span data-i18n="rules.rune.hagalz">One adjacent neutral rune can count towards your winning line.</span></p>
-        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/inguz.svg" alt="Inguz symbol"></span> <strong>Inguz:</strong> <span data-i18n="rules.rune.inguz">center column only; goes back to shop when removed.</span></p>
-        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/isa.svg" alt="Isa symbol"></span> <strong>Isa:</strong> <span data-i18n="rules.rune.isa">remains on board across rounds.</span></p>
-        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/jera.svg" alt="Jera symbol"></span> <strong>Jera:</strong> <span data-i18n="rules.rune.jera">edge columns only; goes back to shop when removed.</span></p>
-        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/kenaz.svg" alt="Kenaz symbol"></span> <strong>Kenaz:</strong> <span data-i18n="rules.rune.kenaz">One Kenaz does nothing. When your second Kenaz enters play, destroy 1 board rune permanently.</span></p>
+        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/fehu.svg" alt="Fehu symbol"></span> <strong>Fehu:</strong> <span data-i18n="rules.rune.fehu">returns 1 discarded rune to your bag, 2 runes at level 2. Recovered runes can include opponent runes.</span></p>
+        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/gebo.svg" alt="Gebo symbol"></span> <strong>Gebo:</strong> <span data-i18n="rules.rune.gebo">removes the rune directly beneath it for the round, chooses an adjacent target at level 2; cursed.</span></p>
+        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/hagalz.svg" alt="Hagalz symbol"></span> <strong>Hagalz:</strong> <span data-i18n="rules.rune.hagalz">an adjacent neutral rune can count toward your winning line.</span></p>
+        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/inguz.svg" alt="Inguz symbol"></span> <strong>Inguz:</strong> <span data-i18n="rules.rune.inguz">center column only; returns to the shop when removed.</span></p>
+        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/isa.svg" alt="Isa symbol"></span> <strong>Isa:</strong> <span data-i18n="rules.rune.isa">stays on the board from one round to the next.</span></p>
+        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/jera.svg" alt="Jera symbol"></span> <strong>Jera:</strong> <span data-i18n="rules.rune.jera">edge columns only; returns to the shop when removed.</span></p>
+        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/kenaz.svg" alt="Kenaz symbol"></span> <strong>Kenaz:</strong> <span data-i18n="rules.rune.kenaz">a single Kenaz does nothing. When your second Kenaz enters play, it permanently destroys 1 rune on the board.</span></p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/laguz.svg" alt="Laguz symbol"></span> <strong>Laguz:</strong> <span data-i18n="rules.rune.laguz">cannot be moved or removed.</span></p>
-        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/mannaz.svg" alt="Mannaz symbol"></span> <strong>Mannaz:</strong> <span data-i18n="rules.rune.mannaz">adds neutral rune(s) to opponent bag (L1: 1, L2: 2).</span></p>
+        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/mannaz.svg" alt="Mannaz symbol"></span> <strong>Mannaz:</strong> <span data-i18n="rules.rune.mannaz">adds 1 neutral rune to the opponent's bag, 2 neutral runes at level 2.</span></p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/nauthiz.svg" alt="Nauthiz symbol"></span> <strong>Nauthiz:</strong> <span data-i18n="rules.rune.nauthiz">can float and be placed on any free cell; ethereal and cursed.</span></p>
-        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/odal.svg" alt="Odal symbol"></span> <strong>Odal:</strong> <span data-i18n="rules.rune.odal">if played on the top row, owner gains 1 point without ending the round.</span></p>
-        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/perth.svg" alt="Perth symbol"></span> <strong>Perth:</strong> <span data-i18n="rules.rune.perth">constrains opponent next turn to adjacent columns; L2 : the adjacent forced column is chosen.</span></p>
-        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/raido.svg" alt="Raido symbol"></span> <strong>Raido:</strong> <span data-i18n="rules.rune.raido">grants extra turn; L1 : ethereal.</span></p>
-        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/sowelu.svg" alt="Sowelu symbol"></span> <strong>Sowelu:</strong> <span data-i18n="rules.rune.sowelu">discards random rune(s) from opponent bag for the round (L1: 1, L2: 2).</span></p>
-        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/teiwaz.svg" alt="Teiwaz symbol"></span> <strong>Teiwaz:</strong> <span data-i18n="rules.rune.teiwaz">move top rune of any column (L1 : to adjacent column, L2 : to any column).</span></p>
-        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/thurisa.svg" alt="Thurisa symbol"></span> <strong>Thurisa:</strong> <span data-i18n="rules.rune.thurisa">place extra neutral rune(s) on the board (L1: 1, L2: 2).</span></p>
-        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/uruz.svg" alt="Uruz symbol"></span> <strong>Uruz:</strong> <span data-i18n="rules.rune.uruz">opponent hand cannot be hidden while active.</span></p>
-        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/wunjo.svg" alt="Wunjo symbol"></span> <strong>Wunjo:</strong> <span data-i18n="rules.rune.wunjo">if no allied rune is adjacent at round end, owner gets +1 add and +1 remove in next shop phase.</span></p>
-
-        <h3 data-i18n="rules.s9h">9. Ethereal and Visual Cues</h3>
-        <p data-i18n="rules.s9p1">Ethereal runes use dashed styling and return to shop supply instead of player bag at round settlement.</p>
-        <p data-i18n="rules.s9p2">Winning lines and forced columns are highlighted on board, including full 4+ combo lines and both sides in simultaneous-win draws.</p>
+        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/odal.svg" alt="Odal symbol"></span> <strong>Odal:</strong> <span data-i18n="rules.rune.odal">if played on the top row, its owner gains 1 point without ending the round.</span></p>
+        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/perth.svg" alt="Perth symbol"></span> <strong>Perth:</strong> <span data-i18n="rules.rune.perth">constrains the opponent's next turn to adjacent columns; the forced adjacent column is chosen at level 2.</span></p>
+        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/raido.svg" alt="Raido symbol"></span> <strong>Raido:</strong> <span data-i18n="rules.rune.raido">grants an extra turn; ethereal only at level 1.</span></p>
+        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/sowelu.svg" alt="Sowelu symbol"></span> <strong>Sowelu:</strong> <span data-i18n="rules.rune.sowelu">discards 1 random rune from the opponent's bag for the round, 2 runes at level 2.</span></p>
+        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/teiwaz.svg" alt="Teiwaz symbol"></span> <strong>Teiwaz:</strong> <span data-i18n="rules.rune.teiwaz">moves the top rune of any column to an adjacent column at level 1, or to any column at level 2.</span></p>
+        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/thurisa.svg" alt="Thurisa symbol"></span> <strong>Thurisa:</strong> <span data-i18n="rules.rune.thurisa">places 1 neutral rune on the board, 2 neutral runes at level 2.</span></p>
+        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/uruz.svg" alt="Uruz symbol"></span> <strong>Uruz:</strong> <span data-i18n="rules.rune.uruz">the opponent's hand cannot be hidden while Uruz is on the board.</span></p>
+        <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/wunjo.svg" alt="Wunjo symbol"></span> <strong>Wunjo:</strong> <span data-i18n="rules.rune.wunjo">if no allied rune is adjacent at the end of the round, its owner gets +1 add and +1 remove at the next shop phase.</span></p>
       </div>
     </section>
 

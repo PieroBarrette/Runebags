@@ -1258,12 +1258,6 @@ body[data-theme="dark"] .rune-detail-icon {
   line-height: 1.5;
 }
 
-.rune-detail-meta {
-  margin: 0 0 1.1rem;
-  color: var(--text-soft);
-  font-size: 0.85rem;
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
