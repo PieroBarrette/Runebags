@@ -1944,7 +1944,7 @@ function buildShareText() {
       .map((v) => (v === 1 ? "\u{1F535}" : v === 2 ? "⚪" : v === 3 ? "\u{1F7EB}" : "⬛"))
       .join(""))
     .join("\n");
-  return `RuneBags — ${title}\n${t("share.line", { round: state.roundNumber, b: state.players[1].points, w: state.players[2].points })}\n${t("share.legend")}\n${grid}\nhttps://runebags.onrender.com`;
+  return `RuneBags — ${title}\n${t("share.line", { round: state.roundNumber, b: state.players[1].points, w: state.players[2].points })}\n${t("share.legend")}\n${grid}\nhttps://runebags.ca`;
 }
 
 function renderRuneList(container, runes, playerId, highlightIds, options = {}) {

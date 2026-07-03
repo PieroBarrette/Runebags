@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#131820">
   <title>RuneBags — runic tactics board game</title>
   <meta name="description" content="Runic tactics, hidden hands, and evolving rounds. Drop runes, build winning lines of four, and bend the rules with 24 unique rune powers. Play the AI, pass &amp; play, or online.">
-  <link rel="canonical" href="https://runebags.onrender.com/">
+  <link rel="canonical" href="https://runebags.ca/">
   <link rel="icon" type="image/svg+xml" href="./assets/RuneBags_Logo.svg">
   <link rel="apple-touch-icon" href="./assets/icon-192.png">
   <link rel="manifest" href="./manifest.webmanifest">
@@ -15,15 +15,15 @@
   <meta property="og:site_name" content="RuneBags">
   <meta property="og:title" content="RuneBags — runic tactics board game">
   <meta property="og:description" content="Drop runes, build winning lines of four, and bend the rules with 24 unique rune powers. Play the AI, pass &amp; play, or online.">
-  <meta property="og:url" content="https://runebags.onrender.com/">
-  <meta property="og:image" content="https://runebags.onrender.com/assets/og-image.png">
+  <meta property="og:url" content="https://runebags.ca/">
+  <meta property="og:image" content="https://runebags.ca/assets/og-image.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
 
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="RuneBags — runic tactics board game">
   <meta name="twitter:description" content="Drop runes, build winning lines of four, and bend the rules with 24 unique rune powers.">
-  <meta name="twitter:image" content="https://runebags.onrender.com/assets/og-image.png">
+  <meta name="twitter:image" content="https://runebags.ca/assets/og-image.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -452,9 +452,15 @@
   </main>
 
   <script>
-    // Optional override for online backend when frontend is hosted elsewhere.
+    // Left empty on purpose: the same Render service serves both the static
+    // site and the WebSocket, so onlineController.js's resolveSocketUrl()
+    // falls back to same-origin (window.location.host). That way the WS
+    // always matches whichever domain loaded the page (runebags.ca,
+    // the onrender.com fallback, or a local preview) instead of being
+    // hardcoded to one. Only set this if the frontend is ever hosted
+    // separately from the WebSocket backend.
     // Example: window.RUNEBAGS_ONLINE_SERVER = "https://your-service.onrender.com";
-    window.RUNEBAGS_ONLINE_SERVER = "https://runebags.onrender.com";
+    window.RUNEBAGS_ONLINE_SERVER = "";
   </script>
   <script type="module" src="./js/main.js"></script>
 </body>
