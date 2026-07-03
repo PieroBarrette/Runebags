@@ -1,6 +1,28 @@
 const STORAGE_PREFIX = "runebags-online-token:";
 const GUEST_ID_KEY = "runebags-guest-id";
 const DISPLAY_NAME_KEY = "runebags-display-name";
+const AVATAR_KEY = "runebags-avatar-v1";
+
+// Kept in sync with the server's allowlists (server.mjs). The picker UI is
+// built from these same sets.
+export const AVATAR_GLYPHS = [
+  "algiz", "ansuz", "dagaz", "ehwaz", "fehu", "gebo",
+  "kenaz", "odal", "raido", "sowelu", "teiwaz", "wunjo",
+];
+export const AVATAR_COLORS = ["gold", "ember", "moss", "fjord", "amethyst", "frost"];
+
+export const QUICK_CHAT_KEYS = [
+  "qc.hello", "qc.goodLuck", "qc.wellPlayed", "qc.wow", "qc.thinking", "qc.goodGame",
+];
+const QUICK_CHAT_MIN_INTERVAL_MS = 1200;
+
+// A first WS request to a sleeping Render free instance can hang for the
+// whole cold start (~30-50 s). Surface a "waking up" hint quickly, keep the
+// attempt alive long enough to survive the spin-up, and retry on failure.
+const WAKE_HINT_DELAY_MS = 2500;
+const CONNECT_ATTEMPT_TIMEOUT_MS = 45000;
+const RETRY_DELAYS_MS = [2000, 5000, 9000];
+const KEEPALIVE_INTERVAL_MS = 30000;
 
 export function createOnlineController() {
   const listeners = {
@@ -12,6 +34,7 @@ export function createOnlineController() {
     status: () => {},
     rematch: () => {},
     presence: () => {},
+    wake: () => {},
   };
 
   const session = {
@@ -24,8 +47,13 @@ export function createOnlineController() {
     queued: false,
     guestId: loadOrCreateGuestId(),
     displayName: loadOrCreateDisplayName(),
+    avatar: loadOrCreateAvatar(),
     started: false,
   };
+
+  let connectPromise = null;
+  let keepaliveTimer = null;
+  let lastQuickChatAt = 0;
 
   function setListeners(next) {
     Object.assign(listeners, next || {});
@@ -35,25 +63,101 @@ export function createOnlineController() {
     if (session.socket && session.socket.readyState === WebSocket.OPEN) {
       return Promise.resolve();
     }
+    if (connectPromise) {
+      return connectPromise;
+    }
 
-    const socketUrl = resolveSocketUrl();
+    connectPromise = (async () => {
+      const startedAt = Date.now();
+      let attempt = 0;
+      let wakeShown = false;
 
+      const wakeTimer = window.setTimeout(() => {
+        wakeShown = true;
+        listeners.wake({ waking: true, attempt: 1 });
+      }, WAKE_HINT_DELAY_MS);
+
+      try {
+        for (;;) {
+          attempt += 1;
+          try {
+            await connectOnce();
+            return;
+          } catch (error) {
+            if (attempt > RETRY_DELAYS_MS.length) {
+              throw error;
+            }
+            wakeShown = true;
+            listeners.wake({ waking: true, attempt: attempt + 1 });
+            await sleep(RETRY_DELAYS_MS[attempt - 1]);
+          }
+        }
+      } finally {
+        window.clearTimeout(wakeTimer);
+        if (wakeShown) {
+          listeners.wake({ waking: false, attempt, elapsedMs: Date.now() - startedAt });
+        }
+        connectPromise = null;
+      }
+    })();
+
+    return connectPromise;
+  }
+
+  function connectOnce() {
     return new Promise((resolve, reject) => {
+      let socketUrl;
+      try {
+        socketUrl = resolveSocketUrl();
+      } catch (error) {
+        reject(error);
+        return;
+      }
+
+      let settled = false;
       const ws = new WebSocket(socketUrl);
       session.socket = ws;
 
+      const attemptTimeout = window.setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          try {
+            ws.close();
+          } catch {
+            // Already closing.
+          }
+          reject(new Error("socket_timeout"));
+        }
+      }, CONNECT_ATTEMPT_TIMEOUT_MS);
+
       ws.addEventListener("open", () => {
-        listeners.status("Connected to online server.");
+        if (settled) {
+          return;
+        }
+        settled = true;
+        window.clearTimeout(attemptTimeout);
+        startKeepalive(ws);
+        listeners.status({ key: "online.statusConnected" });
         resolve();
       });
 
       ws.addEventListener("error", () => {
-        listeners.error("Could not connect to online server.");
+        if (settled) {
+          return;
+        }
+        settled = true;
+        window.clearTimeout(attemptTimeout);
         reject(new Error("socket_error"));
       });
 
       ws.addEventListener("close", () => {
-        listeners.status("Disconnected from online server.");
+        stopKeepalive();
+        listeners.status({ key: "online.statusDisconnected" });
+        if (!settled) {
+          settled = true;
+          window.clearTimeout(attemptTimeout);
+          reject(new Error("socket_closed"));
+        }
       });
 
       ws.addEventListener("message", (event) => {
@@ -68,16 +172,40 @@ export function createOnlineController() {
     });
   }
 
+  // Periodic pings keep proxies from dropping an idle lobby socket while a
+  // player waits for a friend to click the invite link.
+  function startKeepalive(ws) {
+    stopKeepalive();
+    keepaliveTimer = window.setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        try {
+          ws.send(JSON.stringify({ type: "ping" }));
+        } catch {
+          // Socket is going away; the close handler cleans up.
+        }
+      } else {
+        stopKeepalive();
+      }
+    }, KEEPALIVE_INTERVAL_MS);
+  }
+
+  function stopKeepalive() {
+    if (keepaliveTimer) {
+      window.clearInterval(keepaliveTimer);
+      keepaliveTimer = null;
+    }
+  }
+
   async function createRoom(roomCode, displayName = session.displayName) {
     try {
       await connect();
       const normalizedName = normalizeDisplayName(displayName);
       session.displayName = normalizedName;
       saveDisplayName(normalizedName);
-      send({ type: "create_room", roomCode, displayName: normalizedName });
+      send({ type: "create_room", roomCode, displayName: normalizedName, avatar: session.avatar });
       return true;
     } catch {
-      listeners.error("Failed to create room.");
+      listeners.error({ code: "client_connect_failed", message: "Failed to create room." });
       return false;
     }
   }
@@ -92,13 +220,13 @@ export function createOnlineController() {
       saveDisplayName(normalizedName);
       const token = loadToken(roomCode);
       if (allowReconnect && token) {
-        send({ type: "reconnect", roomCode, token, displayName: normalizedName });
+        send({ type: "reconnect", roomCode, token, displayName: normalizedName, avatar: session.avatar });
         return true;
       }
-      send({ type: "join_room", roomCode, displayName: normalizedName });
+      send({ type: "join_room", roomCode, displayName: normalizedName, avatar: session.avatar });
       return true;
     } catch {
-      listeners.error("Failed to join room.");
+      listeners.error({ code: "client_connect_failed", message: "Failed to join room." });
       return false;
     }
   }
@@ -149,10 +277,10 @@ export function createOnlineController() {
       const normalizedName = normalizeDisplayName(displayName);
       session.displayName = normalizedName;
       saveDisplayName(normalizedName);
-      send({ type: "queue_join", guestId: session.guestId, displayName: normalizedName });
+      send({ type: "queue_join", guestId: session.guestId, displayName: normalizedName, avatar: session.avatar });
       return true;
     } catch {
-      listeners.error("Failed to join quick play queue.");
+      listeners.error({ code: "client_connect_failed", message: "Failed to join quick play queue." });
       return false;
     }
   }
@@ -161,6 +289,19 @@ export function createOnlineController() {
     const normalizedName = normalizeDisplayName(displayName);
     session.displayName = normalizedName;
     saveDisplayName(normalizedName);
+  }
+
+  function setAvatar(avatar) {
+    const normalized = normalizeAvatar(avatar);
+    if (!normalized) {
+      return;
+    }
+    session.avatar = normalized;
+    saveAvatar(normalized);
+  }
+
+  function getAvatar() {
+    return { ...session.avatar };
   }
 
   function cancelQueue() {
@@ -183,6 +324,19 @@ export function createOnlineController() {
     send({ type: "chat_send", text: message.slice(0, 180) });
   }
 
+  function sendQuickChat(key) {
+    if (!QUICK_CHAT_KEYS.includes(key)) {
+      return false;
+    }
+    const now = Date.now();
+    if (now - lastQuickChatAt < QUICK_CHAT_MIN_INTERVAL_MS) {
+      return false;
+    }
+    lastQuickChatAt = now;
+    send({ type: "chat_send", kind: "quick", key });
+    return true;
+  }
+
   function sendRematch() {
     send({ type: "rematch_request" });
   }
@@ -197,7 +351,7 @@ export function createOnlineController() {
 
   function send(payload) {
     if (!session.socket || session.socket.readyState !== WebSocket.OPEN) {
-      listeners.error("Online server is not connected.");
+      listeners.error({ code: "client_not_connected", message: "Online server is not connected." });
       return;
     }
     session.socket.send(JSON.stringify(payload));
@@ -205,7 +359,7 @@ export function createOnlineController() {
 
   function handleServerMessage(msg) {
     if (msg.type === "error") {
-      listeners.error(msg.message || "Server error.");
+      listeners.error({ code: msg.code || null, message: msg.message || "Server error." });
       return;
     }
 
@@ -233,7 +387,7 @@ export function createOnlineController() {
       if (typeof msg.expectedClientSeq === "number") {
         session.clientSeq = Math.max(0, msg.expectedClientSeq - 1);
       }
-      listeners.error(msg.message || "Action rejected by server.");
+      listeners.error({ code: msg.code || null, message: msg.message || "Action rejected by server." });
       return;
     }
 
@@ -257,6 +411,7 @@ export function createOnlineController() {
         youName: msg.youName || session.displayName,
         opponentName: msg.opponentName || "Opponent",
         playerNames: msg.playerNames || null,
+        playerAvatars: msg.playerAvatars || null,
         youReady: Boolean(msg.youReady),
         opponentJoined: Boolean(msg.opponentJoined),
         opponentReady: Boolean(msg.opponentReady),
@@ -284,6 +439,7 @@ export function createOnlineController() {
         playerId: msg.playerId,
         roomCode: msg.roomCode,
         playerNames: msg.playerNames || null,
+        playerAvatars: msg.playerAvatars || null,
         shopSync: msg.shopSync || null,
         chat: Array.isArray(msg.chat) ? msg.chat : [],
       });
@@ -300,6 +456,7 @@ export function createOnlineController() {
       listeners.queue({
         queued: session.queued,
         position: Number(msg.position || 0),
+        code: msg.code || null,
         message: msg.message || "",
       });
       return;
@@ -309,7 +466,7 @@ export function createOnlineController() {
       session.roomCode = msg.roomCode;
       session.playerId = msg.playerId;
       session.queued = false;
-      listeners.status("Opponent found. Starting match...");
+      listeners.status({ key: "online.statusOpponentFound" });
     }
   }
 
@@ -323,18 +480,68 @@ export function createOnlineController() {
     cancelQueue,
     sendAction,
     sendChat,
+    sendQuickChat,
     sendRematch,
     isOnlineActive,
     getSession,
     setDisplayName,
+    setAvatar,
+    getAvatar,
     clearRoomToken,
     setListeners,
   };
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
 function normalizeDisplayName(value) {
   const safe = String(value || "").replace(/\s+/g, " ").trim();
   return safe.slice(0, 14) || "Guest";
+}
+
+function normalizeAvatar(value) {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const glyph = typeof value.glyph === "string" ? value.glyph.toLowerCase() : "";
+  const color = typeof value.color === "string" ? value.color.toLowerCase() : "";
+  if (!AVATAR_GLYPHS.includes(glyph) || !AVATAR_COLORS.includes(color)) {
+    return null;
+  }
+  return { glyph, color };
+}
+
+function loadOrCreateAvatar() {
+  try {
+    const raw = window.localStorage.getItem(AVATAR_KEY);
+    if (raw) {
+      const parsed = normalizeAvatar(JSON.parse(raw));
+      if (parsed) {
+        return parsed;
+      }
+    }
+  } catch {
+    // Ignore storage failures.
+  }
+
+  const generated = {
+    glyph: AVATAR_GLYPHS[Math.floor(Math.random() * AVATAR_GLYPHS.length)],
+    color: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
+  };
+  saveAvatar(generated);
+  return generated;
+}
+
+function saveAvatar(avatar) {
+  try {
+    window.localStorage.setItem(AVATAR_KEY, JSON.stringify(avatar));
+  } catch {
+    // Ignore storage failures.
+  }
 }
 
 function loadOrCreateDisplayName() {

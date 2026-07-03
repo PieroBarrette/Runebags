@@ -29,7 +29,7 @@ import { renderBoard } from "./ui/boardView.js";
 import { renderHands } from "./ui/handView.js";
 import { renderLog } from "./ui/logView.js";
 import { clearModeSave, loadModeSave, saveModeSave } from "./persistence/localStore.js";
-import { createOnlineController } from "./online/onlineController.js";
+import { createOnlineController, AVATAR_GLYPHS, AVATAR_COLORS, QUICK_CHAT_KEYS } from "./online/onlineController.js";
 import { getRuneById, RUNE_CATALOG, getAllowedColumns } from "./runes/runeCatalog.js";
 import { createSfxEngine } from "./audio/sfxEngine.js";
 import { createMusicEngine } from "./audio/musicEngine.js";
@@ -57,6 +57,46 @@ const MODE_AI = "ai";
 const MODE_ONLINE = "online";
 const DEFAULT_SFX_VOLUME = 0.18;
 const DEFAULT_MUSIC_VOLUME = 0.5;
+
+// Quick-chat: emoji shown on the buttons/bubbles; the text comes from i18n
+// so each player reads the message in their own language.
+const QC_EMOJI = {
+  "qc.hello": "\u{1F44B}",
+  "qc.goodLuck": "\u{1F340}",
+  "qc.wellPlayed": "\u{1F44F}",
+  "qc.wow": "\u{1F62E}",
+  "qc.thinking": "\u{1F914}",
+  "qc.goodGame": "\u{1F91D}",
+};
+
+// Server error codes → localized messages. Unknown codes fall back to the
+// server's raw English message rather than silence.
+const ONLINE_ERROR_KEY_BY_CODE = {
+  room_not_found: "online.error.roomNotFound",
+  room_exists: "online.error.roomExists",
+  room_full: "online.error.roomFull",
+  match_started_reconnect: "online.error.matchStartedReconnect",
+  reconnect_failed: "online.error.reconnectFailed",
+  reconnect_token_invalid: "online.error.reconnectFailed",
+  join_room_first: "online.error.joinRoomFirst",
+  cannot_change_ready: "online.error.cannotChangeReady",
+  match_already_started: "online.error.matchAlreadyStarted",
+  need_two_players: "online.error.needTwoPlayers",
+  both_ready_required: "online.error.bothReadyRequired",
+  no_finished_match: "online.error.rematchUnavailable",
+  rematch_only_game_over: "online.error.rematchUnavailable",
+  rematch_need_both: "online.error.rematchNeedBoth",
+  match_not_active: "online.error.matchNotActive",
+  shop_ready_online: "online.error.shopReadyOnline",
+  seq_missing: "online.error.desync",
+  seq_out_of_order: "online.error.desync",
+  invalid_json: "online.error.generic",
+  malformed: "online.error.generic",
+  unknown_type: "online.error.generic",
+  invalid_guest: "online.error.generic",
+  client_connect_failed: "online.error.connectFailed",
+  client_not_connected: "online.error.notConnected",
+};
 const RUNES_WITH_LEVEL_PREFIX = new Set([
   "ehwaz",
   "fehu",
@@ -105,20 +145,37 @@ const elements = {
   onlinePanel: document.getElementById("online-panel"),
   onlineServerDot: document.getElementById("online-server-dot"),
   onlineServerText: document.getElementById("online-server-text"),
-  onlineQueueStatus: document.getElementById("online-queue-status"),
+  onlineWakeBanner: document.getElementById("online-wake-banner"),
+  onlineWakeText: document.getElementById("online-wake-text"),
+  onlineStepHome: document.getElementById("online-step-home"),
+  onlineStepSearching: document.getElementById("online-step-searching"),
+  onlineStepRoom: document.getElementById("online-step-room"),
+  onlineAvatarBtn: document.getElementById("online-avatar-btn"),
+  onlineAvatarPicker: document.getElementById("online-avatar-picker"),
+  onlineAvatarGlyphs: document.getElementById("online-avatar-glyphs"),
+  onlineAvatarColors: document.getElementById("online-avatar-colors"),
+  onlineQueueCancelBtn: document.getElementById("online-queue-cancel-btn"),
+  onlineInviteBlock: document.getElementById("online-invite-block"),
+  onlineRoomCodeLink: document.getElementById("online-room-code-link"),
+  onlinePlayerYou: document.getElementById("online-player-you"),
+  onlinePlayerOpp: document.getElementById("online-player-opp"),
+  onlineYouAvatar: document.getElementById("online-you-avatar"),
+  onlineYouName: document.getElementById("online-you-name"),
+  onlineYouState: document.getElementById("online-you-state"),
+  onlineOppAvatar: document.getElementById("online-opp-avatar"),
+  onlineOppName: document.getElementById("online-opp-name"),
+  onlineOppState: document.getElementById("online-opp-state"),
+  appToast: document.getElementById("app-toast"),
+  quickChatBar: document.getElementById("quick-chat-bar"),
+  qcBubbles: document.getElementById("qc-bubbles"),
+  p1Avatar: document.getElementById("p1-avatar"),
+  p2Avatar: document.getElementById("p2-avatar"),
   onlineQueueText: document.getElementById("online-queue-text"),
-  onlineRoomCode: document.getElementById("online-room-code"),
-  onlineRoomLinkWrap: document.getElementById("online-room-link-wrap"),
-  onlineRoomLink: document.getElementById("online-room-link"),
   onlineRoomQr: document.getElementById("online-room-qr"),
   onlinePresence: document.getElementById("online-presence"),
   onlinePresenceText: document.getElementById("online-presence-text"),
   onlineDisconnectBanner: document.getElementById("online-disconnect-banner"),
-  onlineWaitingRoom: document.getElementById("online-waiting-room"),
-  waitingRole: document.getElementById("waiting-role"),
   waitingSummary: document.getElementById("waiting-summary"),
-  waitingYouStatus: document.getElementById("waiting-you-status"),
-  waitingOpponentStatus: document.getElementById("waiting-opponent-status"),
   onlineQuickBtn: document.getElementById("online-quick-btn"),
   onlineFriendBtn: document.getElementById("online-friend-btn"),
   onlinePseudo: document.getElementById("online-pseudo"),
@@ -258,6 +315,9 @@ let suppressBoardClickOnce = false;
 let activeFeedTab = "turn";
 let onlineChatMessages = [];
 let hasUnreadChat = false;
+let toastShowTimer = null;
+let toastHideTimer = null;
+let quickChatCooldownTimer = null;
 
 const tutorialController = createTutorialController({
   elements,
@@ -313,10 +373,11 @@ function wireOnlineEvents() {
       const previousAutoStartRequested = waitingRoomState.autoStartRequested;
       activeRoomCode = snapshot.roomCode;
       waitingRoomState = {
-        mode: waitingRoomState.mode === "queue" ? "queue" : "friend",
+        mode: "friend",
         queued: false,
         queuePosition: 0,
         playerNames: snapshot.playerNames || waitingRoomState.playerNames,
+        playerAvatars: snapshot.playerAvatars || waitingRoomState.playerAvatars,
         yourName: snapshot.youName || waitingRoomState.yourName,
         opponentName: snapshot.opponentName || waitingRoomState.opponentName,
         youReady: snapshot.youReady,
@@ -356,6 +417,7 @@ function wireOnlineEvents() {
       waitingRoomState = {
         ...waitingRoomState,
         playerNames: snapshot.playerNames || waitingRoomState.playerNames,
+        playerAvatars: snapshot.playerAvatars || waitingRoomState.playerAvatars,
         shopReadyYou: Boolean(snapshot.shopSync?.youReady),
         shopReadyOpponent: Boolean(snapshot.shopSync?.opponentReady),
       };
@@ -382,12 +444,11 @@ function wireOnlineEvents() {
         queuePosition: snapshot.position,
       };
       updateOnlineRoomUI(activeRoomCode || "-");
-      if (snapshot.message) {
-        setStatus(snapshot.message);
-      }
+      setStatus(formatQueueStatus(snapshot));
     },
     chat: (message) => {
-      if (!message || typeof message.text !== "string") {
+      const isQuick = message && message.kind === "quick" && typeof message.key === "string";
+      if (!message || (!isQuick && typeof message.text !== "string")) {
         return;
       }
       onlineChatMessages.push(message);
@@ -397,21 +458,30 @@ function wireOnlineEvents() {
       if (activeFeedTab === "turn") {
         hasUnreadChat = true;
       }
+      if (isQuick) {
+        spawnQuickBubble(message);
+      }
       if (!elements.gameScreen.hidden) {
         renderChatPanel();
       }
     },
-    error: (message) => {
-      setStatus(message);
-      if (!elements.gameScreen.hidden) {
-        window.alert(message);
+    error: (info) => {
+      const message = resolveOnlineErrorMessage(info);
+      if (!message) {
+        return;
       }
+      setStatus(message);
+      showToast(message);
     },
-    status: (message) => {
-      if (!elements.gameScreen.hidden) {
+    status: (info) => {
+      const message = info && typeof info === "object" && info.key ? t(info.key) : String(info || "");
+      if (message && !elements.gameScreen.hidden) {
         setStatus(message);
       }
       updateOnlineConnectionStatus();
+    },
+    wake: (info) => {
+      updateWakeBanner(info);
     },
     presence: (info) => {
       onlinePresenceCount = Math.max(0, Number(info?.count) || 0);
@@ -550,8 +620,9 @@ function bindEvents() {
       activeRoomCode = null;
       waitingRoomState = createWaitingRoomState();
       if (/^[A-Z2-9]{6}$/.test(savedRoomCode)) {
+        // Stale save, no live socket: stay on the home step with the code
+        // prefilled — the room step only makes sense once connected.
         activeRoomCode = savedRoomCode;
-        waitingRoomState.mode = "friend";
         elements.onlineJoinCode.value = savedRoomCode;
       }
       updateOnlineRoomUI(activeRoomCode || "-");
@@ -613,7 +684,8 @@ function bindEvents() {
     online.setDisplayName(pseudo);
     const code = elements.onlineJoinCode.value.trim().toUpperCase();
     if (!/^[A-Z2-9]{6}$/.test(code)) {
-      window.alert(t("online.invalidCode"));
+      showToast(t("online.invalidCode"));
+      elements.onlineJoinCode.focus();
       return;
     }
 
@@ -708,6 +780,7 @@ function bindEvents() {
     activeRoomCode = null;
     waitingRoomState = createWaitingRoomState();
     onlineChatMessages = [];
+    updateWakeBanner({ waking: false });
     showMainMenu();
   });
 
@@ -757,6 +830,25 @@ function bindEvents() {
   elements.onlineReadyBtn.addEventListener("click", () => {
     online.setReady(!waitingRoomState.youReady);
   });
+
+  elements.onlineAvatarBtn.addEventListener("click", () => {
+    elements.onlineAvatarPicker.hidden = !elements.onlineAvatarPicker.hidden;
+    if (!elements.onlineAvatarPicker.hidden) {
+      refreshAvatarPickerSelection();
+    }
+  });
+
+  elements.onlineQueueCancelBtn.addEventListener("click", () => {
+    online.cancelQueue();
+    waitingRoomState = createWaitingRoomState();
+    // A background connect may still be retrying; the user asked out, so
+    // drop the wake banner now rather than when those retries give up.
+    updateWakeBanner({ waking: false });
+    updateOnlineRoomUI("-");
+  });
+
+  buildAvatarPicker();
+  buildQuickChatBar();
 
   elements.logTabTurn.addEventListener("click", () => {
     activeFeedTab = "turn";
@@ -991,6 +1083,11 @@ function bindEvents() {
     tutorialController.refreshActiveText();
     renderHomeStats();
     renderHomeResume();
+    refreshQuickChatBar();
+    if (!elements.onlinePanel.hidden) {
+      updateOnlineRoomUI(activeRoomCode || "-");
+      updateOnlineConnectionStatus();
+    }
     render();
   });
 
@@ -2053,6 +2150,7 @@ function renderRoundAwayRunes(entries) {
 
 function renderChatPanel() {
   const isOnline = online.isOnlineActive();
+  elements.quickChatBar.hidden = !isOnline;
 
   // Offline (AI / Pass & Play): no chat, no tabs — just the plain turn log.
   if (!isOnline) {
@@ -2108,7 +2206,9 @@ function renderChatPanel() {
     author.textContent = `${entry.name || t("common.player")}:`;
 
     const text = document.createElement("span");
-    text.textContent = ` ${entry.text || ""}`;
+    text.textContent = entry.kind === "quick" && entry.key
+      ? ` ${formatQuickChatText(entry)}`
+      : ` ${entry.text || ""}`;
 
     row.appendChild(author);
     row.appendChild(text);
@@ -2239,7 +2339,6 @@ function initializeEntryMode() {
   const savedRoomCode = String(savedOnline?.roomCode || "").toUpperCase();
   if (/^[A-Z2-9]{6}$/.test(savedRoomCode)) {
     activeRoomCode = savedRoomCode;
-    waitingRoomState.mode = "friend";
     elements.onlineJoinCode.value = savedRoomCode;
   }
 
@@ -2286,8 +2385,9 @@ function showOnlinePanel() {
   elements.onlinePseudo.value = normalizePseudo(elements.onlinePseudo.value || online.getSession().displayName || "");
   if (activeRoomCode && /^[A-Z2-9]{6}$/.test(activeRoomCode)) {
     elements.onlineJoinCode.value = activeRoomCode;
-    waitingRoomState.mode = "friend";
   }
+  renderOnlineIdentity();
+  updateOnlineRoomUI(activeRoomCode || "-");
   updateOnlineConnectionStatus();
 }
 
@@ -2328,103 +2428,94 @@ function enterGameScreen(mode, roomCode = null) {
   render();
 }
 
+// The lobby is a small state machine: "home" (identity + primary actions),
+// "searching" (quick-play queue) and "room" (invite + waiting room). Exactly
+// one step is visible at a time.
 function updateOnlineRoomUI(roomCode) {
   const isFriendMode = waitingRoomState.mode === "friend";
-  const isQueueMode = waitingRoomState.mode === "queue";
-  const showQueueStatus = isQueueMode && waitingRoomState.queued;
+  const searching = waitingRoomState.mode === "queue" && waitingRoomState.queued;
   const hasRoomCode = isFriendMode && typeof roomCode === "string" && /^[A-Z2-9]{6}$/.test(roomCode);
-  const roomLink = hasRoomCode ? buildRoomLink(roomCode) : "";
+  const step = searching ? "searching" : (hasRoomCode ? "room" : "home");
 
-  elements.onlineRoomCode.hidden = !hasRoomCode;
-  elements.onlineRoomCode.textContent = t("online.room", { code: hasRoomCode ? roomCode : "-" });
-  if (elements.onlineQueueStatus) {
-    elements.onlineQueueStatus.hidden = !showQueueStatus;
-  }
-  if (elements.onlineQueueText) {
-    elements.onlineQueueText.textContent = showQueueStatus
-      ? waitingRoomState.queuePosition > 1
-        ? t("online.searchingQueue", { n: waitingRoomState.queuePosition })
-        : t("online.searching")
-      : "";
-  }
-  if (elements.onlineRoomLinkWrap) {
-    elements.onlineRoomLinkWrap.hidden = !hasRoomCode;
-  }
-  if (elements.onlineRoomLink) {
-    elements.onlineRoomLink.textContent = hasRoomCode ? roomCode : "-";
-  }
-  if (elements.onlineRoomQr) {
-    if (hasRoomCode) {
-      elements.onlineRoomQr.src = buildRoomQrUrl(roomLink);
-      elements.onlineRoomQr.hidden = false;
-    } else {
-      elements.onlineRoomQr.removeAttribute("src");
-      elements.onlineRoomQr.hidden = true;
-    }
-  }
-  if (elements.onlineWaitingRoom) {
-    elements.onlineWaitingRoom.hidden = !isFriendMode;
-  }
-  elements.waitingRole.hidden = !isFriendMode || !waitingRoomState.playerId;
-  if (waitingRoomState.playerId) {
-    elements.waitingRole.textContent = t("online.youAre", { name: waitingRoomState.yourName || getDisplayPlayerName(waitingRoomState.playerId) });
+  elements.onlineStepHome.hidden = step !== "home";
+  elements.onlineStepSearching.hidden = step !== "searching";
+  elements.onlineStepRoom.hidden = step !== "room";
+
+  if (step === "home") {
+    renderOnlineIdentity();
+    return;
   }
 
-  elements.onlineReadyBtn.hidden = !isFriendMode || !waitingRoomState.opponentJoined;
-  elements.onlineSendLinkBtn.hidden = !isFriendMode;
-  elements.onlineReadyBtn.disabled = !isFriendMode || !waitingRoomState.opponentJoined;
+  if (step === "searching") {
+    elements.onlineQueueText.textContent = waitingRoomState.queuePosition > 1
+      ? t("online.searchingQueue", { n: waitingRoomState.queuePosition })
+      : t("online.searching");
+    return;
+  }
 
-  elements.waitingYouStatus.textContent = isFriendMode
-    ? t("online.youStatus", {
-        name: waitingRoomState.yourName || t("online.you"),
-        status: waitingRoomState.youReady ? t("common.ready") : t("common.notReady"),
-      })
-    : t("online.youStatus", {
-        name: t("online.you"),
-        status: waitingRoomState.queued ? t("online.inQueue") : t("online.notQueued"),
-      });
+  renderOnlineRoomStep(roomCode);
+}
 
-  if (isQueueMode) {
-    elements.waitingOpponentStatus.textContent = waitingRoomState.queued
-      ? t("online.queuePosition", { n: waitingRoomState.queuePosition > 1 ? waitingRoomState.queuePosition : 1 })
-      : t("online.queueInactive");
+function renderOnlineRoomStep(roomCode) {
+  const roomLink = buildRoomLink(roomCode);
+  const showInvite = !waitingRoomState.opponentJoined;
+
+  elements.onlineRoomCodeLink.textContent = roomCode;
+  elements.onlineRoomCodeLink.href = roomLink;
+
+  // The QR/share block earns its space only while the seat is empty.
+  if (showInvite) {
+    elements.onlineRoomQr.src = buildRoomQrUrl(roomLink);
+    elements.onlineRoomQr.hidden = false;
   } else {
-    elements.waitingOpponentStatus.textContent = waitingRoomState.opponentJoined
-      ? t("online.youStatus", {
-          name: waitingRoomState.opponentName || t("online.opponent"),
-          status: waitingRoomState.opponentReady ? t("common.ready") : t("online.opponentJoinedNotReady"),
-        }) + (waitingRoomState.opponentConnected ? "" : t("online.offlineSuffix"))
-      : t("online.opponentWaiting");
+    elements.onlineRoomQr.removeAttribute("src");
+    elements.onlineRoomQr.hidden = true;
   }
+  elements.onlineSendLinkBtn.hidden = !showInvite;
+
+  const yourId = waitingRoomState.playerId;
+  const oppId = yourId === 1 ? 2 : 1;
+  const avatars = waitingRoomState.playerAvatars || {};
+
+  renderAvatarChip(elements.onlineYouAvatar, (yourId && avatars[yourId]) || online.getAvatar());
+  elements.onlineYouName.textContent = waitingRoomState.yourName || t("online.you");
+  elements.onlineYouState.textContent = waitingRoomState.youReady ? t("common.ready") : t("common.notReady");
+  elements.onlineYouState.classList.toggle("ready", Boolean(waitingRoomState.youReady));
+
+  elements.onlinePlayerOpp.classList.toggle("waiting", !waitingRoomState.opponentJoined);
+  if (waitingRoomState.opponentJoined) {
+    renderAvatarChip(elements.onlineOppAvatar, (yourId && avatars[oppId]) || null);
+    elements.onlineOppName.textContent = waitingRoomState.opponentName || t("online.opponent");
+    elements.onlineOppState.textContent = waitingRoomState.opponentConnected
+      ? (waitingRoomState.opponentReady ? t("common.ready") : t("common.notReady"))
+      : t("online.offline");
+    elements.onlineOppState.classList.toggle("ready", Boolean(waitingRoomState.opponentReady && waitingRoomState.opponentConnected));
+  } else {
+    renderAvatarChip(elements.onlineOppAvatar, null);
+    elements.onlineOppName.textContent = t("online.waitingForOpponent");
+    elements.onlineOppState.textContent = "";
+    elements.onlineOppState.classList.remove("ready");
+  }
+
+  elements.onlineReadyBtn.hidden = !waitingRoomState.opponentJoined;
+  elements.onlineReadyBtn.disabled = !waitingRoomState.opponentJoined;
+  elements.onlineReadyBtn.textContent = waitingRoomState.youReady ? t("online.cancelReady") : t("online.setReady");
 
   if (waitingRoomState.started) {
     elements.waitingSummary.textContent = t("online.matchStarted");
     return;
   }
-
-  if (isQueueMode) {
-    elements.waitingSummary.textContent = waitingRoomState.queued
-      ? t("online.searching")
-      : "";
+  if (waitingRoomState.canStart) {
+    elements.waitingSummary.textContent = t("online.bothReady");
     return;
   }
-
-  if (isFriendMode) {
-    if (waitingRoomState.canStart) {
-      elements.waitingSummary.textContent = t("online.bothReady");
-      return;
-    }
-    if (!waitingRoomState.opponentJoined) {
-      elements.waitingSummary.textContent = t("online.shareInvite");
-      return;
-    }
-    elements.waitingSummary.textContent = waitingRoomState.youReady
-      ? t("online.youReadyWaiting")
-      : t("online.opponentJoinedSetReady");
+  if (!waitingRoomState.opponentJoined) {
+    elements.waitingSummary.textContent = t("online.shareInvite");
     return;
   }
-
-  elements.waitingSummary.textContent = "";
+  elements.waitingSummary.textContent = waitingRoomState.youReady
+    ? t("online.youReadyWaiting")
+    : t("online.opponentJoinedSetReady");
 }
 
 function createWaitingRoomState() {
@@ -2433,6 +2524,7 @@ function createWaitingRoomState() {
     queued: false,
     queuePosition: 0,
     playerNames: null,
+    playerAvatars: null,
     yourName: "",
     opponentName: "",
     youReady: false,
@@ -2446,6 +2538,208 @@ function createWaitingRoomState() {
     shopReadyOpponent: false,
     autoStartRequested: false,
   };
+}
+
+// --- Lobby avatars, wake banner, toast and quick-chat helpers --------------
+
+function renderAvatarChip(el, avatar) {
+  if (!el) {
+    return;
+  }
+  el.innerHTML = "";
+  if (avatar && avatar.glyph && avatar.color) {
+    el.dataset.color = avatar.color;
+    const img = document.createElement("img");
+    img.src = `./assets/runes/${avatar.glyph}.svg`;
+    img.alt = "";
+    el.appendChild(img);
+  } else {
+    delete el.dataset.color;
+    el.textContent = "?";
+  }
+}
+
+function renderOnlineIdentity() {
+  renderAvatarChip(elements.onlineAvatarBtn, online.getAvatar());
+}
+
+function buildAvatarPicker() {
+  elements.onlineAvatarGlyphs.innerHTML = "";
+  AVATAR_GLYPHS.forEach((glyph) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "online-avatar-option";
+    button.dataset.glyph = glyph;
+    const img = document.createElement("img");
+    img.src = `./assets/runes/${glyph}.svg`;
+    img.alt = glyph;
+    button.appendChild(img);
+    button.addEventListener("click", () => {
+      online.setAvatar({ ...online.getAvatar(), glyph });
+      renderOnlineIdentity();
+      refreshAvatarPickerSelection();
+    });
+    elements.onlineAvatarGlyphs.appendChild(button);
+  });
+
+  elements.onlineAvatarColors.innerHTML = "";
+  AVATAR_COLORS.forEach((color) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "online-avatar-swatch";
+    button.dataset.color = color;
+    button.setAttribute("aria-label", color);
+    button.addEventListener("click", () => {
+      online.setAvatar({ ...online.getAvatar(), color });
+      renderOnlineIdentity();
+      refreshAvatarPickerSelection();
+    });
+    elements.onlineAvatarColors.appendChild(button);
+  });
+}
+
+function refreshAvatarPickerSelection() {
+  const avatar = online.getAvatar();
+  elements.onlineAvatarGlyphs.querySelectorAll(".online-avatar-option").forEach((button) => {
+    button.classList.toggle("selected", button.dataset.glyph === avatar.glyph);
+  });
+  elements.onlineAvatarColors.querySelectorAll(".online-avatar-swatch").forEach((button) => {
+    button.classList.toggle("selected", button.dataset.color === avatar.color);
+  });
+}
+
+// Non-blocking replacement for the old window.alert() on online errors.
+function showToast(message) {
+  if (!message || !elements.appToast) {
+    return;
+  }
+  window.clearTimeout(toastShowTimer);
+  window.clearTimeout(toastHideTimer);
+  elements.appToast.textContent = message;
+  elements.appToast.hidden = false;
+  // Force a restyle so re-showing the same toast replays the transition.
+  elements.appToast.classList.remove("visible");
+  void elements.appToast.offsetWidth;
+  elements.appToast.classList.add("visible");
+  toastShowTimer = window.setTimeout(() => {
+    elements.appToast.classList.remove("visible");
+    toastHideTimer = window.setTimeout(() => {
+      elements.appToast.hidden = true;
+    }, 350);
+  }, 4200);
+}
+
+function resolveOnlineErrorMessage(info) {
+  if (!info) {
+    return "";
+  }
+  if (typeof info === "string") {
+    return info;
+  }
+  const key = info.code ? ONLINE_ERROR_KEY_BY_CODE[info.code] : null;
+  if (key) {
+    return t(key);
+  }
+  return String(info.message || "");
+}
+
+function formatQueueStatus(snapshot) {
+  if (!snapshot || !snapshot.code) {
+    return String(snapshot?.message || "");
+  }
+  if (snapshot.code === "queue_searching") {
+    return t("online.searching");
+  }
+  if (snapshot.code === "queue_position") {
+    return t("online.searchingQueue", { n: snapshot.position || 1 });
+  }
+  if (snapshot.code === "queue_cancelled") {
+    return t("online.queueCancelled");
+  }
+  return "";
+}
+
+function updateWakeBanner(info) {
+  if (!elements.onlineWakeBanner) {
+    return;
+  }
+  const waking = Boolean(info?.waking);
+  elements.onlineWakeBanner.hidden = !waking;
+  if (waking) {
+    elements.onlineWakeText.textContent = info.attempt > 1
+      ? t("online.wakeRetry", { n: info.attempt })
+      : t("online.wakeBanner");
+  }
+}
+
+function buildQuickChatBar() {
+  elements.quickChatBar.innerHTML = "";
+  QUICK_CHAT_KEYS.forEach((key) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "qc-btn";
+    button.dataset.qcKey = key;
+    button.textContent = QC_EMOJI[key] || "\u{1F4AC}";
+    button.addEventListener("click", () => {
+      if (!online.isOnlineActive()) {
+        return;
+      }
+      const sent = online.sendQuickChat(key);
+      if (sent) {
+        elements.quickChatBar.classList.add("cooldown");
+        window.clearTimeout(quickChatCooldownTimer);
+        quickChatCooldownTimer = window.setTimeout(() => {
+          elements.quickChatBar.classList.remove("cooldown");
+        }, 1200);
+      }
+    });
+    elements.quickChatBar.appendChild(button);
+  });
+  refreshQuickChatBar();
+}
+
+// Tooltips/aria carry the localized text; re-resolved on language change.
+function refreshQuickChatBar() {
+  elements.quickChatBar.querySelectorAll(".qc-btn").forEach((button) => {
+    const label = t(button.dataset.qcKey);
+    button.title = label;
+    button.setAttribute("aria-label", label);
+  });
+}
+
+function formatQuickChatText(entry) {
+  return `${QC_EMOJI[entry.key] || "\u{1F4AC}"} ${t(entry.key)}`;
+}
+
+function spawnQuickBubble(entry) {
+  if (elements.gameScreen.hidden || !elements.qcBubbles) {
+    return;
+  }
+  const bubble = document.createElement("div");
+  bubble.className = "qc-bubble";
+  bubble.dataset.side = entry.playerId === waitingRoomState.playerId ? "you" : "opp";
+  bubble.textContent = formatQuickChatText(entry);
+  elements.qcBubbles.appendChild(bubble);
+  window.setTimeout(() => {
+    bubble.classList.add("out");
+  }, 2600);
+  window.setTimeout(() => {
+    bubble.remove();
+  }, 3100);
+}
+
+function updateInGameAvatars() {
+  const avatars = online.isOnlineActive() ? waitingRoomState.playerAvatars : null;
+  [[1, elements.p1Avatar], [2, elements.p2Avatar]].forEach(([playerId, el]) => {
+    if (!el) {
+      return;
+    }
+    const avatar = avatars?.[playerId];
+    el.hidden = !avatar;
+    if (avatar) {
+      renderAvatarChip(el, avatar);
+    }
+  });
 }
 
 function updateOnlineConnectionStatus() {
@@ -2529,7 +2823,8 @@ function updateTopButtons() {
 function getValidatedOnlinePseudo() {
   const pseudo = normalizePseudo(elements.onlinePseudo.value || "");
   if (!pseudo) {
-    window.alert(t("online.enterName"));
+    showToast(t("online.enterName"));
+    elements.onlinePseudo.focus();
     return null;
   }
 
@@ -2577,6 +2872,7 @@ function formatLogEntry(entry) {
 function applyOnlinePlayerNames() {
   elements.p1Name.textContent = getDisplayPlayerName(1);
   elements.p2Name.textContent = getDisplayPlayerName(2);
+  updateInGameAvatars();
 }
 
 function buildRoomLink(roomCode) {

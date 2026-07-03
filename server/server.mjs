@@ -43,6 +43,22 @@ const rooms = new Map();
 const wsToSession = new Map();
 const quickQueue = [];
 
+// Avatar payloads are client-chosen but validated against fixed sets so a
+// tampered client can't inject arbitrary strings into other players' UI.
+const AVATAR_GLYPHS = new Set([
+  "algiz", "ansuz", "berkana", "dagaz", "ehwaz", "eihwaz", "fehu", "gebo",
+  "hagalz", "inguz", "isa", "jera", "kenaz", "laguz", "mannaz", "nauthiz",
+  "odal", "perth", "raido", "sowelu", "teiwaz", "thurisa", "uruz", "wunjo",
+]);
+const AVATAR_COLORS = new Set(["gold", "ember", "moss", "fjord", "amethyst", "frost"]);
+
+// Quick-chat travels as i18n KEYS, never free text, so each client renders
+// the message in its own language. Only these keys are relayed.
+const QUICK_CHAT_KEYS = new Set([
+  "qc.hello", "qc.goodLuck", "qc.wellPlayed", "qc.wow", "qc.thinking", "qc.goodGame",
+]);
+const QUICK_CHAT_MIN_INTERVAL_MS = 1200;
+
 await loadRooms();
 
 const server = createServer(handleHttp);
@@ -65,7 +81,7 @@ wss.on("connection", (ws) => {
     try {
       message = JSON.parse(String(raw));
     } catch {
-      send(ws, { type: "error", message: "Invalid JSON message." });
+      send(ws, { type: "error", code: "invalid_json", message: "Invalid JSON message." });
       return;
     }
 
@@ -150,7 +166,7 @@ function isAllowedPublicPath(target) {
 
 function handleMessage(ws, message) {
   if (!message || typeof message.type !== "string") {
-    send(ws, { type: "error", message: "Malformed message." });
+    send(ws, { type: "error", code: "malformed", message: "Malformed message." });
     return;
   }
 
@@ -180,24 +196,26 @@ function handleMessage(ws, message) {
     case "ping":
       return send(ws, { type: "pong", ts: Date.now() });
     default:
-      return send(ws, { type: "error", message: `Unknown message type: ${message.type}` });
+      return send(ws, { type: "error", code: "unknown_type", message: `Unknown message type: ${message.type}` });
   }
 }
 
 function onQueueJoin(ws, message) {
   const guestId = normalizeGuestId(message.guestId);
   if (!guestId) {
-    send(ws, { type: "error", message: "Invalid guest id for quick play." });
+    send(ws, { type: "error", code: "invalid_guest", message: "Invalid guest id for quick play." });
     return;
   }
 
   const displayName = normalizeDisplayName(message.displayName, `Guest-${guestId.slice(-4).toUpperCase()}`);
 
+  const avatar = normalizeAvatar(message.avatar);
   const existing = quickQueue.find((entry) => entry.ws === ws);
   if (!existing) {
-    quickQueue.push({ ws, guestId, displayName, joinedAt: Date.now() });
+    quickQueue.push({ ws, guestId, displayName, avatar, joinedAt: Date.now() });
   } else {
     existing.displayName = displayName;
+    existing.avatar = avatar || existing.avatar;
   }
 
   const position = quickQueue.findIndex((entry) => entry.ws === ws) + 1;
@@ -205,6 +223,7 @@ function onQueueJoin(ws, message) {
     type: "queue_status",
     queued: true,
     position,
+    code: position === 1 ? "queue_searching" : "queue_position",
     message: position === 1 ? "Searching for opponent..." : `In queue: #${position}`,
   });
 
@@ -217,6 +236,7 @@ function onQueueCancel(ws) {
     type: "queue_status",
     queued: false,
     position: 0,
+    code: removed ? "queue_cancelled" : "queue_not_in",
     message: removed ? "Quick play cancelled." : "Not currently in queue.",
   });
 }
@@ -228,10 +248,10 @@ function tryMatchQueue() {
 
     if (!isSocketOpen(first.ws) || !isSocketOpen(second.ws)) {
       if (isSocketOpen(first.ws)) {
-        send(first.ws, { type: "queue_status", queued: true, position: 1, message: "Searching for opponent..." });
+        send(first.ws, { type: "queue_status", queued: true, position: 1, code: "queue_searching", message: "Searching for opponent..." });
       }
       if (isSocketOpen(second.ws)) {
-        send(second.ws, { type: "queue_status", queued: true, position: 1, message: "Searching for opponent..." });
+        send(second.ws, { type: "queue_status", queued: true, position: 1, code: "queue_searching", message: "Searching for opponent..." });
       }
       continue;
     }
@@ -249,6 +269,7 @@ function tryMatchQueue() {
       type: "queue_status",
       queued: true,
       position: index + 1,
+      code: index === 0 ? "queue_searching" : "queue_position",
       message: index === 0 ? "Searching for opponent..." : `In queue: #${index + 1}`,
     });
   });
@@ -270,8 +291,8 @@ function createInstantMatch(firstEntry, secondEntry) {
     chat: [],
     shopSync: createShopSyncState(),
     players: {
-      1: createPlayerRecord(token1, normalizeDisplayName(firstEntry?.displayName, "Player 1")),
-      2: createPlayerRecord(token2, normalizeDisplayName(secondEntry?.displayName, "Player 2")),
+      1: createPlayerRecord(token1, normalizeDisplayName(firstEntry?.displayName, "Player 1"), firstEntry?.avatar),
+      2: createPlayerRecord(token2, normalizeDisplayName(secondEntry?.displayName, "Player 2"), secondEntry?.avatar),
     },
   };
 
@@ -294,7 +315,7 @@ function createInstantMatch(firstEntry, secondEntry) {
 function onCreateRoom(ws, message) {
   const roomCode = normalizeRoomCode(message.roomCode) || generateRoomCode();
   if (rooms.has(roomCode)) {
-    send(ws, { type: "error", message: "Room already exists." });
+    send(ws, { type: "error", code: "room_exists", message: "Room already exists." });
     return;
   }
 
@@ -309,7 +330,7 @@ function onCreateRoom(ws, message) {
     chat: [],
     shopSync: null,
     players: {
-      1: createPlayerRecord(token, displayName),
+      1: createPlayerRecord(token, displayName, message.avatar),
       2: createPlayerRecord(null, "Player 2"),
     },
   };
@@ -325,7 +346,7 @@ function onJoinRoom(ws, message) {
   const roomCode = normalizeRoomCode(message.roomCode);
   const room = roomCode ? rooms.get(roomCode) : null;
   if (!room) {
-    send(ws, { type: "error", message: "Room not found." });
+    send(ws, { type: "error", code: "room_not_found", message: "Room not found." });
     return;
   }
 
@@ -339,7 +360,7 @@ function onJoinRoom(ws, message) {
     });
 
     if (!reclaimPlayerId) {
-      send(ws, { type: "error", message: "Match already started. Reconnect with token." });
+      send(ws, { type: "error", code: "match_started_reconnect", message: "Match already started. Reconnect with token." });
       return;
     }
 
@@ -349,6 +370,7 @@ function onJoinRoom(ws, message) {
       message.displayName,
       room.players[reclaimPlayerId].name || `Player ${reclaimPlayerId}`,
     );
+    room.players[reclaimPlayerId].avatar = normalizeAvatar(message.avatar) || room.players[reclaimPlayerId].avatar;
     attachSession(ws, room.code, reclaimPlayerId, newToken);
     persistRooms().catch(() => {});
 
@@ -361,6 +383,7 @@ function onJoinRoom(ws, message) {
       chat: Array.isArray(room.chat) ? room.chat : [],
       playerId: reclaimPlayerId,
       playerNames: getRoomPlayerNames(room),
+      playerAvatars: getRoomPlayerAvatars(room),
       shopSync: getShopSyncPayload(room, reclaimPlayerId),
     });
     broadcastWaitingState(room);
@@ -372,14 +395,14 @@ function onJoinRoom(ws, message) {
   }
 
   if (room.players[2].token && room.players[2].connected) {
-    send(ws, { type: "error", message: "Room is full." });
+    send(ws, { type: "error", code: "room_full", message: "Room is full." });
     return;
   }
 
   const playerId = room.players[1].token ? 2 : 1;
   const token = createToken();
   const defaultName = playerId === 1 ? "Player 1" : "Player 2";
-  room.players[playerId] = createPlayerRecord(token, normalizeDisplayName(message.displayName, defaultName));
+  room.players[playerId] = createPlayerRecord(token, normalizeDisplayName(message.displayName, defaultName), message.avatar);
   attachSession(ws, room.code, playerId, token);
   persistRooms().catch(() => {});
 
@@ -393,13 +416,13 @@ function onReconnect(ws, message) {
 
   const room = roomCode ? rooms.get(roomCode) : null;
   if (!room || !token) {
-    send(ws, { type: "error", message: "Reconnect failed." });
+    send(ws, { type: "error", code: "reconnect_failed", message: "Reconnect failed." });
     return;
   }
 
   const playerId = [1, 2].find((id) => room.players[id].token === token);
   if (!playerId) {
-    send(ws, { type: "error", message: "Reconnect token invalid." });
+    send(ws, { type: "error", code: "reconnect_token_invalid", message: "Reconnect token invalid." });
     return;
   }
 
@@ -409,6 +432,7 @@ function onReconnect(ws, message) {
     message.displayName,
     room.players[playerId].name || `Player ${playerId}`,
   );
+  room.players[playerId].avatar = normalizeAvatar(message.avatar) || room.players[playerId].avatar;
 
   attachSession(ws, room.code, playerId, token);
   persistRooms().catch(() => {});
@@ -423,6 +447,7 @@ function onReconnect(ws, message) {
       chat: Array.isArray(room.chat) ? room.chat : [],
       playerId,
       playerNames: getRoomPlayerNames(room),
+      playerAvatars: getRoomPlayerAvatars(room),
       shopSync: getShopSyncPayload(room, playerId),
     });
   }
@@ -433,13 +458,13 @@ function onReconnect(ws, message) {
 function onSetReady(ws, message) {
   const session = wsToSession.get(ws);
   if (!session) {
-    send(ws, { type: "error", message: "Join a room first." });
+    send(ws, { type: "error", code: "join_room_first", message: "Join a room first." });
     return;
   }
 
   const room = rooms.get(session.roomCode);
   if (!room || room.started) {
-    send(ws, { type: "error", message: "Cannot change readiness now." });
+    send(ws, { type: "error", code: "cannot_change_ready", message: "Cannot change readiness now." });
     return;
   }
 
@@ -451,28 +476,28 @@ function onSetReady(ws, message) {
 function onStartMatch(ws) {
   const session = wsToSession.get(ws);
   if (!session) {
-    send(ws, { type: "error", message: "Join a room first." });
+    send(ws, { type: "error", code: "join_room_first", message: "Join a room first." });
     return;
   }
 
   const room = rooms.get(session.roomCode);
   if (!room) {
-    send(ws, { type: "error", message: "Room not found." });
+    send(ws, { type: "error", code: "room_not_found", message: "Room not found." });
     return;
   }
 
   if (room.started) {
-    send(ws, { type: "error", message: "Match already started." });
+    send(ws, { type: "error", code: "match_already_started", message: "Match already started." });
     return;
   }
 
   if (!room.players[1].token || !room.players[2].token) {
-    send(ws, { type: "error", message: "Need two players in room." });
+    send(ws, { type: "error", code: "need_two_players", message: "Need two players in room." });
     return;
   }
 
   if (!room.players[1].ready || !room.players[2].ready) {
-    send(ws, { type: "error", message: "Both players must be ready." });
+    send(ws, { type: "error", code: "both_ready_required", message: "Both players must be ready." });
     return;
   }
 
@@ -496,23 +521,23 @@ function onStartMatch(ws) {
 function onRematchRequest(ws) {
   const session = wsToSession.get(ws);
   if (!session) {
-    send(ws, { type: "error", message: "Join a room first." });
+    send(ws, { type: "error", code: "join_room_first", message: "Join a room first." });
     return;
   }
 
   const room = rooms.get(session.roomCode);
   if (!room || !room.started || !room.state) {
-    send(ws, { type: "error", message: "No finished match to rematch." });
+    send(ws, { type: "error", code: "no_finished_match", message: "No finished match to rematch." });
     return;
   }
 
   if (room.state.phase !== "game-over") {
-    send(ws, { type: "error", message: "Rematch is only available once the game is over." });
+    send(ws, { type: "error", code: "rematch_only_game_over", message: "Rematch is only available once the game is over." });
     return;
   }
 
   if (!room.players[1].token || !room.players[2].token) {
-    send(ws, { type: "error", message: "Both players must be present to rematch." });
+    send(ws, { type: "error", code: "rematch_need_both", message: "Both players must be present to rematch." });
     return;
   }
 
@@ -550,13 +575,13 @@ function broadcastRematchStatus(room) {
 function onAction(ws, message) {
   const session = wsToSession.get(ws);
   if (!session) {
-    send(ws, { type: "error", message: "Join a room first." });
+    send(ws, { type: "error", code: "join_room_first", message: "Join a room first." });
     return;
   }
 
   const room = rooms.get(session.roomCode);
   if (!room || !room.started || !room.state) {
-    send(ws, { type: "error", message: "Match is not active." });
+    send(ws, { type: "error", code: "match_not_active", message: "Match is not active." });
     return;
   }
 
@@ -565,12 +590,12 @@ function onAction(ws, message) {
   const clientSeq = Number(message.clientSeq);
 
   if (actionType === "phase_action" && room.state.phase === "shop") {
-    send(ws, { type: "action_rejected", message: "Use Shop Ready in online shop phase.", actionType });
+    send(ws, { type: "action_rejected", code: "shop_ready_online", message: "Use Shop Ready in online shop phase.", actionType });
     return;
   }
 
   if (!Number.isInteger(clientSeq)) {
-    send(ws, { type: "action_rejected", message: "Missing action sequence number.", actionType });
+    send(ws, { type: "action_rejected", code: "seq_missing", message: "Missing action sequence number.", actionType });
     return;
   }
 
@@ -579,6 +604,7 @@ function onAction(ws, message) {
   if (clientSeq !== expectedSeq) {
     send(ws, {
       type: "action_rejected",
+      code: "seq_out_of_order",
       message: `Out-of-order action. Expected ${expectedSeq}, received ${clientSeq}.`,
       actionType,
       expectedClientSeq: expectedSeq,
@@ -634,18 +660,13 @@ function onAction(ws, message) {
 function onChatSend(ws, message) {
   const session = wsToSession.get(ws);
   if (!session) {
-    send(ws, { type: "error", message: "Join a room first." });
+    send(ws, { type: "error", code: "join_room_first", message: "Join a room first." });
     return;
   }
 
   const room = rooms.get(session.roomCode);
   if (!room || !room.started) {
-    send(ws, { type: "error", message: "Match is not active." });
-    return;
-  }
-
-  const text = normalizeChatText(message.text);
-  if (!text) {
+    send(ws, { type: "error", code: "match_not_active", message: "Match is not active." });
     return;
   }
 
@@ -654,13 +675,40 @@ function onChatSend(ws, message) {
   }
 
   const name = room.players?.[session.playerId]?.name || `Player ${session.playerId}`;
-  const chatMessage = {
-    id: createToken().slice(0, 12),
-    playerId: session.playerId,
-    name,
-    text,
-    at: Date.now(),
-  };
+  let chatMessage = null;
+
+  if (message.kind === "quick") {
+    // Quick-chat: a whitelisted i18n key, rate-limited, no free text.
+    const key = typeof message.key === "string" ? message.key : "";
+    if (!QUICK_CHAT_KEYS.has(key)) {
+      return;
+    }
+    const now = Date.now();
+    if (now - (session.lastQuickChatAt || 0) < QUICK_CHAT_MIN_INTERVAL_MS) {
+      return;
+    }
+    session.lastQuickChatAt = now;
+    chatMessage = {
+      id: createToken().slice(0, 12),
+      playerId: session.playerId,
+      name,
+      kind: "quick",
+      key,
+      at: now,
+    };
+  } else {
+    const text = normalizeChatText(message.text);
+    if (!text) {
+      return;
+    }
+    chatMessage = {
+      id: createToken().slice(0, 12),
+      playerId: session.playerId,
+      name,
+      text,
+      at: Date.now(),
+    };
+  }
 
   room.chat.push(chatMessage);
   if (room.chat.length > 100) {
@@ -813,6 +861,7 @@ function broadcastState(room) {
       chat: Array.isArray(room.chat) ? room.chat : [],
       playerId,
       playerNames: getRoomPlayerNames(room),
+      playerAvatars: getRoomPlayerAvatars(room),
       shopSync: getShopSyncPayload(room, playerId),
     });
   });
@@ -835,6 +884,7 @@ function sendWaitingSnapshot(ws, room, playerId, token) {
     youName: you.name || `Player ${playerId}`,
     opponentName: opp.name || `Player ${playerId === 1 ? 2 : 1}`,
     playerNames: getRoomPlayerNames(room),
+    playerAvatars: getRoomPlayerAvatars(room),
     started: room.started,
     youReady: you.ready,
     opponentJoined: Boolean(opp.token),
@@ -895,15 +945,35 @@ function attachSession(ws, roomCode, playerId, token) {
   wsToSession.set(ws, { roomCode, playerId, token });
 }
 
-function createPlayerRecord(token, name) {
+function createPlayerRecord(token, name, avatar = null) {
   return {
     token,
     name: normalizeDisplayName(name, "Player"),
+    avatar: normalizeAvatar(avatar),
     ready: false,
     connected: Boolean(token),
     lastSeen: Date.now(),
     lastClientSeq: 0,
     ws: null,
+  };
+}
+
+function normalizeAvatar(value) {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const glyph = typeof value.glyph === "string" ? value.glyph.toLowerCase() : "";
+  const color = typeof value.color === "string" ? value.color.toLowerCase() : "";
+  if (!AVATAR_GLYPHS.has(glyph) || !AVATAR_COLORS.has(color)) {
+    return null;
+  }
+  return { glyph, color };
+}
+
+function getRoomPlayerAvatars(room) {
+  return {
+    1: room.players[1]?.avatar || null,
+    2: room.players[2]?.avatar || null,
   };
 }
 
@@ -1067,13 +1137,13 @@ async function loadRooms() {
         shopSync: entry.shopSync || null,
         players: {
           1: {
-            ...createPlayerRecord(entry.players?.[1]?.token || null, entry.players?.[1]?.name || "Player 1"),
+            ...createPlayerRecord(entry.players?.[1]?.token || null, entry.players?.[1]?.name || "Player 1", entry.players?.[1]?.avatar),
             ready: Boolean(entry.players?.[1]?.ready),
             connected: false,
             lastClientSeq: Number(entry.players?.[1]?.lastClientSeq || 0),
           },
           2: {
-            ...createPlayerRecord(entry.players?.[2]?.token || null, entry.players?.[2]?.name || "Player 2"),
+            ...createPlayerRecord(entry.players?.[2]?.token || null, entry.players?.[2]?.name || "Player 2", entry.players?.[2]?.avatar),
             ready: Boolean(entry.players?.[2]?.ready),
             connected: false,
             lastClientSeq: Number(entry.players?.[2]?.lastClientSeq || 0),
@@ -1109,6 +1179,7 @@ function persistRooms() {
               1: {
                 token: room.players[1].token,
                 name: room.players[1].name,
+                avatar: room.players[1].avatar,
                 ready: room.players[1].ready,
                 lastSeen: room.players[1].lastSeen,
                 lastClientSeq: room.players[1].lastClientSeq,
@@ -1116,6 +1187,7 @@ function persistRooms() {
               2: {
                 token: room.players[2].token,
                 name: room.players[2].name,
+                avatar: room.players[2].avatar,
                 ready: room.players[2].ready,
                 lastSeen: room.players[2].lastSeen,
                 lastClientSeq: room.players[2].lastClientSeq,

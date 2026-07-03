@@ -161,43 +161,71 @@
       <p class="online-server-status">
         <span id="online-server-dot" class="online-dot" aria-hidden="true"></span>
         <span id="online-server-text">Server: Disconnected</span>
+        <span class="online-presence" id="online-presence" hidden><span id="online-presence-text"></span></span>
       </p>
-      <p class="online-presence" id="online-presence" hidden><span id="online-presence-text"></span></p>
-      <div class="settings-grid online-name-grid">
-        <label for="online-pseudo" data-i18n="online.tempName">Temporary Name</label>
-        <input id="online-pseudo" type="text" maxlength="14" placeholder="Your name" data-i18n-attr="placeholder:online.yourName">
+      <div id="online-wake-banner" class="online-wake-banner" role="status" hidden>
+        <span class="online-queue-spinner" aria-hidden="true"></span>
+        <span id="online-wake-text">The server is waking up…</span>
       </div>
-      <div class="menu-actions compact">
-        <button id="online-quick-btn" class="menu-btn" type="button" data-i18n="online.quickPlay">Quick Play</button>
-        <button id="online-friend-btn" class="menu-btn" type="button" data-i18n="online.playFriend">Play with Friend</button>
+
+      <div id="online-step-home" class="online-step">
+        <div class="online-identity">
+          <button id="online-avatar-btn" class="online-avatar-chip online-avatar-btn" type="button" aria-label="Choose your avatar" data-i18n-attr="aria-label:online.avatarAria"></button>
+          <input id="online-pseudo" type="text" maxlength="14" placeholder="Your name" data-i18n-attr="placeholder:online.yourName;aria-label:online.tempName">
+        </div>
+        <div id="online-avatar-picker" class="online-avatar-picker" hidden>
+          <p class="online-picker-label" data-i18n="online.avatarGlyph">Rune</p>
+          <div id="online-avatar-glyphs" class="online-avatar-glyphs"></div>
+          <p class="online-picker-label" data-i18n="online.avatarColor">Color</p>
+          <div id="online-avatar-colors" class="online-avatar-colors"></div>
+        </div>
+        <div class="menu-actions online-primary-actions">
+          <button id="online-quick-btn" class="menu-btn primary" type="button" data-i18n="online.quickPlay">Quick Play</button>
+          <button id="online-friend-btn" class="menu-btn" type="button" data-i18n="online.playFriend">Play with Friend</button>
+        </div>
+        <div class="online-join-row">
+          <label for="online-join-code" data-i18n="online.joinLabel">Join with Room Code</label>
+          <div class="online-join-controls">
+            <input id="online-join-code" type="text" maxlength="6" placeholder="ABC123" autocapitalize="characters" autocomplete="off" spellcheck="false">
+            <button id="online-join-btn" class="menu-btn" type="button" data-i18n="online.join">Join</button>
+          </div>
+        </div>
       </div>
-      <div class="settings-grid online-join-grid">
-        <label for="online-join-code" data-i18n="online.joinLabel">Join with Room Code</label>
+
+      <div id="online-step-searching" class="online-step online-step-searching" hidden>
+        <span class="online-queue-spinner online-search-spinner" aria-hidden="true"></span>
+        <p id="online-queue-text" class="online-search-text">Searching for opponent...</p>
+        <button id="online-queue-cancel-btn" class="menu-btn secondary" type="button" data-i18n="online.cancelSearch">Cancel search</button>
+      </div>
+
+      <div id="online-step-room" class="online-step" hidden>
+        <div id="online-invite-block" class="online-invite-block">
+          <p class="online-room-label" data-i18n="online.roomCodeLabel">Room code</p>
+          <a id="online-room-code-link" class="online-room-code-big" href="#" target="_blank" rel="noopener" data-i18n-attr="aria-label:online.roomLinkAria">------</a>
+          <img id="online-room-qr" class="online-room-qr" alt="QR code for room link" loading="lazy" referrerpolicy="no-referrer">
+          <div class="menu-actions compact">
+            <button id="online-copy-link-btn" class="menu-btn" type="button" data-i18n="online.sendLink">Send Link</button>
+          </div>
+        </div>
+        <div id="online-players" class="online-players">
+          <div class="online-player-card" id="online-player-you">
+            <span class="online-avatar-chip small" id="online-you-avatar" aria-hidden="true"></span>
+            <span class="online-player-name" id="online-you-name">You</span>
+            <span class="online-player-state" id="online-you-state"></span>
+          </div>
+          <div class="online-player-card waiting" id="online-player-opp">
+            <span class="online-avatar-chip small" id="online-opp-avatar" aria-hidden="true"></span>
+            <span class="online-player-name" id="online-opp-name">…</span>
+            <span class="online-player-state" id="online-opp-state"></span>
+          </div>
+        </div>
+        <p id="waiting-summary" class="bag-meta online-waiting-summary"></p>
         <div class="menu-actions compact">
-          <input id="online-join-code" type="text" maxlength="6" placeholder="ABC123">
-          <button id="online-join-btn" class="menu-btn" type="button" data-i18n="online.join">Join</button>
+          <button id="online-ready-btn" class="menu-btn primary" type="button">Set Ready</button>
         </div>
       </div>
-        <div id="online-queue-status" class="online-queue-status" hidden>
-          <span class="online-queue-spinner" aria-hidden="true"></span>
-          <span id="online-queue-text">Searching for opponent...</span>
-        </div>
-        <p id="online-room-code" class="bag-meta" hidden>Room: -</p>
-      <div id="online-room-link-wrap" hidden>
-          <label for="online-room-link" data-i18n="online.inviteCode">Invite Code</label>
-          <p id="online-room-link" class="bag-meta online-room-link-code">-</p>
-        <img id="online-room-qr" class="online-room-qr" alt="QR code for room link" loading="lazy" referrerpolicy="no-referrer">
-      </div>
-        <div id="online-waiting-room" class="waiting-room" hidden>
-        <h3 data-i18n="online.waitingRoom">Waiting Room</h3>
-        <p id="waiting-role" class="bag-meta">You are: -</p>
-          <p id="waiting-summary" class="bag-meta">Share your invite code and wait for your opponent.</p>
-        <p id="waiting-you-status" class="bag-meta">You: Not ready</p>
-        <p id="waiting-opponent-status" class="bag-meta">Opponent: Waiting to join...</p>
-      </div>
+
       <div class="menu-actions compact">
-        <button id="online-copy-link-btn" class="menu-btn" type="button" data-i18n="online.sendLink">Send Link</button>
-        <button id="online-ready-btn" class="menu-btn" type="button" data-i18n="online.setReady">Set Ready</button>
         <button id="online-back-btn" class="menu-btn secondary" type="button" data-i18n="nav.back">Back</button>
       </div>
     </section>
@@ -291,7 +319,7 @@
 
       <section class="game-layout">
         <aside class="panel player-panel" id="player-1-panel">
-          <h2 class="player-title"><span id="p1-name">Black</span><span id="p1-online-dot" class="online-dot" hidden aria-label="Player online status" data-i18n-attr="aria-label:online.playerStatusAria"></span></h2>
+          <h2 class="player-title"><span id="p1-avatar" class="online-avatar-chip tiny" hidden aria-hidden="true"></span><span id="p1-name">Black</span><span id="p1-online-dot" class="online-dot" hidden aria-label="Player online status" data-i18n-attr="aria-label:online.playerStatusAria"></span></h2>
           <p class="bag-meta"><span id="p1-points">Points:</span></p>
           <p class="bag-meta"><span id="p1-bag">Bag: 0</span></p>
           <div id="p1-hand" class="hand hidden-hand" aria-live="polite"></div>
@@ -318,6 +346,7 @@
             </div>
             <div id="shop-bag" class="shop-bag"></div>
           </div>
+          <div id="qc-bubbles" class="qc-bubbles" aria-hidden="true"></div>
           <div id="board" class="board" role="grid" aria-label="RuneBags board" data-i18n-attr="aria-label:game.boardAria"></div>
           <div id="board-rune-info" class="board-rune-info" role="status" aria-live="polite" hidden>
             <p id="board-rune-info-title" class="board-rune-info-title"></p>
@@ -337,7 +366,7 @@
         </section>
 
         <aside class="panel player-panel" id="player-2-panel">
-          <h2 class="player-title"><span id="p2-name">White</span><span id="p2-online-dot" class="online-dot" hidden aria-label="Player online status" data-i18n-attr="aria-label:online.playerStatusAria"></span></h2>
+          <h2 class="player-title"><span id="p2-avatar" class="online-avatar-chip tiny" hidden aria-hidden="true"></span><span id="p2-name">White</span><span id="p2-online-dot" class="online-dot" hidden aria-label="Player online status" data-i18n-attr="aria-label:online.playerStatusAria"></span></h2>
           <p class="bag-meta"><span id="p2-points">Points:</span></p>
           <p class="bag-meta"><span id="p2-bag">Bag: 0</span></p>
           <div id="p2-hand" class="hand hidden-hand" aria-live="polite"></div>
@@ -349,6 +378,7 @@
           <button id="log-tab-turn" class="log-tab active" type="button" role="tab" aria-selected="true" aria-controls="turn-log" data-i18n="log.turnTab">Turn Log</button>
           <button id="log-tab-chat" class="log-tab" type="button" role="tab" aria-selected="false" aria-controls="chat-panel" data-i18n="log.chatTab">Chat</button>
         </div>
+        <div id="quick-chat-bar" class="quick-chat-bar" role="toolbar" aria-label="Quick chat" data-i18n-attr="aria-label:qc.barAria" hidden></div>
         <div id="turn-log" class="turn-log" aria-live="polite"></div>
         <section id="chat-panel" class="chat-panel" hidden>
           <div id="chat-log" class="chat-log" aria-live="polite"></div>
@@ -407,6 +437,8 @@
       </section>
 
     </section>
+
+    <div id="app-toast" class="app-toast" role="status" aria-live="polite" hidden></div>
 
     <section id="confirm-dialog-overlay" class="tutorial-prompt-screen" hidden>
       <article class="tutorial-prompt-card" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-text">
