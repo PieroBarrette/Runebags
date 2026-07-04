@@ -330,6 +330,13 @@ let quickChatCooldownTimer = null;
 // Set when the page is opened via an invite link (?room=). The invitee lands
 // on the home step so they can pick a name/avatar before actually joining.
 let pendingInviteCode = null;
+// Online async shop entry: when a round ends, each player enters the shop on
+// their own click instead of being yanked in when the opponent opens it.
+// `hasEnteredShop` is this client's per-round gate; `pendingShopSnapshot` holds
+// the opponent-triggered shop state we deferred applying while lingering on the
+// finished board.
+let hasEnteredShop = false;
+let pendingShopSnapshot = null;
 
 const tutorialController = createTutorialController({
   elements,
@@ -427,30 +434,24 @@ function wireOnlineEvents() {
       }
     },
     state: (snapshot) => {
-      state = restoreState(snapshot.state);
-      currentLocalMode = MODE_ONLINE;
-      onlineChatMessages = Array.isArray(snapshot.chat) ? snapshot.chat.slice(-100) : [];
-      waitingRoomState = {
-        ...waitingRoomState,
-        playerNames: snapshot.playerNames || waitingRoomState.playerNames,
-        playerAvatars: snapshot.playerAvatars || waitingRoomState.playerAvatars,
-        shopReadyYou: Boolean(snapshot.shopSync?.youReady),
-        shopReadyOpponent: Boolean(snapshot.shopSync?.opponentReady),
-      };
-      applyOnlinePlayerNames();
-      if (elements.gameScreen.hidden) {
-        enterGameScreen("online", snapshot.roomCode);
-      } else {
+      // Async shop entry: if the opponent opened the shop while we're still
+      // looking at the just-finished board, defer applying the shop snapshot.
+      // We keep the round-end view until we tap "enter shop" ourselves; the
+      // round can't start without both players' shop-ready, so nothing is lost.
+      if (
+        !hasEnteredShop
+        && snapshot.state?.phase === "shop"
+        && state?.phase === "round-end"
+        && !elements.gameScreen.hidden
+      ) {
+        pendingShopSnapshot = snapshot;
+        waitingRoomState.shopReadyOpponent = Boolean(snapshot.shopSync?.opponentReady);
+        onlineChatMessages = Array.isArray(snapshot.chat) ? snapshot.chat.slice(-100) : onlineChatMessages;
         render();
+        updateOnlineConnectionStatus();
+        return;
       }
-      saveModeSave(MODE_ONLINE, {
-        roomCode: snapshot.roomCode,
-        playerId: snapshot.playerId,
-        playerNames: snapshot.playerNames || null,
-        state: snapshot.state,
-        updatedAt: Date.now(),
-      });
-      updateOnlineConnectionStatus();
+      applyOnlineStateSnapshot(snapshot);
     },
     queue: (snapshot) => {
       waitingRoomState = {
@@ -1189,6 +1190,19 @@ function bindEvents() {
         online.sendAction("shop_ready", { ready: !waitingRoomState.shopReadyYou });
         return;
       }
+      if (state.phase === "round-end") {
+        if (pendingShopSnapshot) {
+          // The opponent already opened the shop; enter it locally instead of
+          // re-sending phase_action (which the server would reject anyway).
+          enterPendingShop();
+        } else {
+          // First to leave the board: mark ourselves entered so the shop
+          // snapshot the server sends back is applied rather than deferred.
+          hasEnteredShop = true;
+          online.sendAction("phase_action", {});
+        }
+        return;
+      }
       online.sendAction("phase_action", {});
       return;
     }
@@ -1730,9 +1744,12 @@ function updateTopStatus() {
 
 function renderShopPanel() {
   const inShop = state.phase === "shop";
+  // Online only: the opponent has opened the shop but we're still viewing the
+  // finished board. Show a hint + an inviting "enter shop" label.
+  const lingering = online.isOnlineActive() && state.phase === "round-end" && Boolean(pendingShopSnapshot);
   elements.shopPanel.hidden = !inShop;
   elements.boardEl.hidden = inShop;
-  elements.shopInstruction.hidden = !inShop;
+  elements.shopInstruction.hidden = !inShop && !lingering;
   elements.shopSwitchPlayer.hidden = !inShop || online.isOnlineActive() || aiConfig.enabled;
 
   elements.phaseBtn.hidden = state.phase === "round" || state.phase === "game-over";
@@ -1741,8 +1758,16 @@ function renderShopPanel() {
   } else if (isPassPlayMode() && state.phase === "shop") {
     const playerReady = Boolean(state.shop.players[state.shop.currentPlayer]?.ready);
     elements.phaseBtn.textContent = playerReady ? t("shop.cancelReady") : t("shop.ready");
+  } else if (lingering) {
+    elements.phaseBtn.textContent = t("shop.enterShop");
   } else {
     elements.phaseBtn.textContent = state.phase === "shop" ? t("shop.startNextRound") : t("shop.startShop");
+  }
+
+  if (lingering) {
+    const opponentId = waitingRoomState.playerId === 1 ? 2 : 1;
+    const opponentPseudo = opponentId ? getDisplayPlayerName(opponentId) : (waitingRoomState.opponentName || t("online.opponent"));
+    elements.shopInstruction.textContent = t("shop.opponentInShop", { opp: opponentPseudo });
   }
 
   if (!inShop) {
@@ -2572,6 +2597,55 @@ function createWaitingRoomState() {
   };
 }
 
+// Applies an authoritative online state snapshot. Extracted from the `state`
+// listener so the deferred shop snapshot can be applied later, on demand, when
+// the player taps "enter shop".
+function applyOnlineStateSnapshot(snapshot) {
+  // Any non-shop authoritative state closes the per-round shop-entry gate, so
+  // the next round-end requires a fresh "enter shop" click again.
+  if (snapshot.state?.phase !== "shop") {
+    hasEnteredShop = false;
+    pendingShopSnapshot = null;
+  }
+  state = restoreState(snapshot.state);
+  currentLocalMode = MODE_ONLINE;
+  onlineChatMessages = Array.isArray(snapshot.chat) ? snapshot.chat.slice(-100) : [];
+  waitingRoomState = {
+    ...waitingRoomState,
+    playerNames: snapshot.playerNames || waitingRoomState.playerNames,
+    playerAvatars: snapshot.playerAvatars || waitingRoomState.playerAvatars,
+    shopReadyYou: Boolean(snapshot.shopSync?.youReady),
+    shopReadyOpponent: Boolean(snapshot.shopSync?.opponentReady),
+  };
+  applyOnlinePlayerNames();
+  if (elements.gameScreen.hidden) {
+    enterGameScreen("online", snapshot.roomCode);
+  } else {
+    render();
+  }
+  saveModeSave(MODE_ONLINE, {
+    roomCode: snapshot.roomCode,
+    playerId: snapshot.playerId,
+    playerNames: snapshot.playerNames || null,
+    state: snapshot.state,
+    updatedAt: Date.now(),
+  });
+  updateOnlineConnectionStatus();
+}
+
+// The player chose to leave the finished board and join the shop the opponent
+// already opened. Apply the deferred snapshot now (bypassing the seq guard is
+// fine — we always stash the latest).
+function enterPendingShop() {
+  if (!pendingShopSnapshot) {
+    return;
+  }
+  const snapshot = pendingShopSnapshot;
+  pendingShopSnapshot = null;
+  hasEnteredShop = true;
+  applyOnlineStateSnapshot(snapshot);
+}
+
 // Shared entry point for both the join-code button and the invite-link "Join
 // room" button: validate identity + code, then actually connect. Until the
 // server's first waiting_snapshot lands, the room step shows a connecting
@@ -3295,23 +3369,30 @@ function bindSoundUnlockHandlers() {
 }
 
 function bindButtonSoundEvents() {
+  // Capture phase so we read state.phase as it was WHEN clicked, before the
+  // button's own handler can mutate it (e.g. the shop→round "start next round"
+  // button, which would otherwise flip to the round phase and sneak a click in).
   document.addEventListener("click", (event) => {
     const button = event.target.closest("button");
     if (!button || button.disabled) {
       return;
     }
+    // Always unlock on a gesture (keeps audio alive for opponent-move cues),
+    // but the click itself may resolve to no sound (e.g. the shop phase).
     sfx.unlockFromGesture();
-    sfx.play(resolveClickSound(button));
-  });
+    const sound = resolveClickSound(button);
+    if (sound) {
+      sfx.play(sound);
+    }
+  }, true);
 }
 
-// Give the recurring shop gestures their own voice instead of the generic click.
+// The whole shop phase is silent (per design: never hear shop actions), so no
+// add/remove/combine/ready/switch button makes a sound. Elsewhere, buttons get
+// the generic click.
 function resolveClickSound(button) {
-  if (button.id === "shop-remove-btn") {
-    return "shop-remove";
-  }
-  if (button.classList.contains("rune-card") && button.closest("#shop-offer")) {
-    return "shop-add";
+  if (state.phase === "shop") {
+    return null;
   }
   return "ui-click";
 }
@@ -3330,6 +3411,10 @@ function bindButtonHoverEvents() {
     }
     lastHoverTarget = target;
     if (!target || target.disabled) {
+      return;
+    }
+    // Keep the shop phase fully silent (no hover ticks over shop controls).
+    if (state.phase === "shop") {
       return;
     }
     sfx.play("ui-hover");
@@ -3415,17 +3500,10 @@ function playSoundTransitions(previousSnapshot, currentSnapshot) {
     }
   }
 
-  // Shop combine log entries aren't structured with a key, so match on the
-  // freshly pushed entry's text to fire the cue once the level-2 rune is
-  // actually created (second rune pick), not when entering combine mode.
-  if (
-    currentSnapshot.phase === "shop"
-    && newLogCount > 0
-    && currentSnapshot.logHeadText
-    && currentSnapshot.logHeadText.includes(" combined ")
-  ) {
-    sfx.play("shop-combine");
-  }
+  // Shop actions are intentionally silent: state-diff cues (which drive the
+  // opponent's sounds) must never fire during the shop phase, so you never
+  // hear the other player adding/removing/combining runes. Local shop clicks
+  // are silenced separately in resolveClickSound.
 
   const enteredGameOver = previousSnapshot.phase !== "game-over" && currentSnapshot.phase === "game-over";
   if (enteredGameOver) {

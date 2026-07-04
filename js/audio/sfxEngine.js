@@ -435,6 +435,7 @@ export function createSfxEngine() {
   let lastUiClickAt = 0;
   let lastHoverAt = 0;
   let resumePromise = null;
+  let keepAliveSource = null;
 
   function ensureContext() {
     if (audioContext && masterGain) {
@@ -464,8 +465,56 @@ export function createSfxEngine() {
     }
   }
 
+  // Mobile browsers (notably iOS Safari) suspend the AudioContext once it goes
+  // idle, and it can only be resumed by a user gesture. That silences sounds
+  // triggered by incoming opponent moves (a socket message is not a gesture),
+  // which is why opponent cues play on desktop but not on mobile. A looping
+  // silent buffer keeps the context "running" between our own gestures so those
+  // socket-driven cues still fire. Started only from a real gesture-unlocked,
+  // running context — never bootstraps audio on its own.
+  function ensureKeepAlive() {
+    if (keepAliveSource || !enabled || !audioContext || audioContext.state !== "running") {
+      return;
+    }
+    try {
+      const buffer = audioContext.createBuffer(1, Math.max(1, Math.floor(audioContext.sampleRate)), audioContext.sampleRate);
+      const source = audioContext.createBufferSource();
+      source.buffer = buffer; // all-zero samples: silent
+      source.loop = true;
+      const silentGain = audioContext.createGain();
+      silentGain.gain.value = 0;
+      source.connect(silentGain);
+      silentGain.connect(audioContext.destination);
+      source.start();
+      keepAliveSource = source;
+    } catch {
+      keepAliveSource = null;
+    }
+  }
+
+  function stopKeepAlive() {
+    if (keepAliveSource) {
+      try {
+        keepAliveSource.stop();
+      } catch {
+        // Already stopped.
+      }
+      try {
+        keepAliveSource.disconnect();
+      } catch {
+        // Already disconnected.
+      }
+      keepAliveSource = null;
+    }
+  }
+
   function setEnabled(nextEnabled) {
     enabled = Boolean(nextEnabled);
+    if (!enabled) {
+      stopKeepAlive();
+    } else {
+      ensureKeepAlive();
+    }
   }
 
   function isEnabled() {
@@ -494,7 +543,13 @@ export function createSfxEngine() {
 
     if (!resumePromise) {
       resumePromise = audioContext.resume()
-        .then(() => audioContext.state === "running")
+        .then(() => {
+          const running = audioContext.state === "running";
+          if (running) {
+            ensureKeepAlive();
+          }
+          return running;
+        })
         .catch(() => false)
         .finally(() => {
           resumePromise = null;
@@ -506,7 +561,11 @@ export function createSfxEngine() {
 
   function unlockFromGesture() {
     ensureRunningContext();
-    return Boolean(audioContext && audioContext.state === "running");
+    const running = Boolean(audioContext && audioContext.state === "running");
+    if (running) {
+      ensureKeepAlive();
+    }
+    return running;
   }
 
   function play(eventName) {
