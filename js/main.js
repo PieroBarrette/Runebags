@@ -3369,30 +3369,25 @@ function bindSoundUnlockHandlers() {
 }
 
 function bindButtonSoundEvents() {
-  // Capture phase so we read state.phase as it was WHEN clicked, before the
-  // button's own handler can mutate it (e.g. the shop→round "start next round"
-  // button, which would otherwise flip to the round phase and sneak a click in).
   document.addEventListener("click", (event) => {
     const button = event.target.closest("button");
     if (!button || button.disabled) {
       return;
     }
-    // Always unlock on a gesture (keeps audio alive for opponent-move cues),
-    // but the click itself may resolve to no sound (e.g. the shop phase).
     sfx.unlockFromGesture();
-    const sound = resolveClickSound(button);
-    if (sound) {
-      sfx.play(sound);
-    }
-  }, true);
+    sfx.play(resolveClickSound(button));
+  });
 }
 
-// The whole shop phase is silent (per design: never hear shop actions), so no
-// add/remove/combine/ready/switch button makes a sound. Elsewhere, buttons get
-// the generic click.
+// Give the recurring shop gestures their own voice instead of the generic
+// click. These are LOCAL button presses, so they only ever sound for the
+// player who actually clicked — never the opponent.
 function resolveClickSound(button) {
-  if (state.phase === "shop") {
-    return null;
+  if (button.id === "shop-remove-btn") {
+    return "shop-remove";
+  }
+  if (button.classList.contains("rune-card") && button.closest("#shop-offer")) {
+    return "shop-add";
   }
   return "ui-click";
 }
@@ -3411,10 +3406,6 @@ function bindButtonHoverEvents() {
     }
     lastHoverTarget = target;
     if (!target || target.disabled) {
-      return;
-    }
-    // Keep the shop phase fully silent (no hover ticks over shop controls).
-    if (state.phase === "shop") {
       return;
     }
     sfx.play("ui-hover");
@@ -3474,6 +3465,17 @@ function pickEffectSound(newLogKeys) {
   return null;
 }
 
+// The shop combine log is a raw English string that begins with the acting
+// player's side name (engine playerName(): "Black" for seat 1, "White" for
+// seat 2). Lets us tell our own combine from the opponent's for sound gating.
+function isLocalPlayerLogEntry(logText) {
+  if (typeof logText !== "string") {
+    return false;
+  }
+  const localSide = waitingRoomState.playerId === 2 ? "White" : "Black";
+  return logText.startsWith(`${localSide} `);
+}
+
 function playSoundTransitions(previousSnapshot, currentSnapshot) {
   if (!previousSnapshot || !soundEnabled) {
     return;
@@ -3500,10 +3502,21 @@ function playSoundTransitions(previousSnapshot, currentSnapshot) {
     }
   }
 
-  // Shop actions are intentionally silent: state-diff cues (which drive the
-  // opponent's sounds) must never fire during the shop phase, so you never
-  // hear the other player adding/removing/combining runes. Local shop clicks
-  // are silenced separately in resolveClickSound.
+  // Shop combine has no dedicated button sound (it resolves from a rune pick),
+  // so it's cued here from the freshly pushed " combined " log entry. Online,
+  // only play OUR OWN combine — the opponent shops on another client, and their
+  // add/remove already make no sound here (those are local button clicks), so
+  // gating combine keeps the shop free of the opponent's noise. Offline (AI /
+  // pass & play) it's a single device, so always play.
+  if (
+    currentSnapshot.phase === "shop"
+    && newLogCount > 0
+    && currentSnapshot.logHeadText
+    && currentSnapshot.logHeadText.includes(" combined ")
+    && (!online.isOnlineActive() || isLocalPlayerLogEntry(currentSnapshot.logHeadText))
+  ) {
+    sfx.play("shop-combine");
+  }
 
   const enteredGameOver = previousSnapshot.phase !== "game-over" && currentSnapshot.phase === "game-over";
   if (enteredGameOver) {
