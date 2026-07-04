@@ -171,6 +171,15 @@ const elements = {
   p1Avatar: document.getElementById("p1-avatar"),
   p2Avatar: document.getElementById("p2-avatar"),
   onlineQueueText: document.getElementById("online-queue-text"),
+  onlineInviteBanner: document.getElementById("online-invite-banner"),
+  onlineInviteCode: document.getElementById("online-invite-code"),
+  onlineInviteActions: document.getElementById("online-invite-actions"),
+  onlineInviteJoinBtn: document.getElementById("online-invite-join-btn"),
+  onlineNormalActions: document.getElementById("online-normal-actions"),
+  onlineJoinRow: document.getElementById("online-join-row"),
+  onlineConnecting: document.getElementById("online-connecting"),
+  onlineConnectingText: document.getElementById("online-connecting-text"),
+  onlinePlayers: document.getElementById("online-players"),
   onlineRoomQr: document.getElementById("online-room-qr"),
   onlinePresence: document.getElementById("online-presence"),
   onlinePresenceText: document.getElementById("online-presence-text"),
@@ -318,6 +327,9 @@ let hasUnreadChat = false;
 let toastShowTimer = null;
 let toastHideTimer = null;
 let quickChatCooldownTimer = null;
+// Set when the page is opened via an invite link (?room=). The invitee lands
+// on the home step so they can pick a name/avatar before actually joining.
+let pendingInviteCode = null;
 
 const tutorialController = createTutorialController({
   elements,
@@ -372,6 +384,9 @@ function wireOnlineEvents() {
       );
       const previousAutoStartRequested = waitingRoomState.autoStartRequested;
       activeRoomCode = snapshot.roomCode;
+      // First snapshot for this room: we're connected and now know who's here,
+      // so leave the connecting state and drop any pending invite.
+      pendingInviteCode = null;
       waitingRoomState = {
         mode: "friend",
         queued: false,
@@ -390,6 +405,7 @@ function wireOnlineEvents() {
         shopReadyYou: false,
         shopReadyOpponent: false,
         autoStartRequested: shouldAutoStart ? previousAutoStartRequested : false,
+        connecting: false,
       };
 
       applyOnlinePlayerNames();
@@ -467,6 +483,19 @@ function wireOnlineEvents() {
     },
     error: (info) => {
       const message = resolveOnlineErrorMessage(info);
+      // A create/join attempt that reached the server but was rejected (room
+      // not found, full, already started…) leaves the lobby stuck on the
+      // connecting spinner, since joinRoom() itself succeeded. Recover to the
+      // home step so the toast isn't the only feedback.
+      if (waitingRoomState.connecting && !online.isOnlineActive()) {
+        activeRoomCode = null;
+        pendingInviteCode = null;
+        waitingRoomState = createWaitingRoomState();
+        updateWakeBanner({ waking: false });
+        if (!elements.onlinePanel.hidden) {
+          updateOnlineRoomUI("-");
+        }
+      }
       if (!message) {
         return;
       }
@@ -666,6 +695,7 @@ function bindEvents() {
     waitingRoomState = {
       ...createWaitingRoomState(),
       mode: "friend",
+      connecting: true,
     };
     updateOnlineRoomUI(activeRoomCode);
     const ok = await online.createRoom(activeRoomCode, pseudo);
@@ -676,32 +706,12 @@ function bindEvents() {
     }
   });
 
-  elements.onlineJoinBtn.addEventListener("click", async () => {
-    const pseudo = getValidatedOnlinePseudo();
-    if (!pseudo) {
-      return;
-    }
-    online.setDisplayName(pseudo);
-    const code = elements.onlineJoinCode.value.trim().toUpperCase();
-    if (!/^[A-Z2-9]{6}$/.test(code)) {
-      showToast(t("online.invalidCode"));
-      elements.onlineJoinCode.focus();
-      return;
-    }
+  elements.onlineJoinBtn.addEventListener("click", () => {
+    joinRoomByCode(elements.onlineJoinCode.value);
+  });
 
-    online.leaveRoom();
-    activeRoomCode = code;
-    waitingRoomState = {
-      ...createWaitingRoomState(),
-      mode: "friend",
-    };
-    updateOnlineRoomUI(activeRoomCode);
-    const ok = await online.joinRoom(code, { displayName: pseudo });
-    if (!ok) {
-      waitingRoomState = createWaitingRoomState();
-      activeRoomCode = null;
-      updateOnlineRoomUI("-");
-    }
+  elements.onlineInviteJoinBtn.addEventListener("click", () => {
+    joinRoomByCode(pendingInviteCode || elements.onlineJoinCode.value);
   });
 
   elements.menuRulesBtn.addEventListener("click", () => {
@@ -778,6 +788,7 @@ function bindEvents() {
     });
     online.leaveRoom();
     activeRoomCode = null;
+    pendingInviteCode = null;
     waitingRoomState = createWaitingRoomState();
     onlineChatMessages = [];
     updateWakeBanner({ waking: false });
@@ -2320,18 +2331,20 @@ function initializeEntryMode() {
   const mode = url.searchParams.get("mode");
   const room = url.searchParams.get("room");
 
-  if (mode === "online" && room) {
-    activeRoomCode = room.toUpperCase();
-    waitingRoomState = {
-      ...createWaitingRoomState(),
-      mode: "friend",
-    };
-    elements.onlineJoinCode.value = activeRoomCode;
-    updateOnlineRoomUI(activeRoomCode);
-    showOnlinePanel();
+  if (mode === "online" && room && /^[A-Z2-9]{6}$/i.test(room)) {
+    // Opened an invite link. Land on the home step (identity + a prominent
+    // "Join room" button) so the invitee can pick a name/avatar BEFORE
+    // connecting — they only actually join when they tap Join, which then
+    // shows the host who's already waiting.
+    const inviteCode = room.toUpperCase();
+    pendingInviteCode = inviteCode;
+    activeRoomCode = null;
+    waitingRoomState = createWaitingRoomState();
+    elements.onlineJoinCode.value = inviteCode;
     const pseudo = normalizePseudo(elements.onlinePseudo.value || online.getSession().displayName || "");
     elements.onlinePseudo.value = pseudo;
     online.setDisplayName(pseudo);
+    showOnlinePanel();
     return;
   }
 
@@ -2443,6 +2456,7 @@ function updateOnlineRoomUI(roomCode) {
 
   if (step === "home") {
     renderOnlineIdentity();
+    renderInviteBanner();
     return;
   }
 
@@ -2457,13 +2471,30 @@ function updateOnlineRoomUI(roomCode) {
 }
 
 function renderOnlineRoomStep(roomCode) {
+  // Before the first waiting_snapshot arrives, we don't yet know who is in the
+  // room. Show a plain "connecting…" spinner instead of the invite/QR block,
+  // which otherwise flashes "share your code" at someone who is joining (and
+  // lingers for the whole Render cold start).
+  const connecting = Boolean(waitingRoomState.connecting);
+  elements.onlineConnecting.hidden = !connecting;
+  elements.onlineInviteBlock.hidden = connecting;
+  elements.onlinePlayers.hidden = connecting;
+  elements.waitingSummary.hidden = connecting;
+  elements.onlineReadyBtn.hidden = connecting;
+  if (connecting) {
+    elements.onlineConnectingText.textContent = t("online.connectingTo", { code: roomCode });
+    return;
+  }
+
   const roomLink = buildRoomLink(roomCode);
   const showInvite = !waitingRoomState.opponentJoined;
 
   elements.onlineRoomCodeLink.textContent = roomCode;
   elements.onlineRoomCodeLink.href = roomLink;
 
-  // The QR/share block earns its space only while the seat is empty.
+  // The whole invite block (code + QR + share) earns its space only while the
+  // opponent's seat is empty; once they're in, collapse it to the player cards.
+  elements.onlineInviteBlock.hidden = !showInvite;
   if (showInvite) {
     elements.onlineRoomQr.src = buildRoomQrUrl(roomLink);
     elements.onlineRoomQr.hidden = false;
@@ -2537,7 +2568,56 @@ function createWaitingRoomState() {
     shopReadyYou: false,
     shopReadyOpponent: false,
     autoStartRequested: false,
+    connecting: false,
   };
+}
+
+// Shared entry point for both the join-code button and the invite-link "Join
+// room" button: validate identity + code, then actually connect. Until the
+// server's first waiting_snapshot lands, the room step shows a connecting
+// spinner (see renderOnlineRoomStep) rather than a misleading invite screen.
+async function joinRoomByCode(rawCode) {
+  const pseudo = getValidatedOnlinePseudo();
+  if (!pseudo) {
+    return;
+  }
+  const code = String(rawCode || "").trim().toUpperCase();
+  if (!/^[A-Z2-9]{6}$/.test(code)) {
+    showToast(t("online.invalidCode"));
+    elements.onlineJoinCode.focus();
+    return;
+  }
+
+  online.setDisplayName(pseudo);
+  online.leaveRoom();
+  activeRoomCode = code;
+  pendingInviteCode = null;
+  waitingRoomState = {
+    ...createWaitingRoomState(),
+    mode: "friend",
+    connecting: true,
+  };
+  updateOnlineRoomUI(activeRoomCode);
+  const ok = await online.joinRoom(code, { displayName: pseudo });
+  if (!ok) {
+    waitingRoomState = createWaitingRoomState();
+    activeRoomCode = null;
+    updateOnlineRoomUI("-");
+  }
+}
+
+// Invite-link entry: show the invite banner and swap the normal Quick/Friend
+// actions for a single prominent "Join room" button, so the invitee's obvious
+// next step is to pick a name/avatar and join the room they were invited to.
+function renderInviteBanner() {
+  const hasInvite = Boolean(pendingInviteCode);
+  elements.onlineInviteBanner.hidden = !hasInvite;
+  elements.onlineInviteActions.hidden = !hasInvite;
+  elements.onlineNormalActions.hidden = hasInvite;
+  elements.onlineJoinRow.hidden = hasInvite;
+  if (hasInvite) {
+    elements.onlineInviteCode.textContent = pendingInviteCode;
+  }
 }
 
 // --- Lobby avatars, wake banner, toast and quick-chat helpers --------------

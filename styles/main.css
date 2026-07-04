@@ -554,6 +554,33 @@ body[data-theme="dark"] .home-rune-icon {
   margin-top: 0.5rem;
 }
 
+.online-invite-banner {
+  margin: 0.2rem auto 0.7rem;
+  padding: 0.7rem 0.9rem;
+  max-width: 420px;
+  border-radius: 12px;
+  border: 1px solid rgba(201, 162, 75, 0.55);
+  background: rgba(201, 162, 75, 0.14);
+  text-align: center;
+}
+
+.online-invite-title {
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
+}
+
+.online-invite-title strong {
+  font-family: "Cinzel", Georgia, serif;
+  letter-spacing: 0.18em;
+  color: var(--accent);
+}
+
+.online-invite-hint {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-soft);
+}
+
 .online-identity {
   display: flex;
   align-items: center;
