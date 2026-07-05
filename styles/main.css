@@ -1661,49 +1661,8 @@ body[data-theme="dark"] .rune-detail-icon {
   }
 }
 
-/* Tutorial (standalone port) */
-.tutorial-dialog {
-  position: absolute;
-  z-index: 42;
-  width: min(340px, calc(100% - 1rem));
-  border: 1px solid rgba(36, 51, 71, 0.26);
-  border-radius: 12px;
-  background: rgba(246, 250, 255, 0.98);
-  box-shadow: 0 10px 20px rgba(22, 33, 50, 0.22);
-  padding: 0.58rem 0.68rem;
-  cursor: pointer;
-}
-
-.tutorial-dialog[data-position="shop"] {
-  left: 0.75rem;
-  top: 5.8rem;
-}
-
-.tutorial-dialog[data-position="board"] {
-  left: 50%;
-  top: 11.6rem;
-  transform: translateX(-50%);
-}
-
-.tutorial-dialog[data-position="status"] {
-  right: 0.75rem;
-  top: 2.4rem;
-}
-
-.tutorial-dialog-text {
-  margin: 0;
-  color: var(--text-main);
-  font-size: 0.92rem;
-  line-height: 1.38;
-}
-
-.tutorial-dialog-hint {
-  margin: 0.35rem 0 0;
-  color: var(--text-soft);
-  font-size: 0.76rem;
-}
-
-.tutorial-prompt-screen {
+/* Modal prompt (in-page confirm dialog) */
+.modal-prompt-screen {
   position: fixed;
   inset: 0;
   z-index: 52;
@@ -1713,11 +1672,11 @@ body[data-theme="dark"] .rune-detail-icon {
   padding: 1rem;
 }
 
-.tutorial-prompt-screen[hidden] {
+.modal-prompt-screen[hidden] {
   display: none;
 }
 
-.tutorial-prompt-card {
+.modal-prompt-card {
   width: min(520px, 92vw);
   border-radius: 16px;
   border: 1px solid rgba(36, 51, 71, 0.3);
@@ -1728,42 +1687,24 @@ body[data-theme="dark"] .rune-detail-icon {
   gap: 0.75rem;
 }
 
-.tutorial-prompt-card h2 {
+.modal-prompt-card h2 {
   margin: 0;
   font-family: "Cinzel", Georgia, serif;
 }
 
-.tutorial-prompt-text {
+.modal-prompt-text {
   margin: 0;
   color: var(--text-soft);
   line-height: 1.45;
 }
 
-.tutorial-prompt-actions {
+.modal-prompt-actions {
   justify-content: center;
 }
 
-body[data-theme="dark"] .tutorial-dialog {
-  border-color: rgba(220, 230, 241, 0.28);
-  background: rgba(27, 36, 47, 0.96);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.45);
-}
-
-body[data-theme="dark"] .tutorial-prompt-card {
+body[data-theme="dark"] .modal-prompt-card {
   border-color: rgba(220, 230, 241, 0.28);
   background: linear-gradient(180deg, rgba(24, 31, 40, 0.96), rgba(19, 26, 35, 0.94));
-}
-
-@media (max-width: 900px) {
-  .tutorial-dialog[data-position="shop"],
-  .tutorial-dialog[data-position="board"],
-  .tutorial-dialog[data-position="status"] {
-    top: auto;
-    left: 50%;
-    right: auto;
-    bottom: 0.7rem;
-    transform: translateX(-50%);
-  }
 }
 
 /* Tablets / phones in landscape: keep the board centered between slim side panels. */

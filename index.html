@@ -146,11 +146,7 @@
 
         <label for="music-volume" data-i18n="settings.musicVolume">Music Volume</label>
         <input id="music-volume" class="settings-range" type="range" min="0" max="100" step="1" value="50" aria-label="Ambient music volume" data-i18n-attr="aria-label:settings.musicVolumeAria">
-
-        <label for="tutorial-toggle" data-i18n="settings.tutorial">Tutorial</label>
-        <input id="tutorial-toggle" class="settings-checkbox" type="checkbox">
       </div>
-      <p class="settings-note" data-i18n="settings.tutorialNote">Guided tutorial dialogs appear while you play local games. It turns itself off once every tip has been shown.</p>
       <div class="menu-actions compact">
         <button id="settings-back-btn" class="menu-btn secondary" type="button" data-i18n="nav.back">Back</button>
       </div>
@@ -370,10 +366,6 @@
             <p class="bag-meta" id="endgame-bag-white-label">White bag</p>
             <div id="endgame-bag-white" class="shop-bag endgame-bag-list"></div>
           </div>
-          <div id="tutorial-dialog" class="tutorial-dialog" data-position="status" hidden>
-            <p id="tutorial-dialog-text" class="tutorial-dialog-text"></p>
-            <p class="tutorial-dialog-hint" data-i18n="tutorial.dialogHint">Click once to finish the text, click again to close.</p>
-          </div>
         </section>
 
         <aside class="panel player-panel" id="player-2-panel">
@@ -436,25 +428,14 @@
         </article>
       </section>
 
-      <section id="tutorial-prompt" class="tutorial-prompt-screen" hidden>
-        <article class="tutorial-prompt-card" role="dialog" aria-modal="true" aria-labelledby="tutorial-prompt-title">
-          <h2 id="tutorial-prompt-title" data-i18n="tutorial.promptTitle">Tutorial</h2>
-          <p class="tutorial-prompt-text" data-i18n="tutorial.promptText">New to RuneBags? Would you like a guided tutorial with quick tips while you play?</p>
-          <div class="menu-actions compact tutorial-prompt-actions">
-            <button id="tutorial-prompt-sure-btn" class="menu-btn" type="button" data-i18n="tutorial.sure">Sure</button>
-            <button id="tutorial-prompt-skip-btn" class="menu-btn secondary" type="button" data-i18n="tutorial.skip">Skip tutorial</button>
-          </div>
-        </article>
-      </section>
-
     </section>
 
     <div id="app-toast" class="app-toast" role="status" aria-live="polite" hidden></div>
 
-    <section id="confirm-dialog-overlay" class="tutorial-prompt-screen" hidden>
-      <article class="tutorial-prompt-card" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-text">
-        <p id="confirm-dialog-text" class="tutorial-prompt-text"></p>
-        <div class="menu-actions compact tutorial-prompt-actions">
+    <section id="confirm-dialog-overlay" class="modal-prompt-screen" hidden>
+      <article class="modal-prompt-card" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-text">
+        <p id="confirm-dialog-text" class="modal-prompt-text"></p>
+        <div class="menu-actions compact modal-prompt-actions">
           <button id="confirm-dialog-confirm-btn" class="menu-btn" type="button" data-i18n="confirm.continue">Continue</button>
           <button id="confirm-dialog-cancel-btn" class="menu-btn secondary" type="button" data-i18n="confirm.cancel">Cancel</button>
         </div>

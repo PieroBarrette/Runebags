@@ -33,15 +33,6 @@ import { createOnlineController, AVATAR_GLYPHS, AVATAR_COLORS, QUICK_CHAT_KEYS }
 import { getRuneById, RUNE_CATALOG, getAllowedColumns } from "./runes/runeCatalog.js";
 import { createSfxEngine } from "./audio/sfxEngine.js";
 import { createMusicEngine } from "./audio/musicEngine.js";
-import { createTutorialController } from "./tutorial/tutorialController.js";
-import {
-  getTutorialState,
-  markTutorialCompleted,
-  markTutorialPromptSeen,
-  markTutorialSequenceSeen,
-  markTutorialTriggerShown,
-  setTutorialEnabled,
-} from "./persistence/tutorialStore.js";
 import { getStats, recordGameResult, resetStreak } from "./persistence/statsStore.js";
 import { t, getLang, setLang, applyTranslations, runeDescription } from "./i18n.js";
 
@@ -218,12 +209,6 @@ const elements = {
   passDeviceOverlay: document.getElementById("pass-device-overlay"),
   passDeviceText: document.getElementById("pass-device-text"),
   passDeviceRevealBtn: document.getElementById("pass-device-reveal-btn"),
-  tutorialToggle: document.getElementById("tutorial-toggle"),
-  tutorialDialog: document.getElementById("tutorial-dialog"),
-  tutorialDialogText: document.getElementById("tutorial-dialog-text"),
-  tutorialPrompt: document.getElementById("tutorial-prompt"),
-  tutorialPromptSureBtn: document.getElementById("tutorial-prompt-sure-btn"),
-  tutorialPromptSkipBtn: document.getElementById("tutorial-prompt-skip-btn"),
   p1Bag: document.getElementById("p1-bag"),
   p2Bag: document.getElementById("p2-bag"),
   p1Points: document.getElementById("p1-points"),
@@ -337,17 +322,6 @@ let pendingInviteCode = null;
 // finished board.
 let hasEnteredShop = false;
 let pendingShopSnapshot = null;
-
-const tutorialController = createTutorialController({
-  elements,
-  onPromptSeen: () => markTutorialPromptSeen(),
-  onSetEnabled: (enabled) => setTutorialEnabled(enabled),
-  onSequenceSeen: (sequenceKey) => markTutorialSequenceSeen(sequenceKey),
-  onTriggerShown: (triggerId) => markTutorialTriggerShown(triggerId),
-  onCompleted: () => markTutorialCompleted(),
-  onPromptResolved: () => render(),
-});
-tutorialController.loadProfileTutorialState(getTutorialState());
 
 registerServiceWorker();
 
@@ -1092,7 +1066,6 @@ function bindEvents() {
   elements.languageSelect.addEventListener("change", () => {
     setLang(elements.languageSelect.value);
     applyTranslations();
-    tutorialController.refreshActiveText();
     renderHomeStats();
     renderHomeResume();
     refreshQuickChatBar();
@@ -1682,7 +1655,6 @@ function render() {
   updateTopStatus();
   updateTopButtons();
   updateOnlineConnectionStatus();
-  tutorialController.onGameStateUpdated(state);
 
   scheduleAiTurnIfNeeded();
 }
@@ -1822,8 +1794,6 @@ function renderShopPanel() {
   elements.shopCombineBtn.hidden = !actions.combineVisible;
   elements.shopRemoveBtn.disabled = playerReady && isPassPlayMode();
   elements.shopCombineBtn.disabled = playerReady && isPassPlayMode();
-
-  tutorialController.onShopAvailabilityChanged(playerId, Boolean(actions.combineVisible));
 
   if (previousShopPlayer !== playerId) {
     state.shop.currentPlayer = previousShopPlayer;
@@ -2390,7 +2360,6 @@ function showMainMenu() {
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
-  tutorialController.hideAll();
   renderHomeResume();
   music.setContext("menu");
 }
@@ -2462,7 +2431,6 @@ function enterGameScreen(mode, roomCode = null) {
     clearRoomQuery();
   }
 
-  tutorialController.onGameEntered(mode, state.phase);
   render();
 }
 
@@ -3228,7 +3196,6 @@ function getActiveOverlay() {
     elements.runeDetailOverlay,
     elements.endgameOverlay,
     elements.passDeviceOverlay,
-    elements.tutorialPrompt,
   ];
   return overlays.find((el) => el && !el.hidden && el.getClientRects().length > 0) || null;
 }
