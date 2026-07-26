@@ -1,7 +1,10 @@
 // Lightweight local play stats (no profiles, no server).
-const STATS_STORAGE_KEY = "runebags-stats-v1";
+// v2 keeps a per-mode breakdown (ai / passplay / online). The v1 key is left
+// in place untouched so a rollback to an older build still finds its data.
+const STATS_V2_KEY = "runebags-stats-v2";
+const STATS_V1_KEY = "runebags-stats-v1";
 
-function defaults() {
+function recordDefaults() {
   return {
     gamesPlayed: 0,
     wins: 0,
@@ -12,14 +15,38 @@ function defaults() {
   };
 }
 
+function defaults() {
+  return {
+    version: 2,
+    totals: { gamesPlayed: 0 },
+    ai: recordDefaults(),
+    // Pass & play has no "you", so it only counts games.
+    passplay: { gamesPlayed: 0 },
+    // Device-local view of online results; the server-side record is separate.
+    online: recordDefaults(),
+  };
+}
+
+function mergeDefaults(data) {
+  const base = defaults();
+  return {
+    ...base,
+    ...data,
+    totals: { ...base.totals, ...(data.totals || {}) },
+    ai: { ...base.ai, ...(data.ai || {}) },
+    passplay: { ...base.passplay, ...(data.passplay || {}) },
+    online: { ...base.online, ...(data.online || {}) },
+  };
+}
+
 function read() {
   try {
-    const raw = localStorage.getItem(STATS_STORAGE_KEY);
+    const raw = localStorage.getItem(STATS_V2_KEY);
     if (!raw) {
       return null;
     }
     const data = JSON.parse(raw);
-    return data && typeof data === "object" ? data : null;
+    return data && typeof data === "object" && data.version === 2 ? mergeDefaults(data) : null;
   } catch (error) {
     return null;
   }
@@ -27,40 +54,88 @@ function read() {
 
 function write(data) {
   try {
-    localStorage.setItem(STATS_STORAGE_KEY, JSON.stringify(data));
+    localStorage.setItem(STATS_V2_KEY, JSON.stringify(data));
   } catch (error) {
     // Ignore storage failures.
   }
 }
 
-export function getStats() {
-  return { ...defaults(), ...(read() || {}) };
+// v1 wins/losses/draws/streaks were AI-only by construction (online and
+// pass & play recorded outcome "played"), so they seed the ai bucket. The
+// non-decisive remainder of gamesPlayed cannot be attributed to a mode.
+function migrateFromV1() {
+  const stats = defaults();
+  try {
+    const raw = localStorage.getItem(STATS_V1_KEY);
+    if (!raw) {
+      return stats;
+    }
+    const v1 = JSON.parse(raw);
+    if (!v1 || typeof v1 !== "object") {
+      return stats;
+    }
+    const wins = Number(v1.wins || 0);
+    const losses = Number(v1.losses || 0);
+    const draws = Number(v1.draws || 0);
+    stats.totals.gamesPlayed = Number(v1.gamesPlayed || 0);
+    stats.ai = {
+      gamesPlayed: wins + losses + draws,
+      wins,
+      losses,
+      draws,
+      currentStreak: Number(v1.currentStreak || 0),
+      bestStreak: Number(v1.bestStreak || 0),
+    };
+  } catch (error) {
+    // Corrupt v1 data: start fresh.
+  }
+  return stats;
 }
 
-// outcome: "win" | "loss" | "draw" | "played" (played = local pass & play, no personal result)
-export function recordGameResult(outcome) {
-  const stats = getStats();
-  stats.gamesPlayed += 1;
+export function getStats() {
+  const existing = read();
+  if (existing) {
+    return existing;
+  }
+  const migrated = migrateFromV1();
+  write(migrated);
+  return migrated;
+}
 
-  if (outcome === "win") {
-    stats.wins += 1;
-    stats.currentStreak += 1;
-    stats.bestStreak = Math.max(stats.bestStreak, stats.currentStreak);
-  } else if (outcome === "loss") {
-    stats.losses += 1;
-    stats.currentStreak = 0;
-  } else if (outcome === "draw") {
-    stats.draws += 1;
-    stats.currentStreak = 0;
+// outcome: "win" | "loss" | "draw" | "played" (played = no personal result)
+// mode: "ai" | "passplay" | "online"
+export function recordGameResult(outcome, mode) {
+  const stats = getStats();
+  stats.totals.gamesPlayed += 1;
+
+  const bucket = stats[mode];
+  if (bucket) {
+    bucket.gamesPlayed = Number(bucket.gamesPlayed || 0) + 1;
+    if (typeof bucket.wins === "number") {
+      if (outcome === "win") {
+        bucket.wins += 1;
+        bucket.currentStreak += 1;
+        bucket.bestStreak = Math.max(bucket.bestStreak, bucket.currentStreak);
+      } else if (outcome === "loss") {
+        bucket.losses += 1;
+        bucket.currentStreak = 0;
+      } else if (outcome === "draw") {
+        bucket.draws += 1;
+        bucket.currentStreak = 0;
+      }
+    }
   }
 
   write(stats);
   return stats;
 }
 
-export function resetStreak() {
+export function resetStreak(mode = "ai") {
   const stats = getStats();
-  stats.currentStreak = 0;
+  const bucket = stats[mode];
+  if (bucket && typeof bucket.currentStreak === "number") {
+    bucket.currentStreak = 0;
+  }
   write(stats);
   return stats;
 }

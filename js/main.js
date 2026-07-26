@@ -34,6 +34,10 @@ import { getRuneById, RUNE_CATALOG, getAllowedColumns } from "./runes/runeCatalo
 import { createSfxEngine } from "./audio/sfxEngine.js";
 import { createMusicEngine } from "./audio/musicEngine.js";
 import { getStats, recordGameResult, resetStreak } from "./persistence/statsStore.js";
+import { renderRulesFigures } from "./ui/rulesFigures.js";
+import { fetchLeaderboard, fetchMyGames, fetchMyServerStats, fetchOngoingRooms } from "./net/apiClient.js";
+import { createReplayController } from "./replay/replayController.js";
+import { disablePush, enablePush, getPushState, isPushSupported, needsInstallForPush } from "./push/pushClient.js";
 import { t, getLang, setLang, applyTranslations, runeDescription } from "./i18n.js";
 
 const THEME_STORAGE_KEY = "runebags-theme-v1";
@@ -125,6 +129,32 @@ const elements = {
   runeDetailDesc: document.getElementById("rune-detail-desc"),
   runeDetailClose: document.getElementById("rune-detail-close"),
   settingsPanel: document.getElementById("settings-panel"),
+  statsPanel: document.getElementById("stats-panel"),
+  menuStatsBtn: document.getElementById("menu-stats-btn"),
+  statsContent: document.getElementById("stats-content"),
+  statsOnlineServer: document.getElementById("stats-online-server"),
+  statsHistory: document.getElementById("stats-history"),
+  statsBackBtn: document.getElementById("stats-back-btn"),
+  homeOngoing: document.getElementById("home-ongoing"),
+  homeOngoingList: document.getElementById("home-ongoing-list"),
+  onlineLeaderboard: document.getElementById("online-leaderboard"),
+  onlineLeaderboardList: document.getElementById("online-leaderboard-list"),
+  onlineMyStats: document.getElementById("online-my-stats"),
+  pushLabel: document.getElementById("push-label"),
+  pushToggle: document.getElementById("push-toggle"),
+  pushHint: document.getElementById("push-hint"),
+  replayPanel: document.getElementById("replay-panel"),
+  replayBoard: document.getElementById("replay-board"),
+  replayMeta: document.getElementById("replay-meta"),
+  replayWarning: document.getElementById("replay-warning"),
+  replayScore: document.getElementById("replay-score"),
+  replayStepLabel: document.getElementById("replay-step-label"),
+  replayRange: document.getElementById("replay-range"),
+  replayFirstBtn: document.getElementById("replay-first-btn"),
+  replayPrevBtn: document.getElementById("replay-prev-btn"),
+  replayNextBtn: document.getElementById("replay-next-btn"),
+  replayLastBtn: document.getElementById("replay-last-btn"),
+  replayBackBtn: document.getElementById("replay-back-btn"),
   themeSelect: document.getElementById("theme-select"),
   languageSelect: document.getElementById("language-select"),
   animationToggle: document.getElementById("animation-toggle"),
@@ -296,12 +326,14 @@ const sfx = createSfxEngine();
 const music = createMusicEngine({ getContext: () => sfx.getAudioContext() });
 // Console handle for diagnosing audio on real devices (state, volume, restart).
 window.__rbMusic = music;
+const replay = createReplayController({ elements, onClose: () => showStatsPanel() });
 let aiBusy = false;
 let aiTimer = null;
 let animationsEnabled = true;
 let soundEnabled = true;
 let sfxVolume = DEFAULT_SFX_VOLUME;
 let previousBoardSnapshot = null;
+let previousRenderRound = null;
 let ghostCleanupTimer = null;
 let previousPendingActionSnapshot = null;
 let previousAudioSnapshot = null;
@@ -332,7 +364,10 @@ initializeTheme();
 initializeAnimations();
 initializeSound();
 initializeMusic();
+initializePush();
+replay.bind();
 renderHomeRuneGallery();
+renderRulesFigures();
 renderHomeStats();
 renderHomeResume();
 bindSoundUnlockHandlers();
@@ -577,7 +612,7 @@ function bindEvents() {
       if (!confirmed) {
         return;
       }
-      resetStreak();
+      resetStreak("ai");
       renderHomeStats();
     }
 
@@ -695,6 +730,14 @@ function bindEvents() {
 
   elements.menuSettingsBtn.addEventListener("click", () => {
     showSettingsPanel();
+  });
+
+  elements.menuStatsBtn.addEventListener("click", () => {
+    showStatsPanel();
+  });
+
+  elements.statsBackBtn.addEventListener("click", () => {
+    showMainMenu();
   });
 
   elements.settingsBackBtn.addEventListener("click", () => {
@@ -817,6 +860,27 @@ function bindEvents() {
     online.setReady(!waitingRoomState.youReady);
   });
 
+  // Following your own invite link would seat you as your own opponent in a
+  // second tab — intercept the click and copy the link instead. Right-click
+  // and long-press share flows keep working through the real href.
+  elements.onlineRoomCodeLink.addEventListener("click", async (event) => {
+    event.preventDefault();
+    const link = elements.onlineRoomCodeLink.href;
+    if (!link) {
+      return;
+    }
+    try {
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+        await navigator.clipboard.writeText(link);
+        showToast(t("online.linkCopied"));
+      } else {
+        showToast(t("online.shareUnavailable"));
+      }
+    } catch {
+      showToast(t("online.copyFailed"));
+    }
+  });
+
   elements.onlineAvatarBtn.addEventListener("click", () => {
     elements.onlineAvatarPicker.hidden = !elements.onlineAvatarPicker.hidden;
     if (!elements.onlineAvatarPicker.hidden) {
@@ -900,7 +964,7 @@ function bindEvents() {
 
     state = result.state;
     if (result.error) {
-      setStatus(result.error);
+      setStatus(formatEngineError(result));
     }
 
     maybeQueuePassDevice(prevPlayer);
@@ -937,7 +1001,7 @@ function bindEvents() {
     const result = resolvePendingBoardChoice(state, { awayIndex });
     state = result.state;
     if (result.error) {
-      setStatus(result.error);
+      setStatus(formatEngineError(result));
     }
 
     maybeQueuePassDevice(prevPlayer);
@@ -970,7 +1034,7 @@ function bindEvents() {
       state = result.state;
 
       if (result.error) {
-        setStatus(result.error);
+        setStatus(formatEngineError(result));
       } else {
         setStatus(t("status.runeSelected", { player: getDisplayPlayerName(playerId) }));
       }
@@ -1223,7 +1287,7 @@ function bindEvents() {
 
     state = result.state;
     if (result.error) {
-      setStatus(result.error);
+      setStatus(formatEngineError(result));
     }
 
     persistState();
@@ -1257,7 +1321,7 @@ function bindEvents() {
         return;
       }
       if (isAiGame) {
-        resetStreak();
+        resetStreak("ai");
         renderHomeStats();
       }
     }
@@ -1286,7 +1350,7 @@ function bindEvents() {
     const result = switchShopPlayer(state);
     state = result.state;
     if (result.error) {
-      setStatus(result.error);
+      setStatus(formatEngineError(result));
       return;
     }
 
@@ -1311,7 +1375,7 @@ function bindEvents() {
     const result = setShopMode(state, mode === "remove" ? null : "remove");
     state = result.state;
     if (result.error) {
-      setStatus(result.error);
+      setStatus(formatEngineError(result));
     }
     persistState();
     render();
@@ -1334,7 +1398,7 @@ function bindEvents() {
     const result = setShopMode(state, mode === "combine" ? null : "combine");
     state = result.state;
     if (result.error) {
-      setStatus(result.error);
+      setStatus(formatEngineError(result));
     }
     persistState();
     render();
@@ -1362,7 +1426,7 @@ function bindEvents() {
     const result = shopSelectBagRune(state, runeInstanceId);
     state = result.state;
     if (result.error) {
-      setStatus(result.error);
+      setStatus(formatEngineError(result));
     }
     persistState();
     render();
@@ -1389,7 +1453,7 @@ function bindEvents() {
     const result = shopSelectOfferRune(state, runeInstanceId);
     state = result.state;
     if (result.error) {
-      setStatus(result.error);
+      setStatus(formatEngineError(result));
     }
     persistState();
     render();
@@ -1525,6 +1589,15 @@ function hideBoardRuneInfo() {
 
 function render() {
   if (elements.gameScreen.hidden) {
+    // The board is off-screen but the state keeps moving (AI turns run on a
+    // timer, online snapshots keep arriving). Advance the diff baselines
+    // anyway: otherwise the next visible render diffs against a board from
+    // before the player left and paints effect ghosts — floating, in cells
+    // nothing just happened in — for every rune that vanished meanwhile.
+    previousBoardSnapshot = snapshotBoard(state);
+    previousPendingActionSnapshot = snapshotPendingAction(state.pendingAction);
+    previousAudioSnapshot = snapshotAudioState(state, previousBoardSnapshot);
+    previousRenderRound = state.roundNumber;
     return;
   }
 
@@ -1624,9 +1697,15 @@ function render() {
     passDeviceFocused = false;
   }
 
+  // A new round wipes the board, so diffing across it would read as "every
+  // rune from last round was destroyed" and paint a ghost in each of their
+  // cells. Skip effect animations for that one render.
+  const roundChanged = previousRenderRound !== null && state.roundNumber !== previousRenderRound;
+  previousRenderRound = state.roundNumber;
+
   const animationFrame = buildBoardAnimationFrame(
     state,
-    animationsEnabled,
+    animationsEnabled && !roundChanged,
     previousBoardSnapshot,
     pendingTargets,
     previousPendingActionSnapshot,
@@ -1836,7 +1915,7 @@ function renderEndgameOverlay() {
   }
 
   if (!gameResultRecorded) {
-    recordGameResult(getHumanOutcome());
+    recordGameResult(getHumanOutcome(), currentStatsMode());
     gameResultRecorded = true;
     renderHomeStats();
   }
@@ -1858,10 +1937,11 @@ function renderEndgameOverlay() {
   elements.endgameScore2.classList.toggle("winner", winner === 2);
 
   const stats = getStats();
-  const decisive = stats.wins + stats.losses + stats.draws;
+  const bucket = stats[currentStatsMode()];
+  const decisive = typeof bucket?.wins === "number" ? bucket.wins + bucket.losses + bucket.draws : 0;
   elements.endgameStats.textContent = decisive > 0
-    ? t("endgame.record", { w: stats.wins, l: stats.losses, d: stats.draws, s: stats.currentStreak })
-    : t("stats.gamesPlayed", { n: stats.gamesPlayed });
+    ? t("endgame.record", { w: bucket.wins, l: bucket.losses, d: bucket.draws, s: bucket.currentStreak })
+    : t("stats.gamesPlayed", { n: stats.totals.gamesPlayed });
 
   updateEndgameRematchUI();
 
@@ -1907,12 +1987,27 @@ function updateEndgameRematchUI() {
   }
 }
 
+// Which per-mode stats bucket the game being played (or just finished) belongs to.
+function currentStatsMode() {
+  if (online.isOnlineActive()) {
+    return "online";
+  }
+  return aiConfig.enabled ? "ai" : "passplay";
+}
+
 function getHumanOutcome() {
   const winner = state.gameWinner;
   if (online.isOnlineActive()) {
-    // Online results don't affect the local win streak (AI-only for now;
-    // online may get its own lobby streak later).
-    return "played";
+    // Device-local view of the online record; kept in its own bucket so the
+    // AI streak stays AI-only. The authoritative record lives on the server.
+    const seat = waitingRoomState.playerId;
+    if (!seat) {
+      return "played";
+    }
+    if (!winner) {
+      return "draw";
+    }
+    return winner === seat ? "win" : "loss";
   }
   if (aiConfig.enabled) {
     const human = aiConfig.playerId === 1 ? 2 : 1;
@@ -1929,17 +2024,270 @@ function renderHomeStats() {
     return;
   }
   const stats = getStats();
-  if (stats.gamesPlayed === 0) {
+  if (stats.totals.gamesPlayed === 0) {
     elements.homeStats.hidden = true;
     return;
   }
-  let text = t("stats.gamesPlayed", { n: stats.gamesPlayed });
-  const decisive = stats.wins + stats.losses + stats.draws;
+  let text = t("stats.gamesPlayed", { n: stats.totals.gamesPlayed });
+  const ai = stats.ai;
+  const decisive = ai.wins + ai.losses + ai.draws;
   if (decisive > 0) {
-    text += t("stats.recordSuffix", { w: stats.wins, l: stats.losses, d: stats.draws, s: stats.currentStreak, b: stats.bestStreak });
+    text += t("stats.recordSuffix", { w: ai.wins, l: ai.losses, d: ai.draws, s: ai.currentStreak, b: ai.bestStreak });
   }
   elements.homeStats.hidden = false;
   elements.homeStats.textContent = text;
+}
+
+// The lobby and the stats screen both surface the server-side record. Both
+// calls are fire-and-forget: an offline or cold-starting server just leaves
+// the sections hidden rather than blocking the UI.
+async function refreshLobbySocial() {
+  const [players, myStats] = await Promise.all([fetchLeaderboard(10), fetchMyServerStats()]);
+
+  if (elements.onlineMyStats) {
+    const show = Boolean(myStats && myStats.games > 0);
+    elements.onlineMyStats.hidden = !show;
+    if (show) {
+      elements.onlineMyStats.textContent = t("lb.you", {
+        w: myStats.wins,
+        l: myStats.losses,
+        d: myStats.draws,
+        s: myStats.currentStreak,
+      });
+    }
+  }
+
+  if (!elements.onlineLeaderboard || !elements.onlineLeaderboardList) {
+    return;
+  }
+
+  elements.onlineLeaderboardList.innerHTML = "";
+  if (players.length === 0) {
+    elements.onlineLeaderboard.hidden = true;
+    return;
+  }
+
+  players.forEach((player) => {
+    const item = document.createElement("li");
+    item.className = "online-leaderboard-row";
+
+    const chip = document.createElement("span");
+    chip.className = "online-avatar-chip";
+    renderAvatarChip(chip, player.avatar);
+    item.appendChild(chip);
+
+    const name = document.createElement("span");
+    name.className = "online-leaderboard-name";
+    name.textContent = player.name;
+    item.appendChild(name);
+
+    const score = document.createElement("span");
+    score.className = "online-leaderboard-score";
+    score.textContent = t("lb.record", { w: player.wins, n: player.games });
+    item.appendChild(score);
+
+    elements.onlineLeaderboardList.appendChild(item);
+  });
+  elements.onlineLeaderboard.hidden = false;
+}
+
+// Online games this device still holds a seat in — the entry point for
+// picking a correspondence game back up days later.
+async function renderHomeOngoing() {
+  if (!elements.homeOngoing || !elements.homeOngoingList) {
+    return;
+  }
+
+  const rooms = await fetchOngoingRooms();
+  elements.homeOngoingList.innerHTML = "";
+  if (rooms.length === 0) {
+    elements.homeOngoing.hidden = true;
+    return;
+  }
+
+  rooms.forEach((room) => {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "home-ongoing-card";
+
+    const opponent = document.createElement("span");
+    opponent.className = "home-ongoing-opponent";
+    opponent.textContent = room.opponent?.name || t("online.waitingOpponent");
+    card.appendChild(opponent);
+
+    const status = document.createElement("span");
+    status.className = "home-ongoing-status";
+    if (room.yourTurn) {
+      status.classList.add("your-turn");
+      status.textContent = t("home.ongoing.yourTurn");
+    } else if (room.phase === "shop") {
+      status.textContent = t("home.ongoing.shopPhase");
+    } else {
+      status.textContent = t("home.ongoing.waiting");
+    }
+    card.appendChild(status);
+
+    const meta = document.createElement("span");
+    meta.className = "home-ongoing-meta";
+    meta.textContent = t("home.ongoing.round", { n: room.roundNumber });
+    card.appendChild(meta);
+
+    card.addEventListener("click", () => {
+      resumeOnlineRoom(room.roomCode);
+    });
+    elements.homeOngoingList.appendChild(card);
+  });
+  elements.homeOngoing.hidden = false;
+}
+
+// Finished online games, newest first; each row opens the replay viewer.
+async function renderStatsHistory() {
+  if (!elements.statsHistory) {
+    return;
+  }
+
+  const games = await fetchMyGames(10);
+  elements.statsHistory.innerHTML = "";
+  if (games.length === 0) {
+    elements.statsHistory.hidden = true;
+    return;
+  }
+
+  const heading = document.createElement("h3");
+  heading.className = "stats-mode-title";
+  heading.textContent = t("history.title");
+  elements.statsHistory.appendChild(heading);
+
+  games.forEach((game) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "stats-history-row";
+
+    const outcome = document.createElement("span");
+    outcome.className = "stats-history-outcome";
+    if (game.youWon === null) {
+      outcome.textContent = t("history.draw");
+    } else if (game.youWon) {
+      outcome.classList.add("win");
+      outcome.textContent = t("history.win");
+    } else {
+      outcome.classList.add("loss");
+      outcome.textContent = t("history.loss");
+    }
+    row.appendChild(outcome);
+
+    const versus = document.createElement("span");
+    versus.className = "stats-history-versus";
+    versus.textContent = t("history.vs", { player: game.opponent?.name || "?" });
+    row.appendChild(versus);
+
+    const score = document.createElement("span");
+    score.className = "stats-history-score";
+    score.textContent = `${game.points[1]} – ${game.points[2]}`;
+    row.appendChild(score);
+
+    row.addEventListener("click", () => {
+      showReplayPanel(game.id);
+    });
+    elements.statsHistory.appendChild(row);
+  });
+  elements.statsHistory.hidden = false;
+}
+
+async function renderStatsServerRecord() {
+  if (!elements.statsOnlineServer) {
+    return;
+  }
+  const stats = await fetchMyServerStats();
+  if (!stats || stats.games === 0) {
+    elements.statsOnlineServer.hidden = true;
+    return;
+  }
+
+  elements.statsOnlineServer.innerHTML = "";
+  const heading = document.createElement("h3");
+  heading.className = "stats-mode-title";
+  heading.textContent = t("stats.server.title");
+  elements.statsOnlineServer.appendChild(heading);
+
+  const line = document.createElement("p");
+  line.className = "stats-line";
+  line.textContent = t("statsScreen.record", { w: stats.wins, l: stats.losses, d: stats.draws });
+  elements.statsOnlineServer.appendChild(line);
+
+  const streak = document.createElement("p");
+  streak.className = "stats-line stats-streak";
+  streak.textContent = t("statsScreen.streak", { s: stats.currentStreak, b: stats.bestStreak });
+  elements.statsOnlineServer.appendChild(streak);
+
+  elements.statsOnlineServer.hidden = false;
+}
+
+function renderStatsPanel() {
+  if (!elements.statsContent) {
+    return;
+  }
+  const stats = getStats();
+  const container = elements.statsContent;
+  container.innerHTML = "";
+
+  const total = document.createElement("p");
+  total.className = "stats-total";
+  total.textContent = t("statsScreen.totalGames", { n: stats.totals.gamesPlayed });
+  container.appendChild(total);
+
+  const grid = document.createElement("div");
+  grid.className = "stats-mode-grid";
+  grid.appendChild(buildStatsModeCard(t("statsScreen.modeAi"), stats.ai));
+  grid.appendChild(buildStatsModeCard(t("statsScreen.modeOnline"), stats.online));
+  grid.appendChild(buildStatsModeCard(t("statsScreen.modePassplay"), stats.passplay));
+  container.appendChild(grid);
+}
+
+function buildStatsModeCard(title, bucket) {
+  const card = document.createElement("article");
+  card.className = "stats-mode-card";
+
+  const heading = document.createElement("h3");
+  heading.className = "stats-mode-title";
+  heading.textContent = title;
+  card.appendChild(heading);
+
+  const gamesPlayed = Number(bucket?.gamesPlayed || 0);
+  if (gamesPlayed === 0) {
+    const empty = document.createElement("p");
+    empty.className = "stats-line stats-empty";
+    empty.textContent = t("statsScreen.empty");
+    card.appendChild(empty);
+    return card;
+  }
+
+  const games = document.createElement("p");
+  games.className = "stats-line";
+  games.textContent = t("statsScreen.gamesPlayed", { n: gamesPlayed });
+  card.appendChild(games);
+
+  if (typeof bucket.wins === "number") {
+    const decisive = bucket.wins + bucket.losses + bucket.draws;
+    if (decisive > 0) {
+      const record = document.createElement("p");
+      record.className = "stats-line";
+      record.textContent = t("statsScreen.record", { w: bucket.wins, l: bucket.losses, d: bucket.draws });
+      card.appendChild(record);
+
+      const rate = document.createElement("p");
+      rate.className = "stats-line";
+      rate.textContent = t("statsScreen.winRate", { pct: Math.round((bucket.wins / decisive) * 100) });
+      card.appendChild(rate);
+
+      const streak = document.createElement("p");
+      streak.className = "stats-line stats-streak";
+      streak.textContent = t("statsScreen.streak", { s: bucket.currentStreak, b: bucket.bestStreak });
+      card.appendChild(streak);
+    }
+  }
+
+  return card;
 }
 
 function buildShareText() {
@@ -2303,7 +2651,7 @@ function scheduleAiTurnIfNeeded() {
     aiTimer = null;
 
     if (result.error) {
-      setStatus(result.error);
+      setStatus(formatEngineError(result));
     } else if (result.note) {
       setStatus(result.note);
     }
@@ -2357,10 +2705,13 @@ function showMainMenu() {
   elements.mainMenu.hidden = false;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
+  elements.statsPanel.hidden = true;
+  elements.replayPanel.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
   renderHomeResume();
+  renderHomeOngoing();
   music.setContext("menu");
 }
 
@@ -2368,6 +2719,8 @@ function showAiPanel() {
   elements.mainMenu.hidden = true;
   elements.aiPanel.hidden = false;
   elements.settingsPanel.hidden = true;
+  elements.statsPanel.hidden = true;
+  elements.replayPanel.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
@@ -2386,6 +2739,7 @@ function showOnlinePanel() {
   elements.mainMenu.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
+  elements.statsPanel.hidden = true;
   elements.onlinePanel.hidden = false;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
@@ -2396,12 +2750,15 @@ function showOnlinePanel() {
   renderOnlineIdentity();
   updateOnlineRoomUI(activeRoomCode || "-");
   updateOnlineConnectionStatus();
+  refreshLobbySocial();
 }
 
 function showRulesPanel() {
   elements.mainMenu.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
+  elements.statsPanel.hidden = true;
+  elements.replayPanel.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = false;
   elements.gameScreen.hidden = true;
@@ -2411,15 +2768,45 @@ function showSettingsPanel() {
   elements.mainMenu.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = false;
+  elements.statsPanel.hidden = true;
+  elements.replayPanel.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
+}
+
+function showStatsPanel() {
+  elements.mainMenu.hidden = true;
+  elements.aiPanel.hidden = true;
+  elements.settingsPanel.hidden = true;
+  elements.statsPanel.hidden = false;
+  elements.replayPanel.hidden = true;
+  elements.onlinePanel.hidden = true;
+  elements.rulesPanel.hidden = true;
+  elements.gameScreen.hidden = true;
+  renderStatsPanel();
+  renderStatsServerRecord();
+  renderStatsHistory();
+}
+
+function showReplayPanel(gameId) {
+  elements.mainMenu.hidden = true;
+  elements.aiPanel.hidden = true;
+  elements.settingsPanel.hidden = true;
+  elements.statsPanel.hidden = true;
+  elements.onlinePanel.hidden = true;
+  elements.rulesPanel.hidden = true;
+  elements.gameScreen.hidden = true;
+  // open() reveals the panel itself once the recording has loaded.
+  replay.open(gameId);
 }
 
 function enterGameScreen(mode, roomCode = null) {
   elements.mainMenu.hidden = true;
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
+  elements.statsPanel.hidden = true;
+  elements.replayPanel.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = false;
@@ -2758,11 +3145,43 @@ function resolveOnlineErrorMessage(info) {
   if (typeof info === "string") {
     return info;
   }
+  // Engine rejections carry a structured reasonKey (err.*); resolve it in the
+  // local language before falling back to transport codes, then raw English.
+  if (info.reasonKey) {
+    const translated = t(info.reasonKey, resolveErrorParams(info.reasonParams));
+    if (translated !== info.reasonKey) {
+      return translated;
+    }
+  }
   const key = info.code ? ONLINE_ERROR_KEY_BY_CODE[info.code] : null;
   if (key) {
     return t(key);
   }
   return String(info.message || "");
+}
+
+// Engine mutators return { error, errorKey, errorParams }: prefer the key so
+// local play surfaces localized messages, with the raw English string as the
+// fallback for keys this build doesn't know.
+function formatEngineError(result) {
+  if (result?.errorKey) {
+    const translated = t(result.errorKey, resolveErrorParams(result.errorParams));
+    if (translated !== result.errorKey) {
+      return translated;
+    }
+  }
+  return String(result?.error || "");
+}
+
+function resolveErrorParams(params) {
+  if (!params || typeof params !== "object") {
+    return {};
+  }
+  const resolved = { ...params };
+  if (resolved.player === 1 || resolved.player === 2) {
+    resolved.player = getDisplayPlayerName(resolved.player);
+  }
+  return resolved;
 }
 
 function formatQueueStatus(snapshot) {
@@ -2918,7 +3337,9 @@ function updatePresenceUI() {
   const show = onlinePresenceCount > 0 && isOnlineServerConnected();
   elements.onlinePresence.hidden = !show;
   if (show) {
-    elements.onlinePresenceText.textContent = t("online.presence", { n: onlinePresenceCount });
+    elements.onlinePresenceText.textContent = onlinePresenceCount === 1
+      ? t("online.presenceOne")
+      : t("online.presence", { n: onlinePresenceCount });
   }
 }
 
@@ -3150,7 +3571,13 @@ function renderHomeResume() {
 
 function resumeOnlineSave() {
   const savedOnline = loadModeSave(MODE_ONLINE);
-  const roomCode = String(savedOnline?.roomCode || "").toUpperCase();
+  resumeOnlineRoom(String(savedOnline?.roomCode || "").toUpperCase());
+}
+
+// Shared by the local save card and the server-driven "games in progress"
+// list: both just need to reconnect to a room code.
+function resumeOnlineRoom(rawRoomCode) {
+  const roomCode = String(rawRoomCode || "").toUpperCase();
   if (!/^[A-Z2-9]{6}$/.test(roomCode)) {
     return;
   }
@@ -3206,6 +3633,54 @@ function initializeLanguage() {
     elements.languageSelect.value = getLang();
   }
   applyTranslations();
+}
+
+// Push is opt-in and gesture-gated: the permission prompt only ever fires from
+// the toggle itself, which iOS requires and which keeps the first visit quiet.
+async function initializePush() {
+  if (!elements.pushToggle || !elements.pushLabel) {
+    return;
+  }
+
+  if (!isPushSupported()) {
+    elements.pushToggle.hidden = true;
+    elements.pushLabel.hidden = true;
+    return;
+  }
+
+  elements.pushToggle.hidden = false;
+  elements.pushLabel.hidden = false;
+
+  if (needsInstallForPush() && elements.pushHint) {
+    elements.pushHint.textContent = t("settings.pushIosHint");
+    elements.pushHint.hidden = false;
+  }
+
+  const state = await getPushState();
+  elements.pushToggle.checked = state.enabled;
+
+  elements.pushToggle.addEventListener("change", async () => {
+    if (!elements.pushToggle.checked) {
+      await disablePush();
+      return;
+    }
+
+    const result = await enablePush(getLang());
+    if (result.ok) {
+      showToast(t("settings.pushEnabled"));
+      return;
+    }
+
+    // Never leave the toggle claiming something that isn't true.
+    elements.pushToggle.checked = false;
+    if (result.reason === "denied") {
+      showToast(t("settings.pushDenied"));
+    } else if (result.reason === "no_player") {
+      showToast(t("settings.pushNeedsGame"));
+    } else {
+      showToast(t("settings.pushError"));
+    }
+  });
 }
 
 function initializeTheme() {
@@ -3590,6 +4065,12 @@ function scheduleGhostCleanup(animationFrame) {
 
   ghostCleanupTimer = window.setTimeout(() => {
     ghostCleanupTimer = null;
+    // Drop the nodes outright rather than trusting the follow-up render: if
+    // the player left the game screen meanwhile, render() bails out early and
+    // would strand them in the DOM until the next board rebuild.
+    elements.boardEl
+      .querySelectorAll(".effect-fade-ghost, .effect-lift-ghost")
+      .forEach((node) => node.remove());
     render();
   }, 900);
 }

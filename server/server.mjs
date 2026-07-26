@@ -4,26 +4,37 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
+import { createInitialState, ENGINE_VERSION, restoreState, startRoundFromShop } from "../js/core/gameState.js";
+import { applyAction } from "../js/core/onlineActions.js";
 import {
-  createInitialState,
-  enterShopPhase,
-  playTurn,
-  resolvePendingBoardChoice,
-  restoreState,
-  selectRune,
-  setShopMode,
-  shopSelectBagRune,
-  shopSelectOfferRune,
-  startRoundFromShop,
-  switchShopPlayer,
-} from "../js/core/gameState.js";
+  closeDb,
+  finishGame,
+  getPlayerIdByGuestId,
+  insertGame,
+  insertGameAction,
+  markGameAbandonedIfActive,
+  openDb,
+  recordPlayerOutcome,
+  upsertPlayer,
+} from "./db.mjs";
+import { handleApiRequest } from "./api.mjs";
+import { initPush, sendPush } from "./push.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, "..");
 const PUBLIC_ROOT = ROOT;
-const PERSIST_PATH = path.join(__dirname, "rooms.json");
+// On Render, DATA_DIR points at the persistent disk (/var/data) so rooms and
+// the SQLite DB survive deploys; locally it falls back to server/ as before.
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+const PERSIST_PATH = path.join(DATA_DIR, "rooms.json");
 const PORT = Number(process.env.PORT || 8080);
+
+// Room lifetime once rooms persist across deploys (TTL sweep, once an hour).
+const ROOM_TTL_NEVER_STARTED_MS = 24 * 60 * 60 * 1000;
+const ROOM_TTL_FINISHED_MS = 48 * 60 * 60 * 1000;
+const ROOM_TTL_IDLE_MS = 30 * 24 * 60 * 60 * 1000;
+const ROOM_SWEEP_INTERVAL_MS = 60 * 60 * 1000;
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -59,7 +70,12 @@ const QUICK_CHAT_KEYS = new Set([
 ]);
 const QUICK_CHAT_MIN_INTERVAL_MS = 1200;
 
+await fs.mkdir(DATA_DIR, { recursive: true }).catch(() => {});
+openDb(DATA_DIR);
+await initPush(process.env);
 await loadRooms();
+sweepRooms();
+setInterval(sweepRooms, ROOM_SWEEP_INTERVAL_MS).unref();
 
 const server = createServer(handleHttp);
 const wss = new WebSocketServer({ noServer: true });
@@ -107,7 +123,7 @@ wss.on("connection", (ws) => {
       player.connected = false;
       player.lastSeen = Date.now();
       broadcastWaitingState(room);
-      persistRooms().catch(() => {});
+      schedulePersistRooms().catch(() => {});
     }
   });
 
@@ -119,8 +135,44 @@ server.listen(PORT, () => {
   console.log(`RuneBags online server listening on http://127.0.0.1:${PORT}`);
 });
 
+// Render sends SIGTERM on every deploy/restart (~30 s grace): flush the
+// debounced rooms write and close the DB so nothing on the disk is lost.
+let shuttingDown = false;
+async function shutdown() {
+  if (shuttingDown) {
+    return;
+  }
+  shuttingDown = true;
+  try {
+    await flushRoomsNow();
+  } catch {
+    // Best-effort — the debounced copy may already be on disk.
+  }
+  try {
+    closeDb();
+  } catch {
+    // Best-effort.
+  }
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), 5000).unref();
+}
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
+
 async function handleHttp(req, res) {
   const reqPath = decodeURIComponent((req.url || "/").split("?")[0]);
+
+  if (reqPath === "/healthz") {
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.end("ok");
+    return;
+  }
+
+  if (reqPath === "/api" || reqPath.startsWith("/api/")) {
+    handleApi(req, res);
+    return;
+  }
+
   let target = reqPath === "/" ? "/index.html" : reqPath;
   if (!isAllowedPublicPath(target)) {
     res.writeHead(403);
@@ -162,6 +214,68 @@ function isAllowedPublicPath(target) {
     || target.startsWith("/js/")
     || target.startsWith("/styles/")
     || target.startsWith("/assets/");
+}
+
+function handleApi(req, res) {
+  handleApiRequest(req, res, { rooms }).catch((error) => {
+    console.warn(`[api] request failed: ${error?.message || error}`);
+    if (!res.headersSent) {
+      sendJson(res, 500, { error: "internal_error" });
+    }
+  });
+}
+
+function sendJson(res, status, payload) {
+  res.writeHead(status, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+  });
+  res.end(JSON.stringify(payload));
+}
+
+function roomLastActivity(room) {
+  return Math.max(
+    Number(room.lastActivityAt || 0),
+    Number(room.players?.[1]?.lastSeen || 0),
+    Number(room.players?.[2]?.lastSeen || 0),
+    Number(room.createdAt || 0),
+  );
+}
+
+// Rooms now survive deploys (persistent disk), so without a TTL they would
+// accumulate forever. Finished games live on in the DB history, not the room.
+function sweepRooms() {
+  const now = Date.now();
+  let removed = 0;
+  for (const [code, room] of rooms) {
+    if (room.players?.[1]?.connected || room.players?.[2]?.connected) {
+      continue;
+    }
+
+    let expired = false;
+    if (!room.started) {
+      expired = now - Number(room.createdAt || 0) > ROOM_TTL_NEVER_STARTED_MS;
+    } else if (room.state?.phase === "game-over") {
+      expired = now - roomLastActivity(room) > ROOM_TTL_FINISHED_MS;
+    } else {
+      expired = now - roomLastActivity(room) > ROOM_TTL_IDLE_MS;
+    }
+
+    if (!expired) {
+      continue;
+    }
+
+    if (room.gameId) {
+      markGameAbandonedIfActive(room.gameId);
+    }
+    rooms.delete(code);
+    removed += 1;
+  }
+
+  if (removed > 0) {
+    console.log(`[sweep] removed ${removed} expired room(s), ${rooms.size} remaining`);
+    schedulePersistRooms().catch(() => {});
+  }
 }
 
 function handleMessage(ws, message) {
@@ -290,9 +404,10 @@ function createInstantMatch(firstEntry, secondEntry) {
     state: restoreState(createInitialState()),
     chat: [],
     shopSync: createShopSyncState(),
+    lastActivityAt: Date.now(),
     players: {
-      1: createPlayerRecord(token1, normalizeDisplayName(firstEntry?.displayName, "Player 1"), firstEntry?.avatar),
-      2: createPlayerRecord(token2, normalizeDisplayName(secondEntry?.displayName, "Player 2"), secondEntry?.avatar),
+      1: createPlayerRecord(token1, normalizeDisplayName(firstEntry?.displayName, "Player 1"), firstEntry?.avatar, firstEntry?.guestId),
+      2: createPlayerRecord(token2, normalizeDisplayName(secondEntry?.displayName, "Player 2"), secondEntry?.avatar, secondEntry?.guestId),
     },
   };
 
@@ -300,6 +415,9 @@ function createInstantMatch(firstEntry, secondEntry) {
   room.players[2].ready = true;
 
   rooms.set(roomCode, room);
+  registerSeatIdentity(room, 1, firstEntry?.guestId);
+  registerSeatIdentity(room, 2, secondEntry?.guestId);
+  beginGameRecording(room);
   attachSession(firstWs, roomCode, 1, token1);
   attachSession(secondWs, roomCode, 2, token2);
 
@@ -309,7 +427,7 @@ function createInstantMatch(firstEntry, secondEntry) {
   sendWaitingSnapshot(firstWs, room, 1, token1);
   sendWaitingSnapshot(secondWs, room, 2, token2);
   broadcastState(room);
-  persistRooms().catch(() => {});
+  schedulePersistRooms().catch(() => {});
 }
 
 function onCreateRoom(ws, message) {
@@ -329,15 +447,17 @@ function onCreateRoom(ws, message) {
     state: null,
     chat: [],
     shopSync: null,
+    lastActivityAt: Date.now(),
     players: {
-      1: createPlayerRecord(token, displayName, message.avatar),
+      1: createPlayerRecord(token, displayName, message.avatar, message.guestId),
       2: createPlayerRecord(null, "Player 2"),
     },
   };
 
   rooms.set(roomCode, room);
+  registerSeatIdentity(room, 1, message.guestId);
   attachSession(ws, roomCode, 1, token);
-  persistRooms().catch(() => {});
+  schedulePersistRooms().catch(() => {});
 
   sendWaitingSnapshot(ws, room, 1, token);
 }
@@ -351,7 +471,13 @@ function onJoinRoom(ws, message) {
   }
 
   if (room.started && !message.token) {
-    const reclaimPlayerId = [1, 2].find((id) => {
+    // Prefer the seat this guest already holds: reconnect tokens live in
+    // session storage and rarely survive a browser restart, and the old
+    // "first disconnected seat" heuristic could hand you your OPPONENT's seat.
+    // A guest-id match also allows taking over from a second device.
+    const guestId = normalizeGuestId(message.guestId);
+    const ownSeatId = guestId ? [1, 2].find((id) => room.players[id]?.guestId === guestId) : null;
+    const reclaimPlayerId = ownSeatId || [1, 2].find((id) => {
       const player = room.players[id];
       if (!player?.token || player.connected) {
         return false;
@@ -371,8 +497,10 @@ function onJoinRoom(ws, message) {
       room.players[reclaimPlayerId].name || `Player ${reclaimPlayerId}`,
     );
     room.players[reclaimPlayerId].avatar = normalizeAvatar(message.avatar) || room.players[reclaimPlayerId].avatar;
+    registerSeatIdentity(room, reclaimPlayerId, message.guestId);
+    room.lastActivityAt = Date.now();
     attachSession(ws, room.code, reclaimPlayerId, newToken);
-    persistRooms().catch(() => {});
+    schedulePersistRooms().catch(() => {});
 
     sendWaitingSnapshot(ws, room, reclaimPlayerId, newToken);
     send(ws, {
@@ -399,15 +527,28 @@ function onJoinRoom(ws, message) {
     return;
   }
 
-  const playerId = room.players[1].token ? 2 : 1;
+  // A host returning to their own not-yet-started room keeps seat 1 instead of
+  // landing in the opponent's chair (which is what happens when they follow
+  // their own invite link).
+  const joinGuestId = normalizeGuestId(message.guestId);
+  const ownSeatId = joinGuestId ? [1, 2].find((id) => room.players[id]?.guestId === joinGuestId) : null;
+  const playerId = ownSeatId || (room.players[1].token ? 2 : 1);
   const token = createToken();
   const defaultName = playerId === 1 ? "Player 1" : "Player 2";
-  room.players[playerId] = createPlayerRecord(token, normalizeDisplayName(message.displayName, defaultName), message.avatar);
+  room.players[playerId] = createPlayerRecord(
+    token,
+    normalizeDisplayName(message.displayName, defaultName),
+    message.avatar,
+    message.guestId,
+  );
+  registerSeatIdentity(room, playerId, message.guestId);
+  room.lastActivityAt = Date.now();
   attachSession(ws, room.code, playerId, token);
-  persistRooms().catch(() => {});
+  schedulePersistRooms().catch(() => {});
 
   sendWaitingSnapshot(ws, room, playerId, token);
   broadcastWaitingState(room);
+  notifyOpponentJoined(room, playerId);
 }
 
 function onReconnect(ws, message) {
@@ -433,9 +574,11 @@ function onReconnect(ws, message) {
     room.players[playerId].name || `Player ${playerId}`,
   );
   room.players[playerId].avatar = normalizeAvatar(message.avatar) || room.players[playerId].avatar;
+  registerSeatIdentity(room, playerId, message.guestId);
+  room.lastActivityAt = Date.now();
 
   attachSession(ws, room.code, playerId, token);
-  persistRooms().catch(() => {});
+  schedulePersistRooms().catch(() => {});
 
   sendWaitingSnapshot(ws, room, playerId, token);
   if (room.started && room.state) {
@@ -469,7 +612,7 @@ function onSetReady(ws, message) {
   }
 
   room.players[session.playerId].ready = Boolean(message.ready);
-  persistRooms().catch(() => {});
+  schedulePersistRooms().catch(() => {});
   broadcastWaitingState(room);
 }
 
@@ -507,10 +650,12 @@ function onStartMatch(ws) {
   room.rematch = { 1: false, 2: false };
   room.started = true;
   room.seq += 1;
+  room.lastActivityAt = Date.now();
   room.players[1].lastClientSeq = 0;
   room.players[2].lastClientSeq = 0;
+  beginGameRecording(room);
 
-  persistRooms().catch(() => {});
+  schedulePersistRooms().catch(() => {});
   broadcastWaitingState(room);
   broadcastState(room);
 }
@@ -546,6 +691,7 @@ function onRematchRequest(ws) {
   }
   room.rematch[session.playerId] = true;
   broadcastRematchStatus(room);
+  notifyRematchRequested(room, session.playerId);
 
   if (room.rematch[1] && room.rematch[2]) {
     room.state = restoreState(createInitialState());
@@ -555,7 +701,10 @@ function onRematchRequest(ws) {
     room.players[1].lastClientSeq = 0;
     room.players[2].lastClientSeq = 0;
     room.seq += 1;
-    persistRooms().catch(() => {});
+    room.lastActivityAt = Date.now();
+    // The previous game is already finished in the DB; start a new recording.
+    beginGameRecording(room);
+    schedulePersistRooms().catch(() => {});
     broadcastState(room);
   }
 }
@@ -612,6 +761,12 @@ function onAction(ws, message) {
     return;
   }
 
+  // Captured BEFORE applyAction: the engine mutates state in place and returns
+  // the same reference, so reading room.state.phase afterwards would already
+  // show the post-action phase and never detect a transition.
+  const phaseBefore = room.state.phase;
+  const turnPlayerBefore = room.state.currentPlayer;
+
   const result = applyAction(room.state, session.playerId, actionType, payload);
   const previousPhase = room.state.phase;
   room.state = result.state;
@@ -620,27 +775,34 @@ function onAction(ws, message) {
     const readyValue = payload.ready !== false;
     const syncResult = setShopReady(room, session.playerId, readyValue);
     if (syncResult.error) {
-      send(ws, { type: "action_rejected", message: syncResult.error, actionType });
+      send(ws, { type: "action_rejected", message: syncResult.error, reasonKey: syncResult.errorKey || null, actionType });
       return;
     }
 
+    recordGameAction(room, session.playerId, "shop_ready", { ready: readyValue });
     if (syncResult.startedRound) {
-      playerState.lastClientSeq = clientSeq;
-      room.seq += 1;
-      persistRooms().catch(() => {});
-      broadcastState(room);
-      return;
+      // The only state transition the server initiates on its own; recorded
+      // under playerId 0 so a replay can reproduce it.
+      recordGameAction(room, 0, "shop_round_start", {});
     }
 
     playerState.lastClientSeq = clientSeq;
     room.seq += 1;
-    persistRooms().catch(() => {});
+    room.lastActivityAt = Date.now();
+    schedulePersistRooms().catch(() => {});
     broadcastState(room);
+    notifyTurnIfOffline(room, turnPlayerBefore, phaseBefore);
     return;
   }
 
   if (result.error) {
-    send(ws, { type: "action_rejected", message: result.error, actionType });
+    send(ws, {
+      type: "action_rejected",
+      message: result.error,
+      reasonKey: result.errorKey || null,
+      reasonParams: result.errorParams || null,
+      actionType,
+    });
     return;
   }
 
@@ -651,10 +813,18 @@ function onAction(ws, message) {
   }
 
   playerState.lastClientSeq = clientSeq;
+  recordGameAction(room, session.playerId, actionType, payload);
 
   room.seq += 1;
-  persistRooms().catch(() => {});
+  room.lastActivityAt = Date.now();
+  schedulePersistRooms().catch(() => {});
   broadcastState(room);
+
+  if (phaseBefore !== "game-over" && room.state.phase === "game-over") {
+    onGameOver(room);
+  } else {
+    notifyTurnIfOffline(room, turnPlayerBefore, phaseBefore);
+  }
 }
 
 function onChatSend(ws, message) {
@@ -723,7 +893,7 @@ function onChatSend(ws, message) {
     });
   });
 
-  persistRooms().catch(() => {});
+  schedulePersistRooms().catch(() => {});
 }
 
 function onLeaveRoom(ws) {
@@ -746,109 +916,57 @@ function onLeaveRoom(ws) {
     player.lastSeen = Date.now();
   }
 
+  room.lastActivityAt = Date.now();
   broadcastWaitingState(room);
-  persistRooms().catch(() => {});
+  schedulePersistRooms().catch(() => {});
 }
 
-function applyAction(state, playerId, actionType, payload) {
-  if (actionType === "select_rune") {
-    return selectRune(state, playerId, payload.runeInstanceId);
+/* ------------------------------------------------------------ push triggers */
+
+// Correspondence play only works if the absent player learns it's their move,
+// so pushes go out exactly when the recipient is NOT connected.
+function notifyTurnIfOffline(room, turnPlayerBefore, phaseBefore) {
+  const state = room.state;
+  if (!state) {
+    return;
   }
 
-  if (actionType === "board_click") {
-    if (state.pendingAction) {
-      if (!isPendingChooser(state, playerId)) {
-        return { state, error: "Only the acting player can resolve this pending action." };
-      }
-      return resolvePendingBoardChoice(state, {
-        row: Number(payload.row),
-        col: Number(payload.col),
-        column: Number(payload.column),
-        awayIndex: Number(payload.awayIndex),
-      });
-    }
-    if (state.currentPlayer !== playerId) {
-      return { state, error: "Not your turn." };
-    }
-    return playTurn(state, Number(payload.column));
+  const opponentOf = (seat) => (seat === 1 ? 2 : 1);
+
+  if (state.phase === "round" && state.currentPlayer !== turnPlayerBefore) {
+    pushToSeatIfOffline(room, state.currentPlayer, "your_turn");
+    return;
   }
 
-  if (actionType === "phase_action") {
-    if (state.phase === "round-end") {
-      return enterShopPhase(state);
+  // A round ending parks both players in the shop; nudge whoever is away.
+  if (phaseBefore !== "shop" && state.phase === "shop") {
+    for (const seat of [1, 2]) {
+      pushToSeatIfOffline(room, seat, "shop_open");
     }
-    if (state.phase === "shop") {
-      return startRoundFromShop(state);
-    }
-    return { state, error: "Phase action is not available." };
+    return;
   }
 
-  if (actionType === "shop_ready") {
-    if (state.phase !== "shop") {
-      return { state, error: "Shop ready is only available in shop phase." };
-    }
-    return { state, error: null };
-  }
-
-  if (actionType === "shop_switch_player") {
-    if (state.phase !== "shop") {
-      return { state, error: "Cannot switch shop player now." };
-    }
-    const original = state.shop.currentPlayer;
-    state.shop.currentPlayer = playerId;
-    const result = switchShopPlayer(state);
-    state.shop.currentPlayer = original;
-    return result;
-  }
-
-  if (actionType === "shop_set_mode") {
-    if (state.phase !== "shop") {
-      return { state, error: "Cannot set shop mode now." };
-    }
-    const original = state.shop.currentPlayer;
-    state.shop.currentPlayer = playerId;
-    const result = setShopMode(state, payload.mode ?? null);
-    state.shop.currentPlayer = original;
-    return result;
-  }
-
-  if (actionType === "shop_bag_select") {
-    if (state.phase !== "shop") {
-      return { state, error: "Cannot pick bag rune now." };
-    }
-    const original = state.shop.currentPlayer;
-    state.shop.currentPlayer = playerId;
-    const result = shopSelectBagRune(state, payload.runeInstanceId);
-    state.shop.currentPlayer = original;
-    return result;
-  }
-
-  if (actionType === "shop_offer_select") {
-    if (state.phase !== "shop") {
-      return { state, error: "Cannot pick offer rune now." };
-    }
-    const original = state.shop.currentPlayer;
-    state.shop.currentPlayer = playerId;
-    const result = shopSelectOfferRune(state, payload.runeInstanceId);
-    state.shop.currentPlayer = original;
-    return result;
-  }
-
-  return { state, error: `Unknown action type: ${actionType}` };
+  void opponentOf;
 }
 
-function isPendingChooser(state, playerId) {
-  const action = state.pendingAction;
-  if (!action) {
-    return state.currentPlayer === playerId;
+function notifyRematchRequested(room, requesterSeat) {
+  pushToSeatIfOffline(room, requesterSeat === 1 ? 2 : 1, "rematch");
+}
+
+function notifyOpponentJoined(room, joinerSeat) {
+  pushToSeatIfOffline(room, joinerSeat === 1 ? 2 : 1, "opponent_joined");
+}
+
+function pushToSeatIfOffline(room, seat, kind) {
+  const player = room.players[seat];
+  if (!player || player.connected || !player.guestId) {
+    return;
   }
-  if (typeof action.playerId === "number") {
-    return action.playerId === playerId;
-  }
-  if (action.turnContext && typeof action.turnContext.playerId === "number") {
-    return action.turnContext.playerId === playerId;
-  }
-  return state.currentPlayer === playerId;
+  const opponent = room.players[seat === 1 ? 2 : 1];
+  sendPush(getPlayerIdByGuestId(player.guestId), kind, {
+    roomCode: room.code,
+    opponentName: opponent?.name || "",
+  });
 }
 
 function broadcastState(room) {
@@ -945,17 +1063,100 @@ function attachSession(ws, roomCode, playerId, token) {
   wsToSession.set(ws, { roomCode, playerId, token });
 }
 
-function createPlayerRecord(token, name, avatar = null) {
+function createPlayerRecord(token, name, avatar = null, guestId = null) {
   return {
     token,
     name: normalizeDisplayName(name, "Player"),
     avatar: normalizeAvatar(avatar),
+    guestId: normalizeGuestId(guestId),
     ready: false,
     connected: Boolean(token),
     lastSeen: Date.now(),
     lastClientSeq: 0,
     ws: null,
   };
+}
+
+// Called whenever a seat is claimed or reclaimed: keeps the DB row's name and
+// avatar in step with what the player is currently using.
+function registerSeatIdentity(room, playerId, guestId) {
+  const player = room.players[playerId];
+  if (!player) {
+    return;
+  }
+  const normalized = normalizeGuestId(guestId);
+  if (normalized) {
+    player.guestId = normalized;
+  }
+  if (player.guestId) {
+    upsertPlayer(player.guestId, player.name, player.avatar);
+  }
+}
+
+/* ------------------------------------------------- game recording (replays) */
+
+// One games row per match, created at the three places a fresh state is dealt:
+// onStartMatch, createInstantMatch and a completed rematch.
+function beginGameRecording(room) {
+  room.resultRecorded = false;
+  room.actionCount = 0;
+  room.gameId = insertGame({
+    roomCode: room.code,
+    engineVersion: ENGINE_VERSION,
+    schemaVersion: room.state?.schemaVersion ?? 5,
+    initialState: room.state,
+    p1PlayerId: getPlayerIdByGuestId(room.players[1]?.guestId),
+    p2PlayerId: getPlayerIdByGuestId(room.players[2]?.guestId),
+    p1Name: room.players[1]?.name || null,
+    p2Name: room.players[2]?.name || null,
+    p1Avatar: room.players[1]?.avatar || null,
+    p2Avatar: room.players[2]?.avatar || null,
+  });
+}
+
+function recordGameAction(room, playerId, actionType, payload) {
+  if (!room.gameId) {
+    return;
+  }
+  room.actionCount = Number(room.actionCount || 0);
+  insertGameAction(room.gameId, room.actionCount, playerId, actionType, payload);
+  room.actionCount += 1;
+}
+
+// The engine flips phase to "game-over" on its own, so there is no server-side
+// end-of-game event: onAction detects the transition and calls this.
+function onGameOver(room) {
+  if (room.resultRecorded) {
+    return;
+  }
+  room.resultRecorded = true;
+
+  const state = room.state;
+  const winner = state.gameWinner || null;
+
+  finishGame(room.gameId, {
+    winner,
+    reason: state.gameWinnerReason || null,
+    p1Points: state.players[1].points,
+    p2Points: state.players[2].points,
+    rounds: state.roundNumber,
+    finalCheck: {
+      winner,
+      p1: state.players[1].points,
+      p2: state.players[2].points,
+      rounds: state.roundNumber,
+      turnNumber: state.turnNumber,
+    },
+  });
+
+  for (const seat of [1, 2]) {
+    const rowId = getPlayerIdByGuestId(room.players[seat]?.guestId);
+    if (!rowId) {
+      continue;
+    }
+    const outcome = !winner ? "draw" : (winner === seat ? "win" : "loss");
+    recordPlayerOutcome(rowId, outcome);
+  }
 }
 
 function normalizeAvatar(value) {
@@ -986,7 +1187,7 @@ function createShopSyncState() {
 
 function setShopReady(room, playerId, ready) {
   if (!room.state || room.state.phase !== "shop") {
-    return { error: "Shop ready is only available in shop phase.", startedRound: false };
+    return { error: "Shop ready is only available in shop phase.", errorKey: "err.shopReadyOnly", startedRound: false };
   }
 
   if (!room.shopSync) {
@@ -1009,7 +1210,7 @@ function setShopReady(room, playerId, ready) {
 
 function startRoundAfterShopReady(room) {
   if (!room.state || room.state.phase !== "shop") {
-    return { error: "Shop phase is not active.", startedRound: false };
+    return { error: "Shop phase is not active.", errorKey: "err.shopNotActive", startedRound: false };
   }
 
   const result = startRoundFromShop(room.state);
@@ -1135,15 +1336,21 @@ async function loadRooms() {
         state: entry.state ? restoreState(entry.state) : null,
         chat: Array.isArray(entry.chat) ? entry.chat.slice(-100) : [],
         shopSync: entry.shopSync || null,
+        gameId: Number.isInteger(entry.gameId) ? entry.gameId : null,
+        actionCount: Number(entry.actionCount || 0),
+        resultRecorded: Boolean(entry.resultRecorded),
+        lastActivityAt: Number(entry.lastActivityAt || 0) || null,
         players: {
           1: {
             ...createPlayerRecord(entry.players?.[1]?.token || null, entry.players?.[1]?.name || "Player 1", entry.players?.[1]?.avatar),
+            guestId: entry.players?.[1]?.guestId || null,
             ready: Boolean(entry.players?.[1]?.ready),
             connected: false,
             lastClientSeq: Number(entry.players?.[1]?.lastClientSeq || 0),
           },
           2: {
             ...createPlayerRecord(entry.players?.[2]?.token || null, entry.players?.[2]?.name || "Player 2", entry.players?.[2]?.avatar),
+            guestId: entry.players?.[2]?.guestId || null,
             ready: Boolean(entry.players?.[2]?.ready),
             connected: false,
             lastClientSeq: Number(entry.players?.[2]?.lastClientSeq || 0),
@@ -1156,8 +1363,42 @@ async function loadRooms() {
   }
 }
 
+function serializeRooms() {
+  return {
+    rooms: [...rooms.values()].map((room) => ({
+      code: room.code,
+      createdAt: room.createdAt,
+      started: room.started,
+      seq: room.seq,
+      state: room.state,
+      chat: Array.isArray(room.chat) ? room.chat.slice(-100) : [],
+      shopSync: room.shopSync,
+      gameId: room.gameId || null,
+      actionCount: room.actionCount || 0,
+      resultRecorded: Boolean(room.resultRecorded),
+      lastActivityAt: room.lastActivityAt || null,
+      players: {
+        1: serializePlayer(room.players[1]),
+        2: serializePlayer(room.players[2]),
+      },
+    })),
+  };
+}
+
+function serializePlayer(player) {
+  return {
+    token: player.token,
+    name: player.name,
+    avatar: player.avatar,
+    guestId: player.guestId || null,
+    ready: player.ready,
+    lastSeen: player.lastSeen,
+    lastClientSeq: player.lastClientSeq,
+  };
+}
+
 let persistTimer = null;
-function persistRooms() {
+function schedulePersistRooms() {
   if (persistTimer) {
     clearTimeout(persistTimer);
   }
@@ -1166,41 +1407,20 @@ function persistRooms() {
     persistTimer = setTimeout(async () => {
       persistTimer = null;
       try {
-        const data = {
-          rooms: [...rooms.values()].map((room) => ({
-            code: room.code,
-            createdAt: room.createdAt,
-            started: room.started,
-            seq: room.seq,
-            state: room.state,
-            chat: Array.isArray(room.chat) ? room.chat.slice(-100) : [],
-            shopSync: room.shopSync,
-            players: {
-              1: {
-                token: room.players[1].token,
-                name: room.players[1].name,
-                avatar: room.players[1].avatar,
-                ready: room.players[1].ready,
-                lastSeen: room.players[1].lastSeen,
-                lastClientSeq: room.players[1].lastClientSeq,
-              },
-              2: {
-                token: room.players[2].token,
-                name: room.players[2].name,
-                avatar: room.players[2].avatar,
-                ready: room.players[2].ready,
-                lastSeen: room.players[2].lastSeen,
-                lastClientSeq: room.players[2].lastClientSeq,
-              },
-            },
-          })),
-        };
-
-        await fs.writeFile(PERSIST_PATH, `${JSON.stringify(data, null, 2)}\n`, "utf8");
+        await fs.writeFile(PERSIST_PATH, `${JSON.stringify(serializeRooms(), null, 2)}\n`, "utf8");
         resolve();
       } catch (error) {
         reject(error);
       }
     }, 100);
   });
+}
+
+// Immediate write for shutdown — cancels any pending debounced write.
+async function flushRoomsNow() {
+  if (persistTimer) {
+    clearTimeout(persistTimer);
+    persistTimer = null;
+  }
+  await fs.writeFile(PERSIST_PATH, `${JSON.stringify(serializeRooms(), null, 2)}\n`, "utf8");
 }

@@ -39,6 +39,11 @@
           <span id="home-resume-text" class="home-resume-text"></span>
           <button id="home-resume-btn" class="menu-btn primary" type="button" data-i18n="home.resumeBtn">Resume game</button>
         </div>
+        <!-- Online games still in progress, resumable days later. -->
+        <section id="home-ongoing" class="home-ongoing" hidden>
+          <h2 class="home-ongoing-title" data-i18n="home.ongoing.title">Games in progress</h2>
+          <div id="home-ongoing-list" class="home-ongoing-list"></div>
+        </section>
         <img class="menu-logo" src="./assets/RuneBags_Logo.svg" alt="RuneBags logo">
         <h1>RuneBags</h1>
         <p class="menu-subtitle" data-i18n="home.tagline">Runic tactics, hidden hands, and evolving rounds.</p>
@@ -49,6 +54,7 @@
         </div>
         <div class="home-cta home-cta-secondary">
           <button id="menu-rules-btn" class="menu-btn secondary" type="button" data-i18n="nav.rules">Rules</button>
+          <button id="menu-stats-btn" class="menu-btn secondary" type="button" data-i18n="nav.stats">Stats</button>
           <button id="menu-settings-btn" class="menu-btn secondary" type="button" data-i18n="nav.settings">Settings</button>
           <button id="home-install" class="menu-btn secondary" type="button" data-i18n="home.install" hidden>Install app</button>
         </div>
@@ -146,9 +152,44 @@
 
         <label for="music-volume" data-i18n="settings.musicVolume">Music Volume</label>
         <input id="music-volume" class="settings-range" type="range" min="0" max="100" step="1" value="50" aria-label="Ambient music volume" data-i18n-attr="aria-label:settings.musicVolumeAria">
+
+        <label id="push-label" for="push-toggle" data-i18n="settings.push" hidden>Turn notifications</label>
+        <input id="push-toggle" class="settings-checkbox" type="checkbox" hidden>
       </div>
+      <p id="push-hint" class="settings-hint" hidden></p>
       <div class="menu-actions compact">
         <button id="settings-back-btn" class="menu-btn secondary" type="button" data-i18n="nav.back">Back</button>
+      </div>
+    </section>
+
+    <section id="stats-panel" class="panel menu-panel" hidden>
+      <h2 data-i18n="statsScreen.title">Statistics</h2>
+      <div id="stats-content" class="stats-content"></div>
+      <!-- Server-side online record (authoritative, survives device changes). -->
+      <div id="stats-online-server" class="stats-server" hidden></div>
+      <!-- Recent online games, each opening the replay viewer. -->
+      <div id="stats-history" class="stats-history" hidden></div>
+      <div class="menu-actions compact">
+        <button id="stats-back-btn" class="menu-btn secondary" type="button" data-i18n="nav.back">Back</button>
+      </div>
+    </section>
+
+    <section id="replay-panel" class="panel menu-panel" hidden>
+      <h2 data-i18n="replay.title">Replay</h2>
+      <p id="replay-meta" class="replay-meta"></p>
+      <p id="replay-warning" class="replay-warning" hidden></p>
+      <div id="replay-board" class="board replay-board"></div>
+      <p id="replay-score" class="replay-score"></p>
+      <div class="replay-controls">
+        <button id="replay-first-btn" class="menu-btn secondary" type="button" aria-label="First move" data-i18n-attr="aria-label:replay.first">&#124;&laquo;</button>
+        <button id="replay-prev-btn" class="menu-btn secondary" type="button" aria-label="Previous move" data-i18n-attr="aria-label:replay.prev">&laquo;</button>
+        <button id="replay-next-btn" class="menu-btn secondary" type="button" aria-label="Next move" data-i18n-attr="aria-label:replay.next">&raquo;</button>
+        <button id="replay-last-btn" class="menu-btn secondary" type="button" aria-label="Last move" data-i18n-attr="aria-label:replay.last">&raquo;&#124;</button>
+      </div>
+      <input id="replay-range" class="replay-range" type="range" min="0" max="0" value="0" aria-label="Move slider" data-i18n-attr="aria-label:replay.slider">
+      <p id="replay-step-label" class="replay-step-label"></p>
+      <div class="menu-actions compact">
+        <button id="replay-back-btn" class="menu-btn secondary" type="button" data-i18n="nav.back">Back</button>
       </div>
     </section>
 
@@ -156,7 +197,7 @@
       <h2 data-i18n="online.title">Play Online</h2>
       <p class="online-server-status">
         <span id="online-server-dot" class="online-dot" aria-hidden="true"></span>
-        <span id="online-server-text">Server: Disconnected</span>
+        <span id="online-server-text" data-i18n="online.serverDisconnected">Server: Disconnected</span>
         <span class="online-presence" id="online-presence" hidden><span id="online-presence-text"></span></span>
       </p>
       <div id="online-wake-banner" class="online-wake-banner" role="status" hidden>
@@ -193,6 +234,11 @@
             <button id="online-join-btn" class="menu-btn" type="button" data-i18n="online.join">Join</button>
           </div>
         </div>
+        <section id="online-leaderboard" class="online-leaderboard" hidden>
+          <h3 class="online-leaderboard-title" data-i18n="lb.title">Leaderboard</h3>
+          <p id="online-my-stats" class="online-my-stats" hidden></p>
+          <ol id="online-leaderboard-list" class="online-leaderboard-list"></ol>
+        </section>
       </div>
 
       <div id="online-step-searching" class="online-step online-step-searching" hidden>
@@ -245,6 +291,7 @@
       <div class="rules-content">
         <h3 data-i18n="rules.s1h">1. Goal</h3>
         <p data-i18n="rules.s1p1">Win the majority of a shared 10-point supply by forming winning lines of 4 or more runes.</p>
+        <div class="rules-figure" data-figure="win-line"></div>
 
         <h3 data-i18n="rules.s2h">2. Round Flow</h3>
         <p data-i18n="rules.s2p1">1. Shop Phase</p>
@@ -285,6 +332,7 @@
 
         <h3 data-i18n="rules.s10h">10. Rune Effects</h3>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/algiz.svg" alt="Algiz symbol"></span> <strong>Algiz:</strong> <span data-i18n="rules.rune.algiz">inserts from the bottom of the column and pushes upward; cursed.</span></p>
+        <div class="rules-figure" data-figure="algiz-push"></div>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/ansuz.svg" alt="Ansuz symbol"></span> <strong>Ansuz:</strong> <span data-i18n="rules.rune.ansuz">returns the rune directly beneath it to its owner's bag (not neutral runes).</span></p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/berkana.svg" alt="Berkana symbol"></span> <strong>Berkana:</strong> <span data-i18n="rules.rune.berkana">if inside its owner's winning line, grants +1 bonus point once for that round.</span></p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/dagaz.svg" alt="Dagaz symbol"></span> <strong>Dagaz:</strong> <span data-i18n="rules.rune.dagaz">copies the effect of the rune directly beneath it; corrupted.</span></p>
@@ -293,6 +341,7 @@
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/fehu.svg" alt="Fehu symbol"></span> <strong>Fehu:</strong> <span data-i18n="rules.rune.fehu">returns 1 discarded rune to your bag, 2 runes at level 2. Recovered runes can include opponent runes.</span></p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/gebo.svg" alt="Gebo symbol"></span> <strong>Gebo:</strong> <span data-i18n="rules.rune.gebo">removes the rune directly beneath it for the round, chooses an adjacent target at level 2; cursed.</span></p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/hagalz.svg" alt="Hagalz symbol"></span> <strong>Hagalz:</strong> <span data-i18n="rules.rune.hagalz">an adjacent neutral rune can count toward your winning line.</span></p>
+        <div class="rules-figure" data-figure="hagalz-line"></div>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/inguz.svg" alt="Inguz symbol"></span> <strong>Inguz:</strong> <span data-i18n="rules.rune.inguz">center column only; returns to the shop when removed.</span></p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/isa.svg" alt="Isa symbol"></span> <strong>Isa:</strong> <span data-i18n="rules.rune.isa">stays on the board from one round to the next.</span></p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/jera.svg" alt="Jera symbol"></span> <strong>Jera:</strong> <span data-i18n="rules.rune.jera">edge columns only; returns to the shop when removed.</span></p>
@@ -300,8 +349,10 @@
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/laguz.svg" alt="Laguz symbol"></span> <strong>Laguz:</strong> <span data-i18n="rules.rune.laguz">cannot be moved or removed.</span></p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/mannaz.svg" alt="Mannaz symbol"></span> <strong>Mannaz:</strong> <span data-i18n="rules.rune.mannaz">adds 1 neutral rune to the opponent's bag, 2 neutral runes at level 2.</span></p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/nauthiz.svg" alt="Nauthiz symbol"></span> <strong>Nauthiz:</strong> <span data-i18n="rules.rune.nauthiz">can float and be placed on any free cell; ethereal and cursed.</span></p>
+        <div class="rules-figure" data-figure="nauthiz-float"></div>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/odal.svg" alt="Odal symbol"></span> <strong>Odal:</strong> <span data-i18n="rules.rune.odal">if played on the top row, its owner gains 1 point without ending the round.</span></p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/perth.svg" alt="Perth symbol"></span> <strong>Perth:</strong> <span data-i18n="rules.rune.perth">constrains the opponent's next turn to adjacent columns; the forced adjacent column is chosen at level 2.</span></p>
+        <div class="rules-figure" data-figure="perth-constraint"></div>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/raido.svg" alt="Raido symbol"></span> <strong>Raido:</strong> <span data-i18n="rules.rune.raido">grants an extra turn; ethereal only at level 1.</span></p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/sowelu.svg" alt="Sowelu symbol"></span> <strong>Sowelu:</strong> <span data-i18n="rules.rune.sowelu">discards 1 random rune from the opponent's bag for the round, 2 runes at level 2.</span></p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/teiwaz.svg" alt="Teiwaz symbol"></span> <strong>Teiwaz:</strong> <span data-i18n="rules.rune.teiwaz">moves the top rune of any column to an adjacent column at level 1, or to any column at level 2.</span></p>

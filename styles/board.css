@@ -55,6 +55,28 @@
   border-left-width: 3px;
 }
 
+/* Static mini-boards embedded in the Rules screen. */
+.rules-figure-inner {
+  margin: 0.8rem 0 0.4rem;
+}
+
+.rules-mini-board {
+  grid-template-columns: repeat(var(--columns), minmax(18px, 30px));
+  max-width: 240px;
+  pointer-events: none;
+}
+
+.rules-mini-board .cell {
+  cursor: default;
+}
+
+.rules-figure-caption {
+  margin: 0.35rem 0 0;
+  max-width: 420px;
+  font-size: 0.85rem;
+  color: var(--text-soft);
+}
+
 .cell:hover {
   transform: none;
 }

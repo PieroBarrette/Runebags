@@ -305,16 +305,25 @@ export function getRuneById(runeId) {
 
 let runeInstanceCounter = 1;
 
-export function createRuneInstance(runeId, level = 1) {
+// `state` makes the id deterministic per game (`<rune>-g<n>`), which replays
+// depend on: the module-level counter is shared by every room on the server,
+// so concurrent games interleave it and it can never be reproduced. Callers
+// that run before a state exists (starter bags, initial shop supply) may omit
+// it — those ids are captured in the recorded initial snapshot anyway.
+export function createRuneInstance(runeId, level = 1, state = null) {
   const rune = getRuneById(runeId);
   if (!rune) {
     return null;
   }
 
+  const instanceId = state && Number.isInteger(state.runeSeq)
+    ? `${runeId}-g${state.runeSeq++}`
+    : `${runeId}-${runeInstanceCounter++}`;
+
   return {
     ...rune,
     level,
-    instanceId: `${runeId}-${runeInstanceCounter++}`,
+    instanceId,
   };
 }
 

@@ -1,6 +1,7 @@
 import { createEmptyBoard, dropToken, getAvailableColumns } from "./connect4Engine.js";
 import { isBoardFull } from "./winChecker.js";
 import { ensureHand, shuffle } from "../runes/bagEngine.js";
+import { createRngSeed, nextRandom, rngFor } from "./rng.js";
 import {
   createRuneInstance,
   createStarterBag,
@@ -25,12 +26,20 @@ const NON_COMBINABLE_RUNES = new Set(["basic", "inguz", "jera", "neutral", "berk
 const DAGAZ_ON_PLAY_COPYABLE = new Set(["raido", "sowelu", "teiwaz", "thurisa", "perth", "odal", "mannaz", "gebo", "ansuz", "fehu"]);
 const DAGAZ_PASSIVE_COPYABLE = new Set(["laguz", "berkana", "ehwaz", "hagalz", "isa", "uruz", "wunjo", "eihwaz"]);
 
+// Bumped whenever a rule change would make an older recording replay
+// differently. Replays stamped with an older version are flagged, not trusted.
+export const ENGINE_VERSION = 2;
+
 export function createInitialState(options = {}) {
   const black = createPlayer(BLACK, options);
   const white = createPlayer(WHITE, options);
 
   const state = {
     schemaVersion: 5,
+    // Seeded so the whole game can be re-simulated from this snapshot.
+    rngState: Number.isInteger(options.seed) ? options.seed >>> 0 : createRngSeed(),
+    // Per-game counter for rune instance ids created during play.
+    runeSeq: 1,
     rows: DEFAULT_ROWS,
     columns: DEFAULT_COLUMNS,
     board: createEmptyBoard(DEFAULT_ROWS, DEFAULT_COLUMNS),
@@ -62,6 +71,13 @@ export function createInitialState(options = {}) {
     log: [{ k: "log.newGameStarted", p: { player: WHITE }, shop: false }],
   };
 
+  // Starter bags are shuffled here rather than in createPlayer so that they
+  // consume the state's seeded stream (createPlayer runs before the state
+  // object — and therefore before rngState — exists).
+  const rng = rngFor(state);
+  state.players[BLACK].bag = shuffle(state.players[BLACK].bag, rng);
+  state.players[WHITE].bag = shuffle(state.players[WHITE].bag, rng);
+
   initializeShopOffers(state);
   return state;
 }
@@ -78,6 +94,17 @@ export function restoreState(candidate, options = {}) {
 
   if (!candidate.nextShopBonuses) {
     candidate.nextShopBonuses = createEmptyShopBonuses();
+  }
+
+  // Saves and persisted rooms created before seeded RNG have no stream yet.
+  // Give them one (schemaVersion stays 5 — bumping it would make restoreState
+  // discard every existing save); they simply aren't replayable.
+  if (!Number.isInteger(candidate.rngState)) {
+    candidate.rngState = createRngSeed();
+  }
+
+  if (!Number.isInteger(candidate.runeSeq)) {
+    candidate.runeSeq = 1;
   }
 
   for (const playerId of [BLACK, WHITE]) {
@@ -112,18 +139,18 @@ export function restoreState(candidate, options = {}) {
 
 export function selectRune(state, playerId, runeInstanceId) {
   if (state.phase !== "round") {
-    return { state, error: "You can only select runes during the round." };
+    return { state, error: "You can only select runes during the round.", errorKey: "err.selectDuringRound" };
   }
 
   if (state.currentPlayer !== playerId || state.pendingAction || state.gameWinner) {
-    return { state, error: "You cannot select a rune right now." };
+    return { state, error: "You cannot select a rune right now.", errorKey: "err.selectNotNow" };
   }
 
   const player = state.players[playerId];
   const found = player.hand.find((rune) => rune.instanceId === runeInstanceId);
 
   if (!found) {
-    return { state, error: "Rune not found in hand." };
+    return { state, error: "Rune not found in hand.", errorKey: "err.runeNotInHand" };
   }
 
   player.selectedRuneInstanceId = runeInstanceId;
@@ -132,15 +159,15 @@ export function selectRune(state, playerId, runeInstanceId) {
 
 export function playTurn(state, column, options = {}) {
   if (state.phase !== "round") {
-    return { state, error: "Board play is only available during rounds." };
+    return { state, error: "Board play is only available during rounds.", errorKey: "err.boardOnlyDuringRound" };
   }
 
   if (state.gameWinner) {
-    return { state, error: "The game is over." };
+    return { state, error: "The game is over.", errorKey: "err.gameOver" };
   }
 
   if (state.pendingAction) {
-    return { state, error: "Resolve the active rune choice first." };
+    return { state, error: "Resolve the active rune choice first.", errorKey: "err.resolveChoiceFirst" };
   }
 
   if (!canPlayerPlay(state, state.currentPlayer)) {
@@ -151,7 +178,7 @@ export function playTurn(state, column, options = {}) {
   const selectedRune = player.hand.find((rune) => rune.instanceId === player.selectedRuneInstanceId);
 
   if (!selectedRune) {
-    return { state, error: "Select a rune before dropping a rune on the board." };
+    return { state, error: "Select a rune before dropping a rune on the board.", errorKey: "err.selectBeforeDrop" };
   }
 
   let move;
@@ -165,29 +192,29 @@ export function playTurn(state, column, options = {}) {
       || !Number.isInteger(targetCol)
       || !canPlaceAtTarget
     ) {
-      return { state, error: "Choose an empty target cell for Nauthiz." };
+      return { state, error: "Choose an empty target cell for Nauthiz.", errorKey: "err.nauthizEmptyCell" };
     }
 
     move = placeFloatingRune(state, targetRow, targetCol, state.currentPlayer, selectedRune);
   } else if (selectedRune.id === "algiz") {
     const legalColumns = getLegalColumnsForRune(state, state.currentPlayer, selectedRune);
     if (!legalColumns.includes(column)) {
-      return { state, error: `${selectedRune.name} cannot be played in column ${column + 1}.` };
+      return { state, error: `${selectedRune.name} cannot be played in column ${column + 1}.`, errorKey: "err.runeColumnNotAllowed", errorParams: { rune: selectedRune.name, column: column + 1 } };
     }
 
     move = insertRuneFromBottom(state, column, state.currentPlayer, selectedRune);
     if (!move) {
-      return { state, error: "Algiz cannot be played in a full column." };
+      return { state, error: "Algiz cannot be played in a full column.", errorKey: "err.algizFullColumn" };
     }
   } else {
     const legalColumns = getLegalColumnsForRune(state, state.currentPlayer, selectedRune);
     if (!legalColumns.includes(column)) {
-      return { state, error: `${selectedRune.name} cannot be played in column ${column + 1}.` };
+      return { state, error: `${selectedRune.name} cannot be played in column ${column + 1}.`, errorKey: "err.runeColumnNotAllowed", errorParams: { rune: selectedRune.name, column: column + 1 } };
     }
 
     move = dropTokenWithColumnPhysics(state, column, getOwnerForRune(selectedRune, state.currentPlayer));
     if (!move) {
-      return { state, error: "That column is full." };
+      return { state, error: "That column is full.", errorKey: "err.columnFull" };
     }
     setRuneOnBoard(state, move, selectedRune);
   }
@@ -222,23 +249,23 @@ export function playTurn(state, column, options = {}) {
 
 export function resolvePendingBoardChoice(state, choice) {
   if (state.phase !== "round") {
-    return { state, error: "No board interaction is active." };
+    return { state, error: "No board interaction is active.", errorKey: "err.noBoardInteraction" };
   }
 
   if (!state.pendingAction) {
-    return { state, error: "No interactive rune choice is pending." };
+    return { state, error: "No interactive rune choice is pending.", errorKey: "err.noPendingChoice" };
   }
 
   const action = state.pendingAction;
 
   if (action.type === "fehu-recover") {
     if (!action.validAwayIndexes.includes(choice.awayIndex)) {
-      return { state, error: "Choose one highlighted discarded rune for Fehu." };
+      return { state, error: "Choose one highlighted discarded rune for Fehu.", errorKey: "err.fehuChooseDiscard" };
     }
 
     const recoveredRune = recoverAwayRuneForFehu(state, action.playerId, choice.awayIndex);
     if (!recoveredRune) {
-      return { state, error: "Selected discarded rune is no longer available." };
+      return { state, error: "Selected discarded rune is no longer available.", errorKey: "err.fehuDiscardGone" };
     }
 
     const recoveredCount = (action.recoveredCount || 0) + 1;
@@ -266,7 +293,7 @@ export function resolvePendingBoardChoice(state, choice) {
     const key = cellKey(choice.row, choice.col);
     const valid = new Set(action.validCells.map((cell) => cellKey(cell.row, cell.col)));
     if (!valid.has(key)) {
-      return { state, error: "Choose an adjacent occupied rune for Gebo." };
+      return { state, error: "Choose an adjacent occupied rune for Gebo.", errorKey: "err.geboChooseAdjacent" };
     }
 
     const removed = removeRuneAt(state, choice.row, choice.col, "gebo", "round");
@@ -283,7 +310,7 @@ export function resolvePendingBoardChoice(state, choice) {
     const key = cellKey(choice.row, choice.col);
     const valid = new Set(action.validCells.map((cell) => cellKey(cell.row, cell.col)));
     if (!valid.has(key)) {
-      return { state, error: "Choose an occupied rune to destroy with Kenaz." };
+      return { state, error: "Choose an occupied rune to destroy with Kenaz.", errorKey: "err.kenazChooseOccupied" };
     }
 
     const destroyed = removeRuneAt(state, choice.row, choice.col, "kenaz", "destroy");
@@ -298,7 +325,7 @@ export function resolvePendingBoardChoice(state, choice) {
 
   if (action.type === "perth-l2-column") {
     if (!action.validColumns.includes(choice.column)) {
-      return { state, error: "Choose one highlighted adjacent column for Perth." };
+      return { state, error: "Choose one highlighted adjacent column for Perth.", errorKey: "err.perthChooseColumn" };
     }
 
     state.nextTurnConstraints[action.opponentId] = [choice.column];
@@ -311,17 +338,17 @@ export function resolvePendingBoardChoice(state, choice) {
 
   if (action.type === "teiwaz-source") {
     if (!action.validSourceColumns.includes(choice.column)) {
-      return { state, error: "Choose a valid source column for Teiwaz." };
+      return { state, error: "Choose a valid source column for Teiwaz.", errorKey: "err.teiwazChooseSource" };
     }
 
     const sourceRow = findTopOccupiedRow(state, choice.column);
     if (sourceRow === null) {
-      return { state, error: "Selected source column has no movable top rune." };
+      return { state, error: "Selected source column has no movable top rune.", errorKey: "err.teiwazSourceEmpty" };
     }
 
     const validTargetColumns = getTeiwazTargetColumns(state, choice.column, action.mode);
     if (validTargetColumns.length === 0) {
-      return { state, error: "No valid destination columns from that source." };
+      return { state, error: "No valid destination columns from that source.", errorKey: "err.teiwazNoDestinations" };
     }
 
     state.pendingAction = {
@@ -337,12 +364,12 @@ export function resolvePendingBoardChoice(state, choice) {
 
   if (action.type === "teiwaz-target") {
     if (!action.validTargetColumns.includes(choice.column)) {
-      return { state, error: "Choose a valid destination column for Teiwaz." };
+      return { state, error: "Choose a valid destination column for Teiwaz.", errorKey: "err.teiwazChooseDestination" };
     }
 
     const moved = moveTopRuneFromColumnToColumn(state, action.sourceCol, choice.column);
     if (!moved) {
-      return { state, error: "Could not move Teiwaz target rune." };
+      return { state, error: "Could not move Teiwaz target rune.", errorKey: "err.teiwazMoveFailed" };
     }
 
     pushLog(state, "log.teiwazMoved", { from: action.sourceCol + 1, to: choice.column + 1 });
@@ -354,7 +381,7 @@ export function resolvePendingBoardChoice(state, choice) {
 
   if (action.type === "thurisa-drop") {
     if (!action.validColumns.includes(choice.column)) {
-      return { state, error: "Choose a valid column to drop a neutral rune." };
+      return { state, error: "Choose a valid column to drop a neutral rune.", errorKey: "err.thurisaChooseColumn" };
     }
 
     if (state.neutralSupply <= 0) {
@@ -365,10 +392,10 @@ export function resolvePendingBoardChoice(state, choice) {
 
     const placement = dropTokenWithColumnPhysics(state, choice.column, NEUTRAL_OWNER);
     if (!placement) {
-      return { state, error: "That column is full for Thurisa placement." };
+      return { state, error: "That column is full for Thurisa placement.", errorKey: "err.thurisaColumnFull" };
     }
 
-    setRuneOnBoard(state, placement, createRuneInstance("neutral", 1));
+    setRuneOnBoard(state, placement, createRuneInstance("neutral", 1, state));
     state.neutralSupply -= 1;
     pushLog(state, "log.thurisaPlaced", { col: choice.column + 1 });
 
@@ -388,7 +415,7 @@ export function resolvePendingBoardChoice(state, choice) {
     return { state, error: null };
   }
 
-  return { state, error: "Unknown pending action type." };
+  return { state, error: "Unknown pending action type.", errorKey: "err.unknownPendingAction" };
 }
 
 export function getPendingBoardTargets(state) {
@@ -531,7 +558,7 @@ export function getPendingActionPrompt(state) {
 
 export function enterShopPhase(state) {
   if (state.phase !== "round-end") {
-    return { state, error: "Shop phase can only start after a round ends." };
+    return { state, error: "Shop phase can only start after a round ends.", errorKey: "err.shopAfterRoundOnly" };
   }
 
   settleRound(state);
@@ -553,15 +580,16 @@ export function enterShopPhase(state) {
 
 export function startRoundFromShop(state) {
   if (state.phase !== "shop") {
-    return { state, error: "Not currently in shop phase." };
+    return { state, error: "Not currently in shop phase.", errorKey: "err.notInShop" };
   }
 
   returnUnpickedOfferRunes(state, BLACK);
   returnUnpickedOfferRunes(state, WHITE);
 
   // Shuffle bag contents after shop edits so round draws are randomized.
-  state.players[BLACK].bag = shuffle([...state.players[BLACK].bag]);
-  state.players[WHITE].bag = shuffle([...state.players[WHITE].bag]);
+  const roundRng = rngFor(state);
+  state.players[BLACK].bag = shuffle([...state.players[BLACK].bag], roundRng);
+  state.players[WHITE].bag = shuffle([...state.players[WHITE].bag], roundRng);
 
   state.shop = createShopState(playerFromPointPool(state.pointPoolRemaining), createEmptyShopBonuses());
   state.phase = "round";
@@ -574,8 +602,8 @@ export function startRoundFromShop(state) {
   state.pendingAction = null;
   state.nextTurnConstraints = { 1: null, 2: null };
 
-  ensureHand(state.players[BLACK], getMaxHandSize(state, BLACK));
-  ensureHand(state.players[WHITE], getMaxHandSize(state, WHITE));
+  ensureHand(state.players[BLACK], getMaxHandSize(state, BLACK), roundRng);
+  ensureHand(state.players[WHITE], getMaxHandSize(state, WHITE), roundRng);
   clearHandSelections(state);
 
   pushLog(
@@ -594,7 +622,7 @@ export function startRoundFromShop(state) {
 
 export function toggleShopView(state) {
   if (state.phase !== "shop") {
-    return { state, error: "View toggle only works in shop phase." };
+    return { state, error: "View toggle only works in shop phase.", errorKey: "err.shopViewOnly" };
   }
 
   state.shop.view = state.shop.view === "board" ? "bag" : "board";
@@ -603,7 +631,7 @@ export function toggleShopView(state) {
 
 export function switchShopPlayer(state) {
   if (state.phase !== "shop") {
-    return { state, error: "Switching player is only available in shop phase." };
+    return { state, error: "Switching player is only available in shop phase.", errorKey: "err.shopSwitchOnly" };
   }
 
   state.shop.currentPlayer = getOpponent(state.shop.currentPlayer);
@@ -614,7 +642,7 @@ export function switchShopPlayer(state) {
 
 export function setShopMode(state, mode) {
   if (state.phase !== "shop") {
-    return { state, error: "Shop mode only works in shop phase." };
+    return { state, error: "Shop mode only works in shop phase.", errorKey: "err.shopModeOnly" };
   }
 
   const playerId = state.shop.currentPlayer;
@@ -626,11 +654,11 @@ export function setShopMode(state, mode) {
   }
 
   if (mode === "remove" && data.removeCount >= data.removeLimit) {
-    return { state, error: "Remove limit already reached this shop phase." };
+    return { state, error: "Remove limit already reached this shop phase.", errorKey: "err.removeLimitReached" };
   }
 
   if (mode === "combine" && !hasCombinablePair(state, playerId)) {
-    return { state, error: "No combinable pair is currently available in bag." };
+    return { state, error: "No combinable pair is currently available in bag.", errorKey: "err.noCombinablePair" };
   }
 
   data.mode = mode;
@@ -640,7 +668,7 @@ export function setShopMode(state, mode) {
 
 export function shopSelectBagRune(state, runeInstanceId) {
   if (state.phase !== "shop") {
-    return { state, error: "Bag selection is only available in shop phase." };
+    return { state, error: "Bag selection is only available in shop phase.", errorKey: "err.bagSelectOnly" };
   }
 
   const playerId = state.shop.currentPlayer;
@@ -650,12 +678,12 @@ export function shopSelectBagRune(state, runeInstanceId) {
   const runeCombineOwner = getRuneCombineOwner(rune, playerId);
 
   if (!rune) {
-    return { state, error: "Rune not found in active player bag." };
+    return { state, error: "Rune not found in active player bag.", errorKey: "err.runeNotInBag" };
   }
 
   if (data.mode === "remove") {
     if (data.removeCount >= data.removeLimit) {
-      return { state, error: "Remove limit already reached this shop phase." };
+      return { state, error: "Remove limit already reached this shop phase.", errorKey: "err.removeLimitReached" };
     }
 
     removeRuneFromBag(state, playerId, rune.instanceId);
@@ -673,7 +701,7 @@ export function shopSelectBagRune(state, runeInstanceId) {
     } else if (rune.id === "basic") {
       state.log.unshift(`${playerName(playerId)} removed a Basic rune permanently.`);
     } else if (rune.id === "inguz" || rune.id === "jera") {
-      player.shopSupply.push(createRuneInstance(rune.id, rune.level));
+      player.shopSupply.push(createRuneInstance(rune.id, rune.level, state));
       state.log.unshift(
         `${playerName(playerId)} removed ${rune.name} and returned it to their shop supply.`,
       );
@@ -686,12 +714,12 @@ export function shopSelectBagRune(state, runeInstanceId) {
 
   if (data.mode === "combine") {
     if (rune.level !== 1 || NON_COMBINABLE_RUNES.has(rune.id)) {
-      return { state, error: "This rune cannot be combined." };
+      return { state, error: "This rune cannot be combined.", errorKey: "err.runeNotCombinable" };
     }
 
     if (data.combineSelection.length === 0) {
       if (!hasPairInBag(player.bag, rune.id, runeCombineOwner, playerId)) {
-        return { state, error: "No matching pair for that rune in bag." };
+        return { state, error: "No matching pair for that rune in bag.", errorKey: "err.noMatchingPair" };
       }
       data.combineSelection = [rune.instanceId];
       return { state, error: null };
@@ -700,20 +728,20 @@ export function shopSelectBagRune(state, runeInstanceId) {
     const first = player.bag.find((entry) => entry.instanceId === data.combineSelection[0]);
     if (!first) {
       data.combineSelection = [];
-      return { state, error: "First combine selection is no longer valid." };
+      return { state, error: "First combine selection is no longer valid.", errorKey: "err.combineFirstInvalid" };
     }
 
     if (first.instanceId === rune.instanceId) {
-      return { state, error: "Select a second copy of the same rune." };
+      return { state, error: "Select a second copy of the same rune.", errorKey: "err.combineSecondCopy" };
     }
 
     if (first.id !== rune.id || rune.level !== 1) {
-      return { state, error: "Second rune must match the first rune symbol." };
+      return { state, error: "Second rune must match the first rune symbol.", errorKey: "err.combineSymbolMismatch" };
     }
 
     const firstCombineOwner = getRuneCombineOwner(first, playerId);
     if (firstCombineOwner !== runeCombineOwner) {
-      return { state, error: "Second rune must match the first rune color." };
+      return { state, error: "Second rune must match the first rune color.", errorKey: "err.combineColorMismatch" };
     }
 
     removeRuneFromBag(state, playerId, first.instanceId);
@@ -726,24 +754,24 @@ export function shopSelectBagRune(state, runeInstanceId) {
     return { state, error: null };
   }
 
-  return { state, error: "Select a shop option first (Remove or Combine)." };
+  return { state, error: "Select a shop option first (Remove or Combine).", errorKey: "err.shopSelectOptionFirst" };
 }
 
 export function shopSelectOfferRune(state, runeInstanceId) {
   if (state.phase !== "shop") {
-    return { state, error: "Offer selection is only available in shop phase." };
+    return { state, error: "Offer selection is only available in shop phase.", errorKey: "err.offerSelectOnly" };
   }
 
   const playerId = state.shop.currentPlayer;
   const data = state.shop.players[playerId];
 
   if (data.addedCount >= data.addLimit) {
-    return { state, error: `You can only add up to ${data.addLimit} runes from shop offer.` };
+    return { state, error: `You can only add up to ${data.addLimit} runes from shop offer.`, errorKey: "err.addLimitReached", errorParams: { n: data.addLimit } };
   }
 
   const offerIndex = data.offer.findIndex((rune) => rune.instanceId === runeInstanceId);
   if (offerIndex < 0) {
-    return { state, error: "Rune not found in active shop offer." };
+    return { state, error: "Rune not found in active shop offer.", errorKey: "err.runeNotInOffer" };
   }
 
   const [pickedRune] = data.offer.splice(offerIndex, 1);
@@ -855,7 +883,9 @@ function createPlayer(id, options = {}) {
   return {
     id,
     points: 0,
-    bag: shuffle(createStarterBag(allowedSpecialRuneIds)),
+    // Left unshuffled on purpose — createInitialState shuffles it with the
+    // seeded generator once the state (and its rngState) exists.
+    bag: createStarterBag(allowedSpecialRuneIds),
     hand: [],
     discard: [],
     selectedRuneInstanceId: null,
@@ -923,7 +953,7 @@ function initializeShopOffers(state) {
     const data = state.shop.players[playerId];
 
     for (let i = 0; i < SHOP_OFFER_SIZE && player.shopSupply.length > 0; i += 1) {
-      const index = Math.floor(Math.random() * player.shopSupply.length);
+      const index = Math.floor(nextRandom(state) * player.shopSupply.length);
       const [drawn] = player.shopSupply.splice(index, 1);
       data.offer.push(drawn);
     }
@@ -990,7 +1020,7 @@ function getRuneCombineOwner(rune, playerId) {
 }
 
 function createCombinedShopRune(runeId, level, combineOwner, bagOwnerId) {
-  const combined = createRuneInstance(runeId, level);
+  const combined = createRuneInstance(runeId, level, state);
   if (!combined) {
     return combined;
   }
@@ -1012,7 +1042,7 @@ function applyShopEffectIfAny(state, playerId, rune) {
     return;
   }
 
-  state.players[playerId].bag.push(createRuneInstance("neutral", 1));
+  state.players[playerId].bag.push(createRuneInstance("neutral", 1, state));
   state.neutralSupply -= 1;
   state.log.unshift(`${rune.name} shop effect added 1 Neutral rune to ${playerName(playerId)} bag.`);
 }
@@ -1158,7 +1188,7 @@ function forcePassIfNeeded(state) {
   state.currentPlayer = opponent;
   state.turnNumber += 1;
   pushLog(state, "log.toPlay", { player: opponent });
-  return { state, error: `${playerName(current)} had to pass.` };
+  return { state, error: `${playerName(current)} had to pass.`, errorKey: "err.mustPass", errorParams: { player: current } };
 }
 
 function getConstrainedColumns(state, playerId, availableColumns) {
@@ -1222,7 +1252,7 @@ function applyRuneEffect(state, rune, move, playerId) {
 
   if (rune.id === "dagaz") {
     if (state.neutralSupply > 0) {
-      state.players[playerId].bag.push(createRuneInstance("neutral", 1));
+      state.players[playerId].bag.push(createRuneInstance("neutral", 1, state));
       state.neutralSupply -= 1;
       notes.push({ k: "log.dagazAdded", p: null });
     } else {
@@ -1315,7 +1345,7 @@ function applyRuneEffect(state, rune, move, playerId) {
       if (state.neutralSupply <= 0) {
         break;
       }
-      state.players[getOpponent(playerId)].bag.push(createRuneInstance("neutral", 1));
+      state.players[getOpponent(playerId)].bag.push(createRuneInstance("neutral", 1, state));
       state.neutralSupply -= 1;
       added += 1;
     }
@@ -1359,7 +1389,7 @@ function applyRuneEffect(state, rune, move, playerId) {
       if (opponent.bag.length === 0) {
         break;
       }
-      const index = Math.floor(Math.random() * opponent.bag.length);
+      const index = Math.floor(nextRandom(state) * opponent.bag.length);
       const [removed] = opponent.bag.splice(index, 1);
       sendRuneAwayForRound(state, opponent.id, removed.id, removed.level, "sowelu");
       discarded += 1;
@@ -1512,7 +1542,7 @@ function recoverAwayRuneForFehu(state, playerId, awayIndex) {
   }
 
   const [away] = state.roundAwayRunes.splice(awayIndex, 1);
-  const restored = createRuneInstance(away.runeId, away.level);
+  const restored = createRuneInstance(away.runeId, away.level, state);
   if (!restored) {
     return null;
   }
@@ -1522,18 +1552,18 @@ function recoverAwayRuneForFehu(state, playerId, awayIndex) {
   }
 
   state.players[playerId].bag.push(restored);
-  state.players[playerId].bag = shuffle(state.players[playerId].bag);
+  state.players[playerId].bag = shuffle(state.players[playerId].bag, rngFor(state));
   return restored;
 }
 
 function addRuneToBagAndShuffle(state, playerId, runeId, level) {
-  const restored = createRuneInstance(runeId, level);
+  const restored = createRuneInstance(runeId, level, state);
   if (!restored) {
     return null;
   }
 
   state.players[playerId].bag.push(restored);
-  state.players[playerId].bag = shuffle(state.players[playerId].bag);
+  state.players[playerId].bag = shuffle(state.players[playerId].bag, rngFor(state));
   return restored;
 }
 
@@ -1762,7 +1792,7 @@ function finalizeTurn(state, activePlayerId, extraTurn) {
     return { state, error: null };
   }
 
-  ensureHand(state.players[activePlayerId], getMaxHandSize(state, activePlayerId));
+  ensureHand(state.players[activePlayerId], getMaxHandSize(state, activePlayerId), rngFor(state));
   state.currentPlayer = extraTurn ? activePlayerId : getOpponent(activePlayerId);
   state.turnNumber += 1;
 
@@ -2112,9 +2142,9 @@ function settleRound(state) {
       }
 
       if (!rune.ethereal) {
-        state.players[owner].bag.push(createRuneInstance(rune.id, rune.level));
+        state.players[owner].bag.push(createRuneInstance(rune.id, rune.level, state));
       } else {
-        state.players[owner].shopSupply.push(createRuneInstance(rune.id, rune.level));
+        state.players[owner].shopSupply.push(createRuneInstance(rune.id, rune.level, state));
       }
     }
   }
@@ -2123,7 +2153,7 @@ function settleRound(state) {
     if (away.owner === NEUTRAL_OWNER) {
       state.neutralSupply += 1;
     } else {
-      state.players[away.owner].bag.push(createRuneInstance(away.runeId, away.level));
+      state.players[away.owner].bag.push(createRuneInstance(away.runeId, away.level, state));
     }
   }
 

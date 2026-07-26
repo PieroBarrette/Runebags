@@ -2,7 +2,17 @@ services:
   - type: web
     name: runebags-online
     env: node
-    plan: free
+    plan: starter
     buildCommand: npm install
     startCommand: npm run start:server
     autoDeploy: true
+    healthCheckPath: /healthz
+    disk:
+      name: runebags-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: DATA_DIR
+        value: /var/data
+      - key: NODE_VERSION
+        value: 22.16.0

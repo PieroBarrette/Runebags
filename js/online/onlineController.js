@@ -202,7 +202,7 @@ export function createOnlineController() {
       const normalizedName = normalizeDisplayName(displayName);
       session.displayName = normalizedName;
       saveDisplayName(normalizedName);
-      send({ type: "create_room", roomCode, displayName: normalizedName, avatar: session.avatar });
+      send({ type: "create_room", roomCode, displayName: normalizedName, avatar: session.avatar, guestId: session.guestId });
       return true;
     } catch {
       listeners.error({ code: "client_connect_failed", message: "Failed to create room." });
@@ -220,10 +220,10 @@ export function createOnlineController() {
       saveDisplayName(normalizedName);
       const token = loadToken(roomCode);
       if (allowReconnect && token) {
-        send({ type: "reconnect", roomCode, token, displayName: normalizedName, avatar: session.avatar });
+        send({ type: "reconnect", roomCode, token, displayName: normalizedName, avatar: session.avatar, guestId: session.guestId });
         return true;
       }
-      send({ type: "join_room", roomCode, displayName: normalizedName, avatar: session.avatar });
+      send({ type: "join_room", roomCode, displayName: normalizedName, avatar: session.avatar, guestId: session.guestId });
       return true;
     } catch {
       listeners.error({ code: "client_connect_failed", message: "Failed to join room." });
@@ -387,7 +387,12 @@ export function createOnlineController() {
       if (typeof msg.expectedClientSeq === "number") {
         session.clientSeq = Math.max(0, msg.expectedClientSeq - 1);
       }
-      listeners.error({ code: msg.code || null, message: msg.message || "Action rejected by server." });
+      listeners.error({
+        code: msg.code || null,
+        message: msg.message || "Action rejected by server.",
+        reasonKey: msg.reasonKey || null,
+        reasonParams: msg.reasonParams || null,
+      });
       return;
     }
 
@@ -616,15 +621,18 @@ function loadToken(roomCode) {
   }
 }
 
+// Written to BOTH stores on purpose: sessionStorage dies with the tab, and a
+// correspondence game may be resumed days later from a fresh browser session.
 function saveToken(roomCode, token) {
+  const key = `${STORAGE_PREFIX}${roomCode}`;
   try {
-    const key = `${STORAGE_PREFIX}${roomCode}`;
     window.sessionStorage.setItem(key, token);
   } catch {
-    try {
-      window.localStorage.setItem(`${STORAGE_PREFIX}${roomCode}`, token);
-    } catch {
-      // Ignore storage failures.
-    }
+    // Ignore storage failures.
+  }
+  try {
+    window.localStorage.setItem(key, token);
+  } catch {
+    // Ignore storage failures.
   }
 }
