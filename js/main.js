@@ -38,7 +38,7 @@ import { renderRulesFigures } from "./ui/rulesFigures.js";
 import { fetchLeaderboard, fetchMyGames, fetchMyServerStats, fetchOngoingRooms } from "./net/apiClient.js";
 import { createReplayController } from "./replay/replayController.js";
 import { disablePush, enablePush, getPushState, isPushSupported, needsInstallForPush } from "./push/pushClient.js";
-import { t, getLang, setLang, applyTranslations, runeDescription } from "./i18n.js";
+import { t, tp, getLang, setLang, applyTranslations, runeDescription } from "./i18n.js";
 
 const THEME_STORAGE_KEY = "runebags-theme-v1";
 const ANIMATION_STORAGE_KEY = "runebags-animations-v1";
@@ -372,6 +372,7 @@ renderHomeStats();
 renderHomeResume();
 bindSoundUnlockHandlers();
 render();
+dismissSplash();
 initializeEntryMode();
 
 function registerServiceWorker() {
@@ -1941,7 +1942,7 @@ function renderEndgameOverlay() {
   const decisive = typeof bucket?.wins === "number" ? bucket.wins + bucket.losses + bucket.draws : 0;
   elements.endgameStats.textContent = decisive > 0
     ? t("endgame.record", { w: bucket.wins, l: bucket.losses, d: bucket.draws, s: bucket.currentStreak })
-    : t("stats.gamesPlayed", { n: stats.totals.gamesPlayed });
+    : tp("stats.gamesPlayed", stats.totals.gamesPlayed);
 
   updateEndgameRematchUI();
 
@@ -2028,7 +2029,7 @@ function renderHomeStats() {
     elements.homeStats.hidden = true;
     return;
   }
-  let text = t("stats.gamesPlayed", { n: stats.totals.gamesPlayed });
+  let text = tp("stats.gamesPlayed", stats.totals.gamesPlayed);
   const ai = stats.ai;
   const decisive = ai.wins + ai.losses + ai.draws;
   if (decisive > 0) {
@@ -2083,7 +2084,7 @@ async function refreshLobbySocial() {
 
     const score = document.createElement("span");
     score.className = "online-leaderboard-score";
-    score.textContent = t("lb.record", { w: player.wins, n: player.games });
+    score.textContent = `${tp("count.wins", player.wins)} / ${tp("count.games", player.games)}`;
     item.appendChild(score);
 
     elements.onlineLeaderboardList.appendChild(item);
@@ -2212,7 +2213,7 @@ async function renderStatsServerRecord() {
 
   const line = document.createElement("p");
   line.className = "stats-line";
-  line.textContent = t("statsScreen.record", { w: stats.wins, l: stats.losses, d: stats.draws });
+  line.textContent = formatRecord(stats.wins, stats.losses, stats.draws);
   elements.statsOnlineServer.appendChild(line);
 
   const streak = document.createElement("p");
@@ -2221,6 +2222,16 @@ async function renderStatsServerRecord() {
   elements.statsOnlineServer.appendChild(streak);
 
   elements.statsOnlineServer.hidden = false;
+}
+
+// Built from separately pluralized fragments so "1 défaite" doesn't come out
+// as "1 défaites" — a single template string can't agree on three counts.
+function formatRecord(wins, losses, draws) {
+  return [
+    tp("count.wins", wins),
+    tp("count.losses", losses),
+    tp("count.draws", draws),
+  ].join(" · ");
 }
 
 function renderStatsPanel() {
@@ -2233,7 +2244,7 @@ function renderStatsPanel() {
 
   const total = document.createElement("p");
   total.className = "stats-total";
-  total.textContent = t("statsScreen.totalGames", { n: stats.totals.gamesPlayed });
+  total.textContent = tp("statsScreen.totalGames", stats.totals.gamesPlayed);
   container.appendChild(total);
 
   const grid = document.createElement("div");
@@ -2264,7 +2275,7 @@ function buildStatsModeCard(title, bucket) {
 
   const games = document.createElement("p");
   games.className = "stats-line";
-  games.textContent = t("statsScreen.gamesPlayed", { n: gamesPlayed });
+  games.textContent = tp("count.games", gamesPlayed);
   card.appendChild(games);
 
   if (typeof bucket.wins === "number") {
@@ -2272,7 +2283,7 @@ function buildStatsModeCard(title, bucket) {
     if (decisive > 0) {
       const record = document.createElement("p");
       record.className = "stats-line";
-      record.textContent = t("statsScreen.record", { w: bucket.wins, l: bucket.losses, d: bucket.draws });
+      record.textContent = formatRecord(bucket.wins, bucket.losses, bucket.draws);
       card.appendChild(record);
 
       const rate = document.createElement("p");
@@ -3746,6 +3757,22 @@ function initializeSound() {
 
 function applyTheme(theme) {
   document.body.setAttribute("data-theme", theme);
+  // Keep <html> in step: the inlined splash styles key off it, and it is what
+  // the pre-paint script in index.html sets on a cold load.
+  document.documentElement.setAttribute("data-theme", theme);
+}
+
+// Called once the first render has painted, so players never see the bare
+// page between the HTML arriving and the app being interactive.
+function dismissSplash() {
+  const splash = document.getElementById("app-splash");
+  if (!splash || splash.hidden) {
+    return;
+  }
+  splash.style.opacity = "0";
+  window.setTimeout(() => {
+    splash.hidden = true;
+  }, 420);
 }
 
 function saveThemePreference(theme) {

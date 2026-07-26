@@ -25,7 +25,16 @@ const translations = {
     "nav.stats": "Stats",
     "nav.back": "Back",
     "statsScreen.title": "Statistics",
+    "count.games": "{n} games",
+    "count.games.one": "1 game",
+    "count.wins": "{n} wins",
+    "count.wins.one": "1 win",
+    "count.losses": "{n} losses",
+    "count.losses.one": "1 loss",
+    "count.draws": "{n} draws",
+    "count.draws.one": "1 draw",
     "statsScreen.totalGames": "{n} games played in total",
+    "statsScreen.totalGames.one": "1 game played in total",
     "statsScreen.modeAi": "Against the AI",
     "statsScreen.modeOnline": "Online",
     "statsScreen.modePassplay": "Pass & Play",
@@ -200,6 +209,7 @@ const translations = {
     "reason.fewestBag": "Points tied — won with fewer runes left in the bag.",
     "reason.fullTie": "Dead even, down to the last rune.",
     "stats.gamesPlayed": "{n} games played",
+    "stats.gamesPlayed.one": "1 game played",
     "stats.recordSuffix": " · {w}W {l}L {d}D · streak {s} (best {b})",
     "home.resumeText": "Resume your {mode} game — round {round}",
     "share.wins": "{player} wins",
@@ -480,7 +490,16 @@ const translations = {
     "nav.stats": "Statistiques",
     "nav.back": "Retour",
     "statsScreen.title": "Statistiques",
+    "count.games": "{n} parties",
+    "count.games.one": "1 partie",
+    "count.wins": "{n} victoires",
+    "count.wins.one": "1 victoire",
+    "count.losses": "{n} défaites",
+    "count.losses.one": "1 défaite",
+    "count.draws": "{n} nulles",
+    "count.draws.one": "1 nulle",
     "statsScreen.totalGames": "{n} parties jouées au total",
+    "statsScreen.totalGames.one": "1 partie jouée au total",
     "statsScreen.modeAi": "Contre l'IA",
     "statsScreen.modeOnline": "En ligne",
     "statsScreen.modePassplay": "Jeu à tour de rôle",
@@ -655,6 +674,7 @@ const translations = {
     "reason.fewestBag": "Points à égalité — gagne avec moins de runes dans le sac.",
     "reason.fullTie": "Parfaite égalité, jusqu'à la dernière rune.",
     "stats.gamesPlayed": "{n} parties jouées",
+    "stats.gamesPlayed.one": "1 partie jouée",
     "stats.recordSuffix": " · {w}V {l}D {d}N · série {s} (record {b})",
     "home.resumeText": "Reprendre votre partie {mode} — manche {round}",
     "share.wins": "{player} gagne",
@@ -987,6 +1007,16 @@ export function t(key, params) {
     str = str.replace(/\{(\w+)\}/g, (match, name) => (params[name] != null ? String(params[name]) : match));
   }
   return str;
+}
+
+// Count-aware lookup: a `<key>.one` entry wins when the count is exactly 1.
+// English and French both only need a singular/plural split, so this stays
+// deliberately simpler than a full CLDR plural-rules implementation.
+export function tp(key, count, params = {}) {
+  const singular = `${key}.one`;
+  const dict = translations[currentLang] || translations.en;
+  const hasSingular = dict[singular] != null || translations.en[singular] != null;
+  return t(count === 1 && hasSingular ? singular : key, { ...params, n: count });
 }
 
 export function runeDescription(rune) {
