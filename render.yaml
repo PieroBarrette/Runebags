@@ -1,3 +1,8 @@
+# NOTE: this file only takes effect for a Blueprint-managed service. The live
+# runebags.ca service was created by hand in the dashboard, so Render ignores
+# everything below (its build logs show `yarn` instead of the buildCommand
+# here). The plan, the disk and DATA_DIR must be set in the dashboard; this
+# file is kept as documentation of the intended configuration.
 services:
   - type: web
     name: runebags-online
