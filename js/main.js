@@ -117,9 +117,6 @@ const elements = {
   menuSettingsBtn: document.getElementById("menu-settings-btn"),
   homeRuneGallery: document.getElementById("home-rune-gallery"),
   homeStats: document.getElementById("home-stats"),
-  homeResume: document.getElementById("home-resume"),
-  homeResumeText: document.getElementById("home-resume-text"),
-  homeResumeBtn: document.getElementById("home-resume-btn"),
   homeInstallBtn: document.getElementById("home-install"),
   runeDetailOverlay: document.getElementById("rune-detail-overlay"),
   runeDetailIcon: document.getElementById("rune-detail-icon"),
@@ -134,8 +131,8 @@ const elements = {
   statsOnlineServer: document.getElementById("stats-online-server"),
   statsHistory: document.getElementById("stats-history"),
   statsBackBtn: document.getElementById("stats-back-btn"),
-  homeOngoing: document.getElementById("home-ongoing"),
-  homeOngoingList: document.getElementById("home-ongoing-list"),
+  onlineOngoing: document.getElementById("online-ongoing"),
+  onlineOngoingList: document.getElementById("online-ongoing-list"),
   onlineLeaderboard: document.getElementById("online-leaderboard"),
   onlineLeaderboardList: document.getElementById("online-leaderboard-list"),
   onlineMyStats: document.getElementById("online-my-stats"),
@@ -300,8 +297,6 @@ let handVisibility = {
 let endgameOverlayDismissed = false;
 // Guards against recording the same finished game's stats more than once.
 let gameResultRecorded = false;
-// Which local mode the landing "Resume game" card will continue, if any.
-let homeResumeMode = null;
 // Track overlay show-transitions so we move focus into them only once.
 let endgameFocused = false;
 // Last rendered phase, used to play a soft fade when the phase changes.
@@ -364,7 +359,6 @@ replay.bind();
 renderHomeRuneGallery();
 renderRulesFigures();
 renderHomeStats();
-renderHomeResume();
 bindSoundUnlockHandlers();
 render();
 dismissSplash();
@@ -1057,14 +1051,6 @@ function bindEvents() {
     }
   });
 
-  elements.homeResumeBtn.addEventListener("click", () => {
-    if (homeResumeMode === MODE_AI) {
-      elements.aiContinueBtn.click();
-    } else if (homeResumeMode === MODE_ONLINE) {
-      resumeOnlineSave();
-    }
-  });
-
   elements.homeInstallBtn.addEventListener("click", async () => {
     if (!deferredInstallPrompt) {
       return;
@@ -1094,7 +1080,6 @@ function bindEvents() {
     setLang(elements.languageSelect.value);
     applyTranslations();
     renderHomeStats();
-    renderHomeResume();
     refreshQuickChatBar();
     if (!elements.onlinePanel.hidden) {
       updateOnlineRoomUI(activeRoomCode || "-");
@@ -1969,17 +1954,17 @@ async function refreshLobbySocial() {
   elements.onlineLeaderboard.hidden = false;
 }
 
-// Online games this device still holds a seat in — the entry point for
-// picking a correspondence game back up days later.
-async function renderHomeOngoing() {
-  if (!elements.homeOngoing || !elements.homeOngoingList) {
+// Online games this device still holds a seat in, listed inside the online
+// lobby so a correspondence game can be picked back up days later.
+async function renderOnlineOngoing() {
+  if (!elements.onlineOngoing || !elements.onlineOngoingList) {
     return;
   }
 
   const rooms = await fetchOngoingRooms();
-  elements.homeOngoingList.innerHTML = "";
+  elements.onlineOngoingList.innerHTML = "";
   if (rooms.length === 0) {
-    elements.homeOngoing.hidden = true;
+    elements.onlineOngoing.hidden = true;
     return;
   }
 
@@ -2013,9 +1998,9 @@ async function renderHomeOngoing() {
     card.addEventListener("click", () => {
       resumeOnlineRoom(room.roomCode);
     });
-    elements.homeOngoingList.appendChild(card);
+    elements.onlineOngoingList.appendChild(card);
   });
-  elements.homeOngoing.hidden = false;
+  elements.onlineOngoing.hidden = false;
 }
 
 // Finished online games, newest first; each row opens the replay viewer.
@@ -2571,8 +2556,6 @@ function showMainMenu() {
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
-  renderHomeResume();
-  renderHomeOngoing();
   music.setContext("menu");
 }
 
@@ -2593,7 +2576,11 @@ function showAiPanel() {
   if (savedAi?.ai?.depth) {
     elements.aiDepthSelect.value = String(savedAi.ai.depth);
   }
-  elements.aiContinueBtn.disabled = !isResumableSave(savedAi?.state);
+  // The AI menu is now the only way back into a solo game, so make the button
+  // read as the primary action whenever there is something to continue.
+  const canContinue = isResumableSave(savedAi?.state);
+  elements.aiContinueBtn.disabled = !canContinue;
+  elements.aiContinueBtn.classList.toggle("primary", canContinue);
 }
 
 function showOnlinePanel() {
@@ -2612,6 +2599,16 @@ function showOnlinePanel() {
   updateOnlineRoomUI(activeRoomCode || "-");
   updateOnlineConnectionStatus();
   refreshLobbySocial();
+  renderOnlineOngoing();
+
+  // Opening this panel with a game still in progress reconnects to it, so the
+  // lobby is the single place an online game is picked back up.
+  if (!online.isOnlineActive() && !pendingInviteCode) {
+    const resumable = getResumableOnlineRoomCode();
+    if (resumable) {
+      resumeOnlineRoom(resumable);
+    }
+  }
 }
 
 function showRulesPanel() {
@@ -3399,32 +3396,15 @@ function renderHomeRuneGallery() {
     });
 }
 
-function renderHomeResume() {
-  if (!elements.homeResume) {
-    return;
+// Is there an online game worth rejoining? Used to decide whether opening the
+// online panel should reconnect on its own.
+function getResumableOnlineRoomCode() {
+  const savedOnline = loadModeSave(MODE_ONLINE);
+  const roomCode = String(savedOnline?.roomCode || "").toUpperCase();
+  if (!isResumableSave(savedOnline?.state) || !/^[A-Z2-9]{6}$/.test(roomCode)) {
+    return null;
   }
-  const aiSave = loadModeSave(MODE_AI);
-  const onlineSave = loadModeSave(MODE_ONLINE);
-  const candidates = [];
-  if (isResumableSave(aiSave?.state)) {
-    candidates.push({ mode: MODE_AI, updatedAt: aiSave.updatedAt || 0, round: aiSave.state.roundNumber || 1 });
-  }
-  if (isResumableSave(onlineSave?.state) && /^[A-Z2-9]{6}$/.test(String(onlineSave?.roomCode || "").toUpperCase())) {
-    candidates.push({ mode: MODE_ONLINE, updatedAt: onlineSave.updatedAt || 0, round: onlineSave.state.roundNumber || 1 });
-  }
-
-  if (candidates.length === 0) {
-    homeResumeMode = null;
-    elements.homeResume.hidden = true;
-    return;
-  }
-
-  candidates.sort((a, b) => b.updatedAt - a.updatedAt);
-  const best = candidates[0];
-  homeResumeMode = best.mode;
-  const label = best.mode === MODE_ONLINE ? t("home.online") : t("home.playAi");
-  elements.homeResumeText.textContent = t("home.resumeText", { mode: label, round: best.round });
-  elements.homeResume.hidden = false;
+  return roomCode;
 }
 
 function resumeOnlineSave() {

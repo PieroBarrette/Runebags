@@ -122,15 +122,6 @@
   <main class="app-shell">
     <section id="main-menu" class="home-screen">
       <div class="home-hero">
-        <div id="home-resume" class="home-resume" hidden>
-          <span id="home-resume-text" class="home-resume-text"></span>
-          <button id="home-resume-btn" class="menu-btn primary" type="button" data-i18n="home.resumeBtn">Resume game</button>
-        </div>
-        <!-- Online games still in progress, resumable days later. -->
-        <section id="home-ongoing" class="home-ongoing" hidden>
-          <h2 class="home-ongoing-title" data-i18n="home.ongoing.title">Games in progress</h2>
-          <div id="home-ongoing-list" class="home-ongoing-list"></div>
-        </section>
         <img class="menu-logo" src="./assets/RuneBags_Logo.svg" alt="RuneBags logo">
         <h1>RuneBags</h1>
         <p class="menu-subtitle" data-i18n="home.tagline">Runic tactics, hidden hands, and evolving rounds.</p>
@@ -321,6 +312,11 @@
             <button id="online-join-btn" class="menu-btn" type="button" data-i18n="online.join">Join</button>
           </div>
         </div>
+        <!-- Games still running on the server, resumable days later. -->
+        <section id="online-ongoing" class="home-ongoing" hidden>
+          <h3 class="home-ongoing-title" data-i18n="home.ongoing.title">Games in progress</h3>
+          <div id="online-ongoing-list" class="home-ongoing-list"></div>
+        </section>
         <section id="online-leaderboard" class="online-leaderboard" hidden>
           <h3 class="online-leaderboard-title" data-i18n="lb.title">Leaderboard</h3>
           <p id="online-my-stats" class="online-my-stats" hidden></p>
