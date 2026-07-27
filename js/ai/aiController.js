@@ -4,7 +4,6 @@ import {
   getPendingBoardTargets,
   getPlayerName,
   resolvePendingBoardChoice,
-  switchShopPlayer,
 } from "../core/gameState.js";
 import { aiThinkingLabel, applyRoundMoveOnLiveState, autoResolvePending, chooseRoundMove } from "./minimax.js";
 import { runAiShopTurn } from "./shopPolicy.js";
@@ -27,10 +26,30 @@ export function shouldAiAct(state, config) {
   }
 
   if (state.phase === "shop") {
-    return state.shop.currentPlayer === config.playerId;
+    // Not tied to shop.currentPlayer any more: the human stays pinned to their
+    // own side of the shop, so the AI decides purely from whether it has done
+    // its own shopping yet this phase.
+    return !state.shop.players[config.playerId]?.ready;
   }
 
   return false;
+}
+
+// The shop mutators all act on state.shop.currentPlayer, so borrow it for the
+// AI's turn and hand it straight back. Returns true when it actually shopped.
+export function runAiShopForSide(state, aiPlayerId) {
+  if (state.phase !== "shop" || !state.shop?.players?.[aiPlayerId] || state.shop.players[aiPlayerId].ready) {
+    return false;
+  }
+
+  const humanPlayerId = aiPlayerId === 1 ? 2 : 1;
+  state.shop.currentPlayer = aiPlayerId;
+  runAiShopTurn(state, aiPlayerId);
+  state.shop.players[aiPlayerId].mode = null;
+  state.shop.players[aiPlayerId].combineSelection = [];
+  state.shop.players[aiPlayerId].ready = true;
+  state.shop.currentPlayer = humanPlayerId;
+  return true;
 }
 
 export function runAiStep(state, config) {
@@ -77,15 +96,7 @@ export function runAiStep(state, config) {
   }
 
   if (state.phase === "shop") {
-    runAiShopTurn(state, config.playerId);
-
-    if (state.shop.currentPlayer === config.playerId) {
-      const switched = switchShopPlayer(state);
-      if (switched.error) {
-        return { state, error: switched.error, note: null };
-      }
-    }
-
+    runAiShopForSide(state, config.playerId);
     return { state, error: null, note: `${getPlayerName(config.playerId)} AI completed shop actions.` };
   }
 

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#131820">
   <title>RuneBags — runic tactics board game</title>
-  <meta name="description" content="Runic tactics, hidden hands, and evolving rounds. Drop runes, build winning lines of four, and bend the rules with 24 unique rune powers. Play the AI, pass &amp; play, or online.">
+  <meta name="description" content="Runic tactics, hidden hands, and evolving rounds. Drop runes, build winning lines of four, and bend the rules with 24 unique rune powers. Play the AI or challenge a friend online.">
   <link rel="canonical" href="https://runebags.ca/">
   <link rel="icon" type="image/svg+xml" href="./assets/RuneBags_Logo.svg">
   <link rel="apple-touch-icon" href="./assets/icon-192.png">
@@ -14,7 +14,7 @@
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="RuneBags">
   <meta property="og:title" content="RuneBags — runic tactics board game">
-  <meta property="og:description" content="Drop runes, build winning lines of four, and bend the rules with 24 unique rune powers. Play the AI, pass &amp; play, or online.">
+  <meta property="og:description" content="Drop runes, build winning lines of four, and bend the rules with 24 unique rune powers. Play the AI or challenge a friend online.">
   <meta property="og:url" content="https://runebags.ca/">
   <meta property="og:image" content="https://runebags.ca/assets/og-image.png">
   <meta property="og:image:width" content="1200">
@@ -136,7 +136,6 @@
         <p class="menu-subtitle" data-i18n="home.tagline">Runic tactics, hidden hands, and evolving rounds.</p>
         <div class="home-cta">
           <button id="menu-ai-btn" class="menu-btn primary" type="button" data-i18n="home.playAi">Play Against AI</button>
-          <button id="menu-passplay-btn" class="menu-btn primary" type="button" data-i18n="home.passplay">Pass &amp; Play</button>
           <button id="menu-online-btn" class="menu-btn primary" type="button" data-i18n="home.online">Play Online</button>
         </div>
         <div class="home-cta home-cta-secondary">
@@ -156,7 +155,7 @@
         <article class="home-pillar">
           <span class="home-pillar-rune" aria-hidden="true">&#5832;</span>
           <h3 data-i18n="pillar.hands.title">Hidden hands</h3>
-          <p data-i18n="pillar.hands.desc">A pass-the-device prompt keeps each player's hand secret in local play.</p>
+          <p data-i18n="pillar.hands.desc">Your opponent never sees your hand — bluff, bait, and strike when they least expect it.</p>
         </article>
         <article class="home-pillar">
           <span class="home-pillar-rune" aria-hidden="true">&#5827;</span>
@@ -478,7 +477,6 @@
           <div id="round-away-list" class="round-away-list" aria-live="polite" hidden></div>
           <div class="shop-toolbar">
             <button id="phase-btn" type="button">Phase Action</button>
-            <button id="shop-switch-player" type="button" data-i18n="shop.passDevice">Pass Device</button>
           </div>
           <p id="shop-instruction" class="shop-instruction" hidden></p>
           <div id="shop-panel" class="shop-panel" hidden>
@@ -528,14 +526,6 @@
             <button id="chat-send" type="submit" data-i18n="chat.send">Send</button>
           </form>
         </section>
-      </section>
-
-      <section id="pass-device-overlay" class="pass-device-overlay" hidden>
-        <article class="pass-device-card" role="dialog" aria-modal="true" aria-labelledby="pass-device-title">
-          <h2 id="pass-device-title" data-i18n="passDevice.title">Pass the device</h2>
-          <p id="pass-device-text" class="pass-device-text">Hand the device to the next player.</p>
-          <button id="pass-device-reveal-btn" class="menu-btn" type="button" data-i18n="passDevice.reveal">Reveal hand</button>
-        </article>
       </section>
 
       <section id="endgame-overlay" class="endgame-overlay" hidden>

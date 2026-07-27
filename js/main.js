@@ -16,11 +16,11 @@ import {
   shopSelectBagRune,
   shopSelectOfferRune,
   startRoundFromShop,
-  switchShopPlayer,
 } from "./core/gameState.js";
 import {
   createAiConfig,
   getAiThinkingText,
+  runAiShopForSide,
   runAiStep,
   setAiSettings,
   shouldAiAct,
@@ -47,7 +47,6 @@ const SOUND_VOLUME_STORAGE_KEY = "runebags-sound-volume-v1";
 const MUSIC_STORAGE_KEY = "runebags-music-v1";
 const MUSIC_VOLUME_STORAGE_KEY = "runebags-music-volume-v1";
 const ONLINE_NAME_MAX = 14;
-const MODE_PASSPLAY = "passplay";
 const MODE_AI = "ai";
 const MODE_ONLINE = "online";
 const DEFAULT_SFX_VOLUME = 0.18;
@@ -107,7 +106,6 @@ const RUNES_WITH_LEVEL_PREFIX = new Set([
 const elements = {
   mainMenu: document.getElementById("main-menu"),
   menuAiBtn: document.getElementById("menu-ai-btn"),
-  menuPassplayBtn: document.getElementById("menu-passplay-btn"),
   aiSideSelect: document.getElementById("ai-side-select"),
   aiDepthSelect: document.getElementById("ai-depth-select"),
   aiPanel: document.getElementById("ai-panel"),
@@ -236,9 +234,6 @@ const elements = {
   p2OnlineDot: document.getElementById("p2-online-dot"),
   player1Hand: document.getElementById("p1-hand"),
   player2Hand: document.getElementById("p2-hand"),
-  passDeviceOverlay: document.getElementById("pass-device-overlay"),
-  passDeviceText: document.getElementById("pass-device-text"),
-  passDeviceRevealBtn: document.getElementById("pass-device-reveal-btn"),
   p1Bag: document.getElementById("p1-bag"),
   p2Bag: document.getElementById("p2-bag"),
   p1Points: document.getElementById("p1-points"),
@@ -283,7 +278,6 @@ const elements = {
   endgameMenuBtn: document.getElementById("endgame-menu-btn"),
   endgameDismissBtn: document.getElementById("endgame-dismiss-btn"),
   shopInstruction: document.getElementById("shop-instruction"),
-  shopSwitchPlayer: document.getElementById("shop-switch-player"),
   shopRemoveBtn: document.getElementById("shop-remove-btn"),
   shopCombineBtn: document.getElementById("shop-combine-btn"),
   confirmDialogOverlay: document.getElementById("confirm-dialog-overlay"),
@@ -293,16 +287,14 @@ const elements = {
 };
 
 let state = restoreState(
-  getSavedStateForMode(MODE_PASSPLAY) || createInitialState(getLocalGameOptions()),
+  getSavedStateForMode(MODE_AI) || createInitialState(getLocalGameOptions()),
   getLocalGameOptions(),
 );
-let currentLocalMode = MODE_PASSPLAY;
+let currentLocalMode = MODE_AI;
 let handVisibility = {
   1: state.currentPlayer === 1,
   2: state.currentPlayer === 2,
 };
-// Pass & Play: true while waiting for the next player to reveal their hand after a handoff.
-let awaitingHandReveal = false;
 // True once the player dismisses the end-game summary to inspect the final board.
 let endgameOverlayDismissed = false;
 // Guards against recording the same finished game's stats more than once.
@@ -310,7 +302,6 @@ let gameResultRecorded = false;
 // Which local mode the landing "Resume game" card will continue, if any.
 let homeResumeMode = null;
 // Track overlay show-transitions so we move focus into them only once.
-let passDeviceFocused = false;
 let endgameFocused = false;
 // Last rendered phase, used to play a soft fade when the phase changes.
 let previousRenderPhase = null;
@@ -547,30 +538,6 @@ function bindEvents() {
     showAiPanel();
   });
 
-  elements.menuPassplayBtn.addEventListener("click", () => {
-    persistState();
-    if (online.isOnlineActive()) {
-      online.leaveRoom();
-    }
-
-    currentLocalMode = MODE_PASSPLAY;
-    const savedPassplay = getSavedStateForMode(MODE_PASSPLAY);
-    const resuming = isResumableSave(savedPassplay);
-    state = restoreState(
-      resuming ? savedPassplay : createInitialState(getLocalGameOptions()),
-      getLocalGameOptions(),
-    );
-    setAiSettings(aiConfig, false, aiConfig.playerId, aiConfig.depth);
-    handVisibility = {
-      1: state.currentPlayer === 1,
-      2: state.currentPlayer === 2,
-    };
-    awaitingHandReveal = state.phase === "round";
-    persistState();
-    enterGameScreen("passplay");
-    setStatus(resuming ? t("status.passplayResumed") : t("status.passplayNew"));
-    render();
-  });
 
   elements.aiContinueBtn.addEventListener("click", () => {
     persistState();
@@ -593,8 +560,10 @@ function bindEvents() {
     state = restoreState(savedAi.state, getLocalGameOptions());
     setAiSettings(aiConfig, true, aiSide, aiDepth);
     currentLocalMode = MODE_AI;
-    if (state.phase === "shop" && state.shop.currentPlayer !== aiConfig.playerId) {
-      switchShopPlayer(state);
+    // The shop always belongs to the player; the AI shops its own side on its
+    // own, so the board never hands the opponent's bag over by mistake.
+    if (state.phase === "shop") {
+      state.shop.currentPlayer = getHumanPlayerId();
     }
     handVisibility = { 1: aiSide !== 1, 2: aiSide !== 2 };
     elements.aiSideSelect.value = String(aiConfig.playerId);
@@ -602,7 +571,7 @@ function bindEvents() {
     setStatus(t("status.aiResumed", { player: getDisplayPlayerName(aiConfig.playerId), depth: aiConfig.depth }));
 
     persistState();
-    enterGameScreen("passplay");
+    enterGameScreen("local");
     render();
   });
 
@@ -627,14 +596,16 @@ function bindEvents() {
     state = restoreState(createInitialState(getLocalGameOptions()), getLocalGameOptions());
     setAiSettings(aiConfig, true, aiSide, aiDepth);
     currentLocalMode = MODE_AI;
-    if (state.phase === "shop" && state.shop.currentPlayer !== aiConfig.playerId) {
-      switchShopPlayer(state);
+    // The shop always belongs to the player; the AI shops its own side on its
+    // own, so the board never hands the opponent's bag over by mistake.
+    if (state.phase === "shop") {
+      state.shop.currentPlayer = getHumanPlayerId();
     }
     handVisibility = { 1: aiSide !== 1, 2: aiSide !== 2 };
     setStatus(t("status.aiStarted", { player: getDisplayPlayerName(aiConfig.playerId), depth: aiConfig.depth }));
 
     persistState();
-    enterGameScreen("passplay");
+    enterGameScreen("local");
     render();
   });
 
@@ -958,7 +929,6 @@ function bindEvents() {
       return;
     }
 
-    const prevPlayer = state.currentPlayer;
     const result = state.pendingAction
       ? resolvePendingBoardChoice(state, { row, col: column, column })
       : playTurn(state, column, { row, col: column });
@@ -967,8 +937,6 @@ function bindEvents() {
     if (result.error) {
       setStatus(formatEngineError(result));
     }
-
-    maybeQueuePassDevice(prevPlayer);
     persistState();
     render();
     scheduleAiTurnIfNeeded();
@@ -998,14 +966,11 @@ function bindEvents() {
       return;
     }
 
-    const prevPlayer = state.currentPlayer;
     const result = resolvePendingBoardChoice(state, { awayIndex });
     state = result.state;
     if (result.error) {
       setStatus(formatEngineError(result));
     }
-
-    maybeQueuePassDevice(prevPlayer);
     persistState();
     render();
     scheduleAiTurnIfNeeded();
@@ -1044,11 +1009,6 @@ function bindEvents() {
       render();
       scheduleAiTurnIfNeeded();
     });
-  });
-
-  elements.passDeviceRevealBtn.addEventListener("click", () => {
-    awaitingHandReveal = false;
-    render();
   });
 
   elements.endgameRematchBtn.addEventListener("click", () => {
@@ -1098,8 +1058,6 @@ function bindEvents() {
       elements.aiContinueBtn.click();
     } else if (homeResumeMode === MODE_ONLINE) {
       resumeOnlineSave();
-    } else {
-      elements.menuPassplayBtn.click();
     }
   });
 
@@ -1250,39 +1208,24 @@ function bindEvents() {
     if (state.phase === "round-end") {
       result = enterShopPhase(state);
       if (!result.error && aiConfig.enabled) {
-        const currentShopPlayer = result.state.shop.currentPlayer;
-        if (currentShopPlayer !== aiConfig.playerId) {
-          const switched = switchShopPlayer(result.state);
-          result = switched;
-        }
+        // The shop used to be handed to the AI first and switched back once it
+        // had played. Its move runs on a timer, so anyone clicking in that
+        // window was shopping out of the opponent's bag. The human now stays
+        // on their own side and the AI shops its own, independently.
+        result.state.shop.currentPlayer = getHumanPlayerId();
       }
     } else if (state.phase === "shop") {
-      if (isPassPlayMode()) {
-        const playerId = state.shop.currentPlayer;
-        const data = state.shop.players[playerId];
-
-        if (data) {
-          if (!data.ready) {
-            setShopMode(state, null);
-          }
-          data.ready = !data.ready;
-          state.log.unshift({ k: data.ready ? "log.markedReady" : "log.markedNotReady", p: { player: playerId }, shop: true });
-
-          if (state.shop.players[1].ready && state.shop.players[2].ready) {
-            result = startRoundFromShop(state);
-            if (!result.error) {
-              awaitingHandReveal = true;
-            }
-          }
-        }
-      } else {
-        result = startRoundFromShop(state);
-        if (!result.error) {
-          handVisibility = {
-            1: result.state.currentPlayer === 1,
-            2: result.state.currentPlayer === 2,
-          };
-        }
+      // Never let the round start on a shop the AI hasn't taken yet: its turn
+      // is on a timer, and the player can click faster than that.
+      if (aiConfig.enabled) {
+        runAiShopForSide(state, aiConfig.playerId);
+      }
+      result = startRoundFromShop(state);
+      if (!result.error) {
+        handVisibility = {
+          1: result.state.currentPlayer === 1,
+          2: result.state.currentPlayer === 2,
+        };
       }
     }
 
@@ -1328,36 +1271,14 @@ function bindEvents() {
     }
 
     state = createInitialState(getLocalGameOptions());
-    if (aiConfig.enabled && state.phase === "shop" && state.shop.currentPlayer !== aiConfig.playerId) {
-      switchShopPlayer(state);
+    if (aiConfig.enabled && state.phase === "shop") {
+      state.shop.currentPlayer = getHumanPlayerId();
     }
     handVisibility = { 1: false, 2: true };
-    if (isAiGame) {
-      clearModeSave(MODE_AI);
-    } else {
-      clearModeSave(MODE_PASSPLAY);
-    }
+    clearModeSave(MODE_AI);
     persistState();
     setStatus(t("status.newGameCreated"));
     render();
-  });
-
-  elements.shopSwitchPlayer.addEventListener("click", () => {
-    if (online.isOnlineActive()) {
-      online.sendAction("shop_switch_player", {});
-      return;
-    }
-
-    const result = switchShopPlayer(state);
-    state = result.state;
-    if (result.error) {
-      setStatus(formatEngineError(result));
-      return;
-    }
-
-    persistState();
-    render();
-    scheduleAiTurnIfNeeded();
   });
 
   elements.shopRemoveBtn.addEventListener("click", () => {
@@ -1366,12 +1287,6 @@ function bindEvents() {
       online.sendAction("shop_set_mode", { mode: mode === "remove" ? null : "remove" });
       return;
     }
-
-    if (isCurrentLocalShopPlayerReady()) {
-      setStatus(t("status.markedReady"));
-      return;
-    }
-
     const mode = getCurrentShopMode();
     const result = setShopMode(state, mode === "remove" ? null : "remove");
     state = result.state;
@@ -1389,12 +1304,6 @@ function bindEvents() {
       online.sendAction("shop_set_mode", { mode: mode === "combine" ? null : "combine" });
       return;
     }
-
-    if (isCurrentLocalShopPlayerReady()) {
-      setStatus(t("status.markedReady"));
-      return;
-    }
-
     const mode = getCurrentShopMode();
     const result = setShopMode(state, mode === "combine" ? null : "combine");
     state = result.state;
@@ -1418,12 +1327,6 @@ function bindEvents() {
       online.sendAction("shop_bag_select", { runeInstanceId });
       return;
     }
-
-    if (isCurrentLocalShopPlayerReady()) {
-      setStatus(t("status.markedReady"));
-      return;
-    }
-
     const result = shopSelectBagRune(state, runeInstanceId);
     state = result.state;
     if (result.error) {
@@ -1445,12 +1348,6 @@ function bindEvents() {
       online.sendAction("shop_offer_select", { runeInstanceId });
       return;
     }
-
-    if (isCurrentLocalShopPlayerReady()) {
-      setStatus(t("status.markedReady"));
-      return;
-    }
-
     const result = shopSelectOfferRune(state, runeInstanceId);
     state = result.state;
     if (result.error) {
@@ -1645,11 +1542,6 @@ function render() {
     }
   }
 
-  // The Pass & Play handoff gate only applies during an active local round.
-  if (!isPassPlayMode() || state.phase !== "round") {
-    awaitingHandReveal = false;
-  }
-
   if (state.phase === "round") {
     if (online.isOnlineActive()) {
       handVisibility = {
@@ -1660,21 +1552,13 @@ function render() {
       if (waitingRoomState.playerId) {
         handVisibility[waitingRoomState.playerId] = true;
       }
-    } else if (aiConfig.enabled) {
-      const humanPlayerId = aiConfig.playerId === 1 ? 2 : 1;
+    } else {
+      const humanPlayerId = getHumanPlayerId();
       handVisibility = {
         1: false,
         2: false,
       };
       handVisibility[humanPlayerId] = state.currentPlayer === humanPlayerId;
-    } else if (awaitingHandReveal) {
-      // Pass & Play: keep both hands hidden until the incoming player reveals.
-      handVisibility = { 1: false, 2: false };
-    } else {
-      handVisibility = {
-        1: state.currentPlayer === 1,
-        2: state.currentPlayer === 2,
-      };
     }
   }
 
@@ -1683,19 +1567,6 @@ function render() {
 
   if (aiConfig.enabled && !forcedVisible[aiConfig.playerId]) {
     handVisibility[aiConfig.playerId] = false;
-  }
-
-  // Pass & Play: show the "pass the device" overlay between turns.
-  elements.passDeviceOverlay.hidden = !awaitingHandReveal;
-  if (awaitingHandReveal) {
-    elements.passDeviceText.textContent =
-      t("passDevice.handOver", { player: getDisplayPlayerName(state.currentPlayer) });
-    if (!passDeviceFocused) {
-      elements.passDeviceRevealBtn.focus();
-      passDeviceFocused = true;
-    }
-  } else {
-    passDeviceFocused = false;
   }
 
   // A new round wipes the board, so diffing across it would read as "every
@@ -1802,14 +1673,10 @@ function renderShopPanel() {
   elements.shopPanel.hidden = !inShop;
   elements.boardEl.hidden = inShop;
   elements.shopInstruction.hidden = !inShop && !lingering;
-  elements.shopSwitchPlayer.hidden = !inShop || online.isOnlineActive() || aiConfig.enabled;
 
   elements.phaseBtn.hidden = state.phase === "round" || state.phase === "game-over";
   if (online.isOnlineActive() && state.phase === "shop") {
     elements.phaseBtn.textContent = waitingRoomState.shopReadyYou ? t("shop.cancelReady") : t("shop.ready");
-  } else if (isPassPlayMode() && state.phase === "shop") {
-    const playerReady = Boolean(state.shop.players[state.shop.currentPlayer]?.ready);
-    elements.phaseBtn.textContent = playerReady ? t("shop.cancelReady") : t("shop.ready");
   } else if (lingering) {
     elements.phaseBtn.textContent = t("shop.enterShop");
   } else {
@@ -1833,17 +1700,19 @@ function renderShopPanel() {
     elements.shopInstruction.textContent = waitingRoomState.shopReadyYou
       ? t("shop.instrReady", { opp: opponentPseudo, status: opponentStatus })
       : t("shop.instrOnline", { opp: opponentPseudo, status: opponentStatus });
-  } else if (isPassPlayMode()) {
-    const blackReady = state.shop.players[1]?.ready ? t("common.ready") : t("common.notReady");
-    const whiteReady = state.shop.players[2]?.ready ? t("common.ready") : t("common.notReady");
-    elements.shopInstruction.textContent = t("shop.instrPassplay", { black: blackReady, white: whiteReady });
   } else {
     elements.shopInstruction.textContent = t("shop.instrAi");
   }
 
-  const playerId = online.isOnlineActive() && waitingRoomState.playerId
-    ? waitingRoomState.playerId
-    : state.shop.currentPlayer;
+  // Whose shop the player is allowed to touch. Online it is their seat; against
+  // the AI it is always their own side — rendering shop.currentPlayer blindly is
+  // what let a player shop out of the AI's bag.
+  let playerId = state.shop.currentPlayer;
+  if (online.isOnlineActive() && waitingRoomState.playerId) {
+    playerId = waitingRoomState.playerId;
+  } else if (aiConfig.enabled) {
+    playerId = getHumanPlayerId();
+  }
 
   const previousShopPlayer = state.shop.currentPlayer;
   if (previousShopPlayer !== playerId) {
@@ -1872,8 +1741,6 @@ function renderShopPanel() {
 
   elements.shopRemoveBtn.hidden = !actions.removeVisible;
   elements.shopCombineBtn.hidden = !actions.combineVisible;
-  elements.shopRemoveBtn.disabled = playerReady && isPassPlayMode();
-  elements.shopCombineBtn.disabled = playerReady && isPassPlayMode();
 
   if (previousShopPlayer !== playerId) {
     state.shop.currentPlayer = previousShopPlayer;
@@ -1988,12 +1855,17 @@ function updateEndgameRematchUI() {
   }
 }
 
+// The side the local player sits on in an AI game (the AI takes the other).
+function getHumanPlayerId() {
+  return aiConfig.playerId === 1 ? 2 : 1;
+}
+
 // Which per-mode stats bucket the game being played (or just finished) belongs to.
 function currentStatsMode() {
   if (online.isOnlineActive()) {
     return "online";
   }
-  return aiConfig.enabled ? "ai" : "passplay";
+  return "ai";
 }
 
 function getHumanOutcome() {
@@ -2011,7 +1883,7 @@ function getHumanOutcome() {
     return winner === seat ? "win" : "loss";
   }
   if (aiConfig.enabled) {
-    const human = aiConfig.playerId === 1 ? 2 : 1;
+    const human = getHumanPlayerId();
     if (!winner) {
       return "draw";
     }
@@ -2251,7 +2123,6 @@ function renderStatsPanel() {
   grid.className = "stats-mode-grid";
   grid.appendChild(buildStatsModeCard(t("statsScreen.modeAi"), stats.ai));
   grid.appendChild(buildStatsModeCard(t("statsScreen.modeOnline"), stats.online));
-  grid.appendChild(buildStatsModeCard(t("statsScreen.modePassplay"), stats.passplay));
   container.appendChild(grid);
 }
 
@@ -2517,7 +2388,7 @@ function renderChatPanel() {
   const isOnline = online.isOnlineActive();
   elements.quickChatBar.hidden = !isOnline;
 
-  // Offline (AI / Pass & Play): no chat, no tabs — just the plain turn log.
+  // Offline (vs the AI): no chat, no tabs — just the plain turn log.
   if (!isOnline) {
     activeFeedTab = "turn";
     hasUnreadChat = false;
@@ -2592,32 +2463,6 @@ function getCurrentShopMode() {
     ? waitingRoomState.playerId
     : state.shop.currentPlayer;
   return state.shop.players[playerId].mode;
-}
-
-function isPassPlayMode() {
-  return !online.isOnlineActive() && !aiConfig.enabled;
-}
-
-// Pass & Play: after a turn hands control to the other player, hide both hands
-// behind the "pass the device" overlay until the incoming player reveals.
-function maybeQueuePassDevice(prevPlayerId) {
-  if (
-    isPassPlayMode()
-    && state.phase === "round"
-    && !state.pendingAction
-    && state.currentPlayer !== prevPlayerId
-  ) {
-    awaitingHandReveal = true;
-  }
-}
-
-function isCurrentLocalShopPlayerReady() {
-  if (!isPassPlayMode() || state.phase !== "shop") {
-    return false;
-  }
-
-  const data = state.shop.players[state.shop.currentPlayer];
-  return Boolean(data?.ready);
 }
 
 function setStatus(text) {
@@ -3488,8 +3333,9 @@ function persistState() {
     return;
   }
 
-  saveModeSave(MODE_PASSPLAY, {
+  saveModeSave(MODE_AI, {
     state,
+    ai: { playerId: aiConfig.playerId, depth: aiConfig.depth },
     updatedAt: Date.now(),
   });
 }
@@ -3553,14 +3399,10 @@ function renderHomeResume() {
     return;
   }
   const aiSave = loadModeSave(MODE_AI);
-  const passSave = loadModeSave(MODE_PASSPLAY);
   const onlineSave = loadModeSave(MODE_ONLINE);
   const candidates = [];
   if (isResumableSave(aiSave?.state)) {
     candidates.push({ mode: MODE_AI, updatedAt: aiSave.updatedAt || 0, round: aiSave.state.roundNumber || 1 });
-  }
-  if (isResumableSave(passSave?.state)) {
-    candidates.push({ mode: MODE_PASSPLAY, updatedAt: passSave.updatedAt || 0, round: passSave.state.roundNumber || 1 });
   }
   if (isResumableSave(onlineSave?.state) && /^[A-Z2-9]{6}$/.test(String(onlineSave?.roomCode || "").toUpperCase())) {
     candidates.push({ mode: MODE_ONLINE, updatedAt: onlineSave.updatedAt || 0, round: onlineSave.state.roundNumber || 1 });
@@ -3575,7 +3417,7 @@ function renderHomeResume() {
   candidates.sort((a, b) => b.updatedAt - a.updatedAt);
   const best = candidates[0];
   homeResumeMode = best.mode;
-  const label = best.mode === MODE_AI ? t("home.playAi") : (best.mode === MODE_ONLINE ? t("home.online") : t("home.passplay"));
+  const label = best.mode === MODE_ONLINE ? t("home.online") : t("home.playAi");
   elements.homeResumeText.textContent = t("home.resumeText", { mode: label, round: best.round });
   elements.homeResume.hidden = false;
 }
@@ -3633,7 +3475,6 @@ function getActiveOverlay() {
   const overlays = [
     elements.runeDetailOverlay,
     elements.endgameOverlay,
-    elements.passDeviceOverlay,
   ];
   return overlays.find((el) => el && !el.hidden && el.getClientRects().length > 0) || null;
 }
@@ -3975,8 +3816,8 @@ function playSoundTransitions(previousSnapshot, currentSnapshot) {
   // so it's cued here from the freshly pushed " combined " log entry. Online,
   // only play OUR OWN combine — the opponent shops on another client, and their
   // add/remove already make no sound here (those are local button clicks), so
-  // gating combine keeps the shop free of the opponent's noise. Offline (AI /
-  // pass & play) it's a single device, so always play.
+  // gating combine keeps the shop free of the opponent's noise. Offline it's a
+  // single device, so always play.
   if (
     currentSnapshot.phase === "shop"
     && newLogCount > 0

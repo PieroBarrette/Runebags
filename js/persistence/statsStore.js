@@ -1,5 +1,5 @@
 // Lightweight local play stats (no profiles, no server).
-// v2 keeps a per-mode breakdown (ai / passplay / online). The v1 key is left
+// v2 keeps a per-mode breakdown (ai / online). The v1 key is left
 // in place untouched so a rollback to an older build still finds its data.
 const STATS_V2_KEY = "runebags-stats-v2";
 const STATS_V1_KEY = "runebags-stats-v1";
@@ -20,8 +20,6 @@ function defaults() {
     version: 2,
     totals: { gamesPlayed: 0 },
     ai: recordDefaults(),
-    // Pass & play has no "you", so it only counts games.
-    passplay: { gamesPlayed: 0 },
     // Device-local view of online results; the server-side record is separate.
     online: recordDefaults(),
   };
@@ -34,7 +32,6 @@ function mergeDefaults(data) {
     ...data,
     totals: { ...base.totals, ...(data.totals || {}) },
     ai: { ...base.ai, ...(data.ai || {}) },
-    passplay: { ...base.passplay, ...(data.passplay || {}) },
     online: { ...base.online, ...(data.online || {}) },
   };
 }
@@ -103,7 +100,7 @@ export function getStats() {
 }
 
 // outcome: "win" | "loss" | "draw" | "played" (played = no personal result)
-// mode: "ai" | "passplay" | "online"
+// mode: "ai" | "online"
 export function recordGameResult(outcome, mode) {
   const stats = getStats();
   stats.totals.gamesPlayed += 1;
