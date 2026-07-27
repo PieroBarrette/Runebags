@@ -1,5 +1,3 @@
-import { t } from "../i18n.js";
-
 // Static mini-board diagrams. Cells reuse the in-game .cell classes so the
 // figures inherit the exact board visuals (pieces, neutral dashes, winning
 // glow, forced-column tint) in both themes, and rune art comes from the same
@@ -21,7 +19,6 @@ const RUNE_FIGURES = {
       { r: 2, c: 2, owner: 2 },
       { r: 2, c: 4, owner: 1 },
     ],
-    captionKey: "rules.fig.algiz",
   },
   ansuz: {
     rows: 3,
@@ -31,7 +28,6 @@ const RUNE_FIGURES = {
       { r: 2, c: 2, owner: 1 },
       { r: 2, c: 4, owner: 2 },
     ],
-    captionKey: "rules.fig.ansuz",
   },
   berkana: {
     rows: 3,
@@ -41,7 +37,6 @@ const RUNE_FIGURES = {
       { r: 2, c: 3, owner: 1, win: true },
       { r: 2, c: 4, owner: 1, win: true },
     ],
-    captionKey: "rules.fig.berkana",
   },
   dagaz: {
     rows: 3,
@@ -51,7 +46,6 @@ const RUNE_FIGURES = {
       { r: 2, c: 2, owner: 2 },
       { r: 2, c: 4, owner: 2 },
     ],
-    captionKey: "rules.fig.dagaz",
   },
   eihwaz: {
     rows: 3,
@@ -60,7 +54,6 @@ const RUNE_FIGURES = {
       { r: 2, c: 2, owner: 2 },
       { r: 2, c: 4, owner: 1 },
     ],
-    captionKey: "rules.fig.eihwaz",
   },
   gebo: {
     rows: 3,
@@ -70,7 +63,6 @@ const RUNE_FIGURES = {
       { r: 2, c: 2, owner: 1 },
       { r: 2, c: 4, owner: 2 },
     ],
-    captionKey: "rules.fig.gebo",
   },
   hagalz: {
     rows: 3,
@@ -82,7 +74,6 @@ const RUNE_FIGURES = {
       { r: 1, c: 1, owner: 2 },
       { r: 2, c: 5, owner: 2 },
     ],
-    captionKey: "rules.fig.hagalz",
   },
   inguz: {
     rows: 3,
@@ -90,14 +81,12 @@ const RUNE_FIGURES = {
       { r: 2, c: 3, owner: 1, runeId: "inguz" },
     ],
     forcedColumns: [3],
-    captionKey: "rules.fig.inguz",
   },
   isa: {
     rows: 3,
     cells: [
       { r: 2, c: 3, owner: 1, runeId: "isa", win: true },
     ],
-    captionKey: "rules.fig.isa",
   },
   jera: {
     rows: 3,
@@ -106,7 +95,6 @@ const RUNE_FIGURES = {
       { r: 2, c: 6, owner: 1, runeId: "jera" },
     ],
     forcedColumns: [0, 6],
-    captionKey: "rules.fig.jera",
   },
   kenaz: {
     rows: 3,
@@ -115,7 +103,6 @@ const RUNE_FIGURES = {
       { r: 2, c: 3, owner: 1, runeId: "kenaz" },
       { r: 2, c: 5, owner: 2, fading: true },
     ],
-    captionKey: "rules.fig.kenaz",
   },
   laguz: {
     rows: 3,
@@ -124,7 +111,6 @@ const RUNE_FIGURES = {
       { r: 2, c: 2, owner: 2 },
       { r: 2, c: 4, owner: 2 },
     ],
-    captionKey: "rules.fig.laguz",
   },
   nauthiz: {
     rows: 3,
@@ -133,7 +119,6 @@ const RUNE_FIGURES = {
       { r: 2, c: 1, owner: 2 },
       { r: 2, c: 2, owner: 1 },
     ],
-    captionKey: "rules.fig.nauthiz",
   },
   odal: {
     rows: 3,
@@ -142,7 +127,6 @@ const RUNE_FIGURES = {
       { r: 1, c: 3, owner: 2 },
       { r: 2, c: 3, owner: 1 },
     ],
-    captionKey: "rules.fig.odal",
   },
   perth: {
     rows: 3,
@@ -152,7 +136,6 @@ const RUNE_FIGURES = {
       { r: 1, c: 3, owner: 1 },
     ],
     forcedColumns: [2, 4],
-    captionKey: "rules.fig.perth",
   },
   teiwaz: {
     rows: 3,
@@ -162,7 +145,6 @@ const RUNE_FIGURES = {
       { r: 2, c: 1, owner: 2 },
     ],
     forcedColumns: [1, 3],
-    captionKey: "rules.fig.teiwaz",
   },
   thurisa: {
     rows: 3,
@@ -171,7 +153,6 @@ const RUNE_FIGURES = {
       { r: 2, c: 4, owner: 3 },
       { r: 2, c: 2, owner: 2 },
     ],
-    captionKey: "rules.fig.thurisa",
   },
   wunjo: {
     rows: 3,
@@ -180,7 +161,6 @@ const RUNE_FIGURES = {
       { r: 2, c: 1, owner: 2 },
       { r: 2, c: 5, owner: 2 },
     ],
-    captionKey: "rules.fig.wunjo",
   },
 };
 
@@ -198,7 +178,6 @@ const NAMED_FIGURES = {
       { r: 1, c: 2, owner: 2 },
       { r: 1, c: 3, owner: 2 },
     ],
-    captionKey: "rules.fig.winLine",
   },
 };
 
@@ -306,12 +285,8 @@ function buildFigure(spec) {
     }
   }
 
-  const caption = document.createElement("figcaption");
-  caption.className = "rules-figure-caption";
-  caption.dataset.i18n = spec.captionKey;
-  caption.textContent = t(spec.captionKey);
-
+  // No caption: every diagram sits directly under the sentence that explains
+  // the same rule, and repeating it read as duplicated text.
   figure.appendChild(board);
-  figure.appendChild(caption);
   return figure;
 }

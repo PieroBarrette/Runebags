@@ -1963,7 +1963,38 @@ async function renderOnlineOngoing() {
 
   const rooms = await fetchOngoingRooms();
   elements.onlineOngoingList.innerHTML = "";
-  if (rooms.length === 0) {
+
+  // The room this device is still attached to. The lobby always opens on its
+  // home step now, so this card is the way back into it.
+  const currentCode = activeRoomCode && /^[A-Z2-9]{6}$/.test(activeRoomCode)
+    ? activeRoomCode
+    : getResumableOnlineRoomCode();
+  if (currentCode && !rooms.some((room) => room.roomCode === currentCode)) {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "home-ongoing-card";
+
+    const label = document.createElement("span");
+    label.className = "home-ongoing-opponent";
+    label.textContent = t("online.ongoingRoom", { code: currentCode });
+    card.appendChild(label);
+
+    const status = document.createElement("span");
+    status.className = "home-ongoing-status your-turn";
+    status.textContent = t("online.ongoingRejoin");
+    card.appendChild(status);
+
+    card.addEventListener("click", () => {
+      if (online.isOnlineActive() && activeRoomCode === currentCode) {
+        updateOnlineRoomUI(currentCode);
+        return;
+      }
+      resumeOnlineRoom(currentCode);
+    });
+    elements.onlineOngoingList.appendChild(card);
+  }
+
+  if (rooms.length === 0 && !currentCode) {
     elements.onlineOngoing.hidden = true;
     return;
   }
@@ -2597,18 +2628,20 @@ function showOnlinePanel() {
   }
   renderOnlineIdentity();
   updateOnlineRoomUI(activeRoomCode || "-");
+  // Always land on the lobby, even when a room is still attached: otherwise a
+  // previous room locks the panel and quick play or another code is out of
+  // reach. Getting back into that room is a card in the list below.
+  showOnlineLobbyStep();
   updateOnlineConnectionStatus();
   refreshLobbySocial();
   renderOnlineOngoing();
+}
 
-  // Opening this panel with a game still in progress reconnects to it, so the
-  // lobby is the single place an online game is picked back up.
-  if (!online.isOnlineActive() && !pendingInviteCode) {
-    const resumable = getResumableOnlineRoomCode();
-    if (resumable) {
-      resumeOnlineRoom(resumable);
-    }
-  }
+function showOnlineLobbyStep() {
+  elements.onlineStepHome.hidden = false;
+  elements.onlineStepSearching.hidden = true;
+  elements.onlineStepRoom.hidden = true;
+  renderInviteBanner();
 }
 
 function showRulesPanel() {

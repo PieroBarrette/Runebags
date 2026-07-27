@@ -86,17 +86,6 @@
   margin: 0.2rem 0 0.9rem;
 }
 
-.rune-detail-figure .rules-figure-caption {
-  text-align: center;
-}
-
-.rules-figure-caption {
-  margin: 0.35rem 0 0;
-  max-width: 420px;
-  font-size: 0.85rem;
-  color: var(--text-soft);
-}
-
 .cell:hover {
   transform: none;
 }
