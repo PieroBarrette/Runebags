@@ -14,11 +14,14 @@ import {
   insertGameAction,
   markGameAbandonedIfActive,
   openDb,
+  purgeExpiredAuthRows,
   recordPlayerOutcome,
   upsertPlayer,
 } from "./db.mjs";
 import { handleApiRequest } from "./api.mjs";
 import { initPush, sendPush } from "./push.mjs";
+import { initCrypto } from "./crypto.mjs";
+import { initMailer } from "./mailer.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -72,6 +75,8 @@ const QUICK_CHAT_MIN_INTERVAL_MS = 1200;
 
 await fs.mkdir(DATA_DIR, { recursive: true }).catch(() => {});
 openDb(DATA_DIR);
+initCrypto(process.env);
+initMailer(process.env);
 await initPush(process.env);
 await loadRooms();
 sweepRooms();
@@ -276,6 +281,8 @@ function sweepRooms() {
     console.log(`[sweep] removed ${removed} expired room(s), ${rooms.size} remaining`);
     schedulePersistRooms().catch(() => {});
   }
+
+  purgeExpiredAuthRows();
 }
 
 function handleMessage(ws, message) {

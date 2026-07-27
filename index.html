@@ -235,6 +235,31 @@
         <input id="push-toggle" class="settings-checkbox" type="checkbox" hidden>
       </div>
       <p id="push-hint" class="settings-hint" hidden></p>
+
+      <!-- Account. Sign-in is a one-time emailed link: no password is ever
+           created, sent or stored. -->
+      <section id="account-block" class="account-block">
+        <h3 class="account-title" data-i18n="account.title">Account</h3>
+
+        <div id="account-signed-out">
+          <p class="settings-hint" data-i18n="account.why">Sign in to keep your stats across devices, get a ranking and challenge other players. No password — we email you a one-time link.</p>
+          <div class="account-row">
+            <input id="account-email" type="email" autocomplete="email" placeholder="you@example.com" data-i18n-attr="aria-label:account.emailLabel">
+            <button id="account-send-btn" class="menu-btn" type="button" data-i18n="account.send">Email me a link</button>
+          </div>
+          <p id="account-sent" class="settings-hint" hidden></p>
+        </div>
+
+        <div id="account-signed-in" hidden>
+          <p id="account-identity" class="account-identity"></p>
+          <div id="account-handle-row" class="account-row" hidden>
+            <input id="account-handle" type="text" maxlength="20" autocomplete="off" placeholder="Pseudo" data-i18n-attr="aria-label:account.handleLabel">
+            <button id="account-handle-btn" class="menu-btn" type="button" data-i18n="account.claim">Claim</button>
+          </div>
+          <p id="account-handle-hint" class="settings-hint" hidden></p>
+          <button id="account-signout-btn" class="menu-btn secondary" type="button" data-i18n="account.signOut">Sign out</button>
+        </div>
+      </section>
       <div class="menu-actions compact">
         <button id="settings-back-btn" class="menu-btn secondary" type="button" data-i18n="nav.back">Back</button>
       </div>

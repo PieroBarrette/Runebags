@@ -16,12 +16,68 @@ import {
   upsertPlayer,
 } from "./db.mjs";
 import { getVapidPublicKey } from "./push.mjs";
+import {
+  claimHandle,
+  getUserFromSession,
+  logout,
+  publicUser,
+  requestLoginLink,
+  verifyLoginToken,
+} from "./auth.mjs";
 
 const MAX_BODY_BYTES = 8 * 1024;
 
 export async function handleApiRequest(req, res, context) {
   const url = new URL(req.url || "/", "http://localhost");
   const route = url.pathname;
+
+  /* -------------------------------------------------------------- accounts */
+
+  if (req.method === "POST" && route === "/api/auth/request") {
+    const body = await readJsonBody(req);
+    const result = await requestLoginLink({
+      email: body?.email,
+      lang: body?.lang,
+      ip: readClientIp(req),
+    });
+    sendJson(res, result.status, result.body);
+    return;
+  }
+
+  if (req.method === "POST" && route === "/api/auth/verify") {
+    const body = await readJsonBody(req);
+    const result = verifyLoginToken({
+      token: body?.token,
+      guestId: readGuestId(req, url),
+      displayName: body?.name,
+      avatar: body?.avatar,
+    });
+    sendJson(res, result.status, result.body);
+    return;
+  }
+
+  if (req.method === "GET" && route === "/api/auth/me") {
+    const user = getUserFromSession(readSessionToken(req));
+    sendJson(res, 200, { user: user ? publicUser(user) : null });
+    return;
+  }
+
+  if (req.method === "POST" && route === "/api/auth/handle") {
+    const user = getUserFromSession(readSessionToken(req));
+    if (!user) {
+      sendJson(res, 401, { error: "not_signed_in" });
+      return;
+    }
+    const body = await readJsonBody(req);
+    const result = claimHandle(user, body?.handle);
+    sendJson(res, result.status, result.body);
+    return;
+  }
+
+  if (req.method === "POST" && route === "/api/auth/logout") {
+    sendJson(res, 200, logout(readSessionToken(req)).body);
+    return;
+  }
 
   if (req.method === "GET" && route === "/api/leaderboard") {
     sendJson(res, 200, { players: getLeaderboard(url.searchParams.get("limit")) });
@@ -149,6 +205,21 @@ function collectOngoingRooms(rooms, guestId) {
 
   ongoing.sort((a, b) => (b.lastActivityAt || 0) - (a.lastActivityAt || 0));
   return ongoing;
+}
+
+function readSessionToken(req) {
+  const header = req.headers["x-session-token"];
+  return typeof header === "string" && header.trim() ? header.trim() : null;
+}
+
+// Render sits behind a proxy, so the direct socket address is the load
+// balancer; the first hop in X-Forwarded-For is the real caller.
+function readClientIp(req) {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded === "string" && forwarded.length > 0) {
+    return forwarded.split(",")[0].trim();
+  }
+  return req.socket?.remoteAddress || null;
 }
 
 function readGuestId(req, url) {

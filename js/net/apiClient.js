@@ -4,6 +4,7 @@
 // render fine without the server (offline, cold start, DB unavailable), so a
 // failed call resolves to null/[] instead of throwing.
 const GUEST_ID_KEY = "runebags-guest-id";
+const SESSION_KEY = "runebags-session-v1";
 
 function guestId() {
   try {
@@ -13,16 +14,47 @@ function guestId() {
   }
 }
 
-async function getJson(path, { auth = false } = {}) {
+export function getSessionToken() {
+  try {
+    return window.localStorage.getItem(SESSION_KEY) || null;
+  } catch {
+    return null;
+  }
+}
+
+export function setSessionToken(token) {
+  try {
+    if (token) {
+      window.localStorage.setItem(SESSION_KEY, token);
+    } else {
+      window.localStorage.removeItem(SESSION_KEY);
+    }
+  } catch {
+    // Private mode: the session simply won't survive a reload.
+  }
+}
+
+function authHeaders(auth) {
   const headers = {};
   if (auth) {
     const id = guestId();
     // The guest id is a bearer secret — send it as a header so it never lands
     // in a URL, a proxy log or a Referer.
-    if (!id) {
-      return null;
+    if (id) {
+      headers["x-guest-id"] = id;
     }
-    headers["x-guest-id"] = id;
+  }
+  const session = getSessionToken();
+  if (session) {
+    headers["x-session-token"] = session;
+  }
+  return headers;
+}
+
+async function getJson(path, { auth = false } = {}) {
+  const headers = authHeaders(auth);
+  if (auth && !headers["x-guest-id"]) {
+    return null;
   }
 
   try {
@@ -36,24 +68,23 @@ async function getJson(path, { auth = false } = {}) {
   }
 }
 
-async function postJson(path, body, { auth = false } = {}) {
-  const headers = { "Content-Type": "application/json" };
-  if (auth) {
-    const id = guestId();
-    if (!id) {
-      return null;
-    }
-    headers["x-guest-id"] = id;
+// `raw` keeps the status code, which the account flows need to tell "taken"
+// apart from "malformed" — everywhere else a failure is just null.
+async function postJson(path, body, { auth = false, raw = false } = {}) {
+  const headers = { "Content-Type": "application/json", ...authHeaders(auth) };
+  if (auth && !headers["x-guest-id"]) {
+    return null;
   }
 
   try {
     const response = await fetch(path, { method: "POST", headers, body: JSON.stringify(body) });
-    if (!response.ok) {
-      return null;
+    const data = await response.json().catch(() => null);
+    if (raw) {
+      return { ok: response.ok, status: response.status, data };
     }
-    return await response.json();
+    return response.ok ? data : null;
   } catch {
-    return null;
+    return raw ? { ok: false, status: 0, data: null } : null;
   }
 }
 
@@ -103,4 +134,42 @@ export function subscribePush(subscription, lang, identity = {}) {
 
 export function unsubscribePush(endpoint) {
   return postJson("/api/push/unsubscribe", { endpoint });
+}
+
+/* ---------------------------------------------------------------- accounts */
+
+export function requestLoginLink(email, lang) {
+  return postJson("/api/auth/request", { email, lang }, { raw: true });
+}
+
+// Trades the emailed token for a session, passing the guest identity so the
+// account adopts whatever this device has already played.
+export async function verifyLogin(token, identity = {}) {
+  const result = await postJson(
+    "/api/auth/verify",
+    { token, name: identity.name || null, avatar: identity.avatar || null },
+    { auth: true, raw: true },
+  );
+  if (result?.ok && result.data?.sessionToken) {
+    setSessionToken(result.data.sessionToken);
+    return result.data.user || null;
+  }
+  return null;
+}
+
+export async function fetchAccount() {
+  if (!getSessionToken()) {
+    return null;
+  }
+  const data = await getJson("/api/auth/me");
+  return data?.user || null;
+}
+
+export function claimHandle(handle) {
+  return postJson("/api/auth/handle", { handle }, { raw: true });
+}
+
+export async function signOut() {
+  await postJson("/api/auth/logout", {});
+  setSessionToken(null);
 }

@@ -84,6 +84,49 @@ const MIGRATIONS = [
   );
   CREATE INDEX idx_push_player ON push_subscriptions(player_id);
   `,
+  `
+  -- Accounts. No passwords exist: sign-in is a one-time emailed link, so
+  -- tokens are stored as SHA-256 digests and addresses are encrypted, with a
+  -- keyed blind index carrying uniqueness and lookup.
+  CREATE TABLE users (
+    id INTEGER PRIMARY KEY,
+    email_index TEXT NOT NULL UNIQUE,
+    email_enc TEXT NOT NULL,
+    handle TEXT UNIQUE COLLATE NOCASE,
+    player_id INTEGER REFERENCES players(id),
+    created_at INTEGER NOT NULL,
+    last_login_at INTEGER
+  );
+
+  CREATE TABLE login_tokens (
+    token_hash TEXT PRIMARY KEY,
+    email_index TEXT NOT NULL,
+    email_enc TEXT NOT NULL,
+    lang TEXT NOT NULL DEFAULT 'en',
+    created_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL,
+    used_at INTEGER
+  );
+
+  CREATE TABLE sessions (
+    token_hash TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL,
+    last_seen_at INTEGER
+  );
+  CREATE INDEX idx_sessions_user ON sessions(user_id);
+
+  -- Maps a device's anonymous guest id onto the account's canonical player row,
+  -- so a second device's games count for the same profile. The WebSocket server
+  -- keeps knowing nothing but guest ids.
+  CREATE TABLE guest_links (
+    guest_id TEXT PRIMARY KEY,
+    player_id INTEGER NOT NULL REFERENCES players(id),
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at INTEGER NOT NULL
+  );
+  `,
 ];
 
 export function openDb(dataDir) {
@@ -182,11 +225,17 @@ export function upsertPlayer(guestId, name, avatar) {
   });
 }
 
+// A signed-in device resolves to its account's canonical player row, so games
+// played from a second device still count for the same profile.
 export function getPlayerIdByGuestId(guestId) {
   if (!guestId) {
     return null;
   }
   return guard(null, (database) => {
+    const linked = database.prepare("SELECT player_id FROM guest_links WHERE guest_id = ?").get(guestId);
+    if (linked) {
+      return linked.player_id;
+    }
     const row = database.prepare("SELECT id FROM players WHERE guest_id = ?").get(guestId);
     return row ? row.id : null;
   });
@@ -494,6 +543,156 @@ export function getPushSubscriptions(playerRowId) {
 export function touchPushSubscription(endpoint) {
   guard(null, (database) => {
     database.prepare("UPDATE push_subscriptions SET last_ok_at = ? WHERE endpoint = ?").run(Date.now(), endpoint);
+    return null;
+  });
+}
+
+/* ---------------------------------------------------------------- accounts */
+
+// Callers pass an already-encrypted address and its blind index; this module
+// never sees the plaintext.
+export function createLoginToken({ tokenHash, emailIndex, emailEnc, lang, expiresAt }) {
+  return guard(false, (database) => {
+    database
+      .prepare(`
+        INSERT INTO login_tokens (token_hash, email_index, email_enc, lang, created_at, expires_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `)
+      .run(tokenHash, emailIndex, emailEnc, lang === "fr" ? "fr" : "en", Date.now(), expiresAt);
+    return true;
+  });
+}
+
+// Single use: the row is marked spent in the same statement that claims it, so
+// two clicks on the same link cannot both succeed.
+export function consumeLoginToken(tokenHash) {
+  return guard(null, (database) => {
+    const claim = database.transaction(() => {
+      const row = database
+        .prepare("SELECT * FROM login_tokens WHERE token_hash = ? AND used_at IS NULL AND expires_at > ?")
+        .get(tokenHash, Date.now());
+      if (!row) {
+        return null;
+      }
+      database.prepare("UPDATE login_tokens SET used_at = ? WHERE token_hash = ?").run(Date.now(), tokenHash);
+      return row;
+    });
+    return claim();
+  });
+}
+
+export function countRecentLoginTokens(emailIndex, sinceMs) {
+  return guard(0, (database) => {
+    const row = database
+      .prepare("SELECT COUNT(*) AS n FROM login_tokens WHERE email_index = ? AND created_at > ?")
+      .get(emailIndex, Date.now() - sinceMs);
+    return row?.n || 0;
+  });
+}
+
+export function getUserByEmailIndex(emailIndex) {
+  return guard(null, (database) =>
+    database.prepare("SELECT * FROM users WHERE email_index = ?").get(emailIndex) || null);
+}
+
+export function getUserById(userId) {
+  return guard(null, (database) =>
+    database.prepare("SELECT * FROM users WHERE id = ?").get(Number(userId)) || null);
+}
+
+export function createUser({ emailIndex, emailEnc, playerId }) {
+  return guard(null, (database) => {
+    const info = database
+      .prepare("INSERT INTO users (email_index, email_enc, player_id, created_at, last_login_at) VALUES (?, ?, ?, ?, ?)")
+      .run(emailIndex, emailEnc, playerId || null, Date.now(), Date.now());
+    return Number(info.lastInsertRowid);
+  });
+}
+
+export function touchUserLogin(userId) {
+  guard(null, (database) => {
+    database.prepare("UPDATE users SET last_login_at = ? WHERE id = ?").run(Date.now(), Number(userId));
+    return null;
+  });
+}
+
+export function setUserPlayerId(userId, playerId) {
+  guard(null, (database) => {
+    database.prepare("UPDATE users SET player_id = ? WHERE id = ? AND player_id IS NULL")
+      .run(Number(playerId), Number(userId));
+    return null;
+  });
+}
+
+export function isHandleTaken(handle) {
+  return guard(true, (database) =>
+    Boolean(database.prepare("SELECT 1 FROM users WHERE handle = ? COLLATE NOCASE").get(handle)));
+}
+
+export function setUserHandle(userId, handle) {
+  return guard(false, (database) => {
+    try {
+      database.prepare("UPDATE users SET handle = ? WHERE id = ?").run(handle, Number(userId));
+      return true;
+    } catch {
+      // UNIQUE violation: someone claimed it in between.
+      return false;
+    }
+  });
+}
+
+// Points this device's guest id at the account's canonical player row.
+export function linkGuestToUser(guestId, userId, playerId) {
+  guard(null, (database) => {
+    database
+      .prepare(`
+        INSERT INTO guest_links (guest_id, player_id, user_id, created_at)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(guest_id) DO UPDATE SET player_id = excluded.player_id, user_id = excluded.user_id
+      `)
+      .run(guestId, Number(playerId), Number(userId), Date.now());
+    return null;
+  });
+}
+
+export function createSession({ tokenHash, userId, expiresAt }) {
+  return guard(false, (database) => {
+    database
+      .prepare("INSERT INTO sessions (token_hash, user_id, created_at, expires_at, last_seen_at) VALUES (?, ?, ?, ?, ?)")
+      .run(tokenHash, Number(userId), Date.now(), expiresAt, Date.now());
+    return true;
+  });
+}
+
+export function getSessionUser(tokenHash) {
+  return guard(null, (database) => {
+    const row = database
+      .prepare(`
+        SELECT u.* FROM sessions s
+        JOIN users u ON u.id = s.user_id
+        WHERE s.token_hash = ? AND s.expires_at > ?
+      `)
+      .get(tokenHash, Date.now());
+    if (row) {
+      database.prepare("UPDATE sessions SET last_seen_at = ? WHERE token_hash = ?").run(Date.now(), tokenHash);
+    }
+    return row || null;
+  });
+}
+
+export function deleteSession(tokenHash) {
+  guard(null, (database) => {
+    database.prepare("DELETE FROM sessions WHERE token_hash = ?").run(tokenHash);
+    return null;
+  });
+}
+
+// Housekeeping for the hourly sweep.
+export function purgeExpiredAuthRows() {
+  guard(null, (database) => {
+    const now = Date.now();
+    database.prepare("DELETE FROM sessions WHERE expires_at < ?").run(now);
+    database.prepare("DELETE FROM login_tokens WHERE expires_at < ?").run(now - 24 * 60 * 60 * 1000);
     return null;
   });
 }

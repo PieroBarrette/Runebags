@@ -35,7 +35,17 @@ import { createSfxEngine } from "./audio/sfxEngine.js";
 import { createMusicEngine } from "./audio/musicEngine.js";
 import { getStats, recordGameResult, resetStreak } from "./persistence/statsStore.js";
 import { renderRuneFigure, renderRulesFigures } from "./ui/rulesFigures.js";
-import { fetchLeaderboard, fetchMyGames, fetchMyServerStats, fetchOngoingRooms } from "./net/apiClient.js";
+import {
+  claimHandle,
+  fetchAccount,
+  fetchLeaderboard,
+  fetchMyGames,
+  fetchMyServerStats,
+  fetchOngoingRooms,
+  requestLoginLink,
+  signOut,
+  verifyLogin,
+} from "./net/apiClient.js";
 import { createReplayController } from "./replay/replayController.js";
 import { disablePush, enablePush, getPushState, isPushSupported, needsInstallForPush } from "./push/pushClient.js";
 import { t, tp, getLang, setLang, applyTranslations, runeDescription } from "./i18n.js";
@@ -136,6 +146,17 @@ const elements = {
   onlineLeaderboard: document.getElementById("online-leaderboard"),
   onlineLeaderboardList: document.getElementById("online-leaderboard-list"),
   onlineMyStats: document.getElementById("online-my-stats"),
+  accountSignedOut: document.getElementById("account-signed-out"),
+  accountSignedIn: document.getElementById("account-signed-in"),
+  accountEmail: document.getElementById("account-email"),
+  accountSendBtn: document.getElementById("account-send-btn"),
+  accountSent: document.getElementById("account-sent"),
+  accountIdentity: document.getElementById("account-identity"),
+  accountHandleRow: document.getElementById("account-handle-row"),
+  accountHandle: document.getElementById("account-handle"),
+  accountHandleBtn: document.getElementById("account-handle-btn"),
+  accountHandleHint: document.getElementById("account-handle-hint"),
+  accountSignOutBtn: document.getElementById("account-signout-btn"),
   pushLabel: document.getElementById("push-label"),
   pushToggle: document.getElementById("push-toggle"),
   pushHint: document.getElementById("push-hint"),
@@ -355,6 +376,7 @@ initializeAnimations();
 initializeSound();
 initializeMusic();
 initializePush();
+bindAccountEvents();
 replay.bind();
 renderHomeRuneGallery();
 renderRulesFigures();
@@ -362,6 +384,8 @@ renderHomeStats();
 bindSoundUnlockHandlers();
 render();
 dismissSplash();
+refreshAccount();
+consumeLoginLinkFromUrl();
 initializeEntryMode();
 
 function registerServiceWorker() {
@@ -3505,6 +3529,116 @@ function initializeLanguage() {
     elements.languageSelect.value = getLang();
   }
   applyTranslations();
+}
+
+let currentAccount = null;
+
+function renderAccount() {
+  if (!elements.accountSignedOut || !elements.accountSignedIn) {
+    return;
+  }
+
+  const signedIn = Boolean(currentAccount);
+  elements.accountSignedOut.hidden = signedIn;
+  elements.accountSignedIn.hidden = !signedIn;
+  if (!signedIn) {
+    return;
+  }
+
+  elements.accountIdentity.textContent = currentAccount.handle
+    ? t("account.signedInAs", { handle: currentAccount.handle, email: currentAccount.emailHint })
+    : t("account.signedInNoHandle", { email: currentAccount.emailHint });
+  // The handle is only picked once; afterwards it is the public identity.
+  elements.accountHandleRow.hidden = Boolean(currentAccount.handle);
+}
+
+async function refreshAccount() {
+  currentAccount = await fetchAccount();
+  renderAccount();
+}
+
+// A sign-in link lands on /?login=<token>. Consume it, then scrub the URL so
+// the one-time token never sits in history or a shared address.
+async function consumeLoginLinkFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get("login");
+  if (!token) {
+    return;
+  }
+
+  params.delete("login");
+  const query = params.toString();
+  window.history.replaceState({}, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
+
+  const user = await verifyLogin(token, {
+    name: online.getSession().displayName || null,
+    avatar: online.getAvatar() || null,
+  });
+  if (!user) {
+    showToast(t("account.linkInvalid"));
+    return;
+  }
+
+  currentAccount = user;
+  renderAccount();
+  showToast(user.handle ? t("account.welcomeBack") : t("account.pickHandle"));
+  if (!user.handle) {
+    showSettingsPanel();
+    elements.accountHandle?.focus();
+  }
+}
+
+function bindAccountEvents() {
+  if (!elements.accountSendBtn) {
+    return;
+  }
+
+  elements.accountSendBtn.addEventListener("click", async () => {
+    const email = elements.accountEmail.value.trim();
+    if (!email) {
+      return;
+    }
+    elements.accountSendBtn.disabled = true;
+    const result = await requestLoginLink(email, getLang());
+    elements.accountSendBtn.disabled = false;
+
+    // The server answers the same way whether or not the address is known, so
+    // the UI must not imply an account exists either.
+    elements.accountSent.textContent = result?.ok
+      ? t("account.sent", { email })
+      : t("account.sendFailed");
+    elements.accountSent.hidden = false;
+  });
+
+  elements.accountHandleBtn.addEventListener("click", async () => {
+    const handle = elements.accountHandle.value.trim();
+    if (!handle) {
+      return;
+    }
+    elements.accountHandleBtn.disabled = true;
+    const result = await claimHandle(handle);
+    elements.accountHandleBtn.disabled = false;
+
+    if (result?.ok && result.data?.user) {
+      currentAccount = result.data.user;
+      elements.accountHandleHint.hidden = true;
+      renderAccount();
+      showToast(t("account.handleClaimed", { handle: currentAccount.handle }));
+      return;
+    }
+
+    elements.accountHandleHint.textContent = result?.status === 409
+      ? t("account.handleTaken")
+      : t("account.handleInvalid");
+    elements.accountHandleHint.hidden = false;
+  });
+
+  elements.accountSignOutBtn.addEventListener("click", async () => {
+    await signOut();
+    currentAccount = null;
+    renderAccount();
+    showToast(t("account.signedOut"));
+  });
 }
 
 // Push is opt-in and gesture-gated: the permission prompt only ever fires from
