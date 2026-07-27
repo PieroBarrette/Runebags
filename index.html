@@ -182,6 +182,7 @@
         <img id="rune-detail-icon" class="rune-detail-icon" src="" alt="">
         <h2 id="rune-detail-name" class="rune-detail-name"></h2>
         <p id="rune-detail-desc" class="rune-detail-desc"></p>
+        <div id="rune-detail-figure" class="rune-detail-figure" hidden></div>
         <button id="rune-detail-close" class="menu-btn secondary" type="button" data-i18n="common.close">Close</button>
       </article>
     </section>
@@ -418,7 +419,6 @@
 
         <h3 data-i18n="rules.s10h">10. Rune Effects</h3>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/algiz.svg" alt="Algiz symbol"></span> <strong>Algiz:</strong> <span data-i18n="rules.rune.algiz">inserts from the bottom of the column and pushes upward; cursed.</span></p>
-        <div class="rules-figure" data-figure="algiz-push"></div>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/ansuz.svg" alt="Ansuz symbol"></span> <strong>Ansuz:</strong> <span data-i18n="rules.rune.ansuz">returns the rune directly beneath it to its owner's bag (not neutral runes).</span></p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/berkana.svg" alt="Berkana symbol"></span> <strong>Berkana:</strong> <span data-i18n="rules.rune.berkana">if inside its owner's winning line, grants +1 bonus point once for that round.</span></p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/dagaz.svg" alt="Dagaz symbol"></span> <strong>Dagaz:</strong> <span data-i18n="rules.rune.dagaz">copies the effect of the rune directly beneath it; corrupted.</span></p>
@@ -427,7 +427,6 @@
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/fehu.svg" alt="Fehu symbol"></span> <strong>Fehu:</strong> <span data-i18n="rules.rune.fehu">returns 1 discarded rune to your bag, 2 runes at level 2. Recovered runes can include opponent runes.</span></p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/gebo.svg" alt="Gebo symbol"></span> <strong>Gebo:</strong> <span data-i18n="rules.rune.gebo">removes the rune directly beneath it for the round, chooses an adjacent target at level 2; cursed.</span></p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/hagalz.svg" alt="Hagalz symbol"></span> <strong>Hagalz:</strong> <span data-i18n="rules.rune.hagalz">an adjacent neutral rune can count toward your winning line.</span></p>
-        <div class="rules-figure" data-figure="hagalz-line"></div>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/inguz.svg" alt="Inguz symbol"></span> <strong>Inguz:</strong> <span data-i18n="rules.rune.inguz">center column only; returns to the shop when removed.</span></p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/isa.svg" alt="Isa symbol"></span> <strong>Isa:</strong> <span data-i18n="rules.rune.isa">stays on the board from one round to the next.</span></p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/jera.svg" alt="Jera symbol"></span> <strong>Jera:</strong> <span data-i18n="rules.rune.jera">edge columns only; returns to the shop when removed.</span></p>
@@ -435,10 +434,8 @@
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/laguz.svg" alt="Laguz symbol"></span> <strong>Laguz:</strong> <span data-i18n="rules.rune.laguz">cannot be moved or removed.</span></p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/mannaz.svg" alt="Mannaz symbol"></span> <strong>Mannaz:</strong> <span data-i18n="rules.rune.mannaz">adds 1 neutral rune to the opponent's bag, 2 neutral runes at level 2.</span></p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/nauthiz.svg" alt="Nauthiz symbol"></span> <strong>Nauthiz:</strong> <span data-i18n="rules.rune.nauthiz">can float and be placed on any free cell; ethereal and cursed.</span></p>
-        <div class="rules-figure" data-figure="nauthiz-float"></div>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/odal.svg" alt="Odal symbol"></span> <strong>Odal:</strong> <span data-i18n="rules.rune.odal">if played on the top row, its owner gains 1 point without ending the round.</span></p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/perth.svg" alt="Perth symbol"></span> <strong>Perth:</strong> <span data-i18n="rules.rune.perth">constrains the opponent's next turn to adjacent columns; the forced adjacent column is chosen at level 2.</span></p>
-        <div class="rules-figure" data-figure="perth-constraint"></div>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/raido.svg" alt="Raido symbol"></span> <strong>Raido:</strong> <span data-i18n="rules.rune.raido">grants an extra turn; ethereal only at level 1.</span></p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/sowelu.svg" alt="Sowelu symbol"></span> <strong>Sowelu:</strong> <span data-i18n="rules.rune.sowelu">discards 1 random rune from the opponent's bag for the round, 2 runes at level 2.</span></p>
         <p class="rules-rune-line"><span class="rune-chip neutral rules-rune-token"><img class="rune-chip-symbol" src="./assets/runes/teiwaz.svg" alt="Teiwaz symbol"></span> <strong>Teiwaz:</strong> <span data-i18n="rules.rune.teiwaz">moves the top rune of any column to an adjacent column at level 1, or to any column at level 2.</span></p>

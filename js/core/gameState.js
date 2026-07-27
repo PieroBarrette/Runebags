@@ -746,7 +746,7 @@ export function shopSelectBagRune(state, runeInstanceId) {
 
     removeRuneFromBag(state, playerId, first.instanceId);
     removeRuneFromBag(state, playerId, rune.instanceId);
-    player.bag.push(createCombinedShopRune(rune.id, 2, runeCombineOwner, playerId));
+    player.bag.push(createCombinedShopRune(state, rune.id, 2, runeCombineOwner, playerId));
     data.combineSelection = [];
     data.mode = null;
 
@@ -1019,7 +1019,7 @@ function getRuneCombineOwner(rune, playerId) {
   return playerId;
 }
 
-function createCombinedShopRune(runeId, level, combineOwner, bagOwnerId) {
+function createCombinedShopRune(state, runeId, level, combineOwner, bagOwnerId) {
   const combined = createRuneInstance(runeId, level, state);
   if (!combined) {
     return combined;

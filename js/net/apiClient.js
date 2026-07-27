@@ -91,8 +91,14 @@ export async function fetchVapidPublicKey() {
   return data?.key || null;
 }
 
-export function subscribePush(subscription, lang) {
-  return postJson("/api/push/subscribe", { subscription, lang }, { auth: true });
+// name/avatar let the server create the player row on the spot when someone
+// turns notifications on before ever joining an online room.
+export function subscribePush(subscription, lang, identity = {}) {
+  return postJson(
+    "/api/push/subscribe",
+    { subscription, lang, name: identity.name || null, avatar: identity.avatar || null },
+    { auth: true },
+  );
 }
 
 export function unsubscribePush(endpoint) {

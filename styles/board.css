@@ -70,6 +70,26 @@
   cursor: default;
 }
 
+/* The rune an effect is about to remove or move, drawn as a fading target. */
+.rules-mini-board .cell.rules-fading-cell::before {
+  opacity: 0.42;
+}
+
+.rules-mini-board .cell.rules-fading-cell {
+  box-shadow: inset 0 0 0 2px rgba(217, 112, 95, 0.75);
+}
+
+.rune-detail-figure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0.2rem 0 0.9rem;
+}
+
+.rune-detail-figure .rules-figure-caption {
+  text-align: center;
+}
+
 .rules-figure-caption {
   margin: 0.35rem 0 0;
   max-width: 420px;

@@ -13,6 +13,7 @@ import {
   getPlayerIdByGuestId,
   getPlayerStatsByGuestId,
   savePushSubscription,
+  upsertPlayer,
 } from "./db.mjs";
 import { getVapidPublicKey } from "./push.mjs";
 
@@ -92,10 +93,13 @@ export async function handleApiRequest(req, res, context) {
       sendJson(res, 400, { error: "bad_request" });
       return;
     }
-    const playerRowId = getPlayerIdByGuestId(guestId);
+    // Player rows are normally created when a seat is claimed in a room, but
+    // notifications can legitimately be switched on before ever playing online.
+    // Create the row on demand rather than rejecting the subscription.
+    const playerRowId = getPlayerIdByGuestId(guestId)
+      || upsertPlayer(guestId, body.name, body.avatar);
     if (!playerRowId) {
-      // Nothing to attach the subscription to until they've played once.
-      sendJson(res, 409, { error: "unknown_player" });
+      sendJson(res, 503, { error: "storage_unavailable" });
       return;
     }
     sendJson(res, 200, { ok: savePushSubscription(playerRowId, body.subscription, body.lang) });

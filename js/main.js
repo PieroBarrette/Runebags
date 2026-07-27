@@ -34,7 +34,7 @@ import { getRuneById, RUNE_CATALOG, getAllowedColumns } from "./runes/runeCatalo
 import { createSfxEngine } from "./audio/sfxEngine.js";
 import { createMusicEngine } from "./audio/musicEngine.js";
 import { getStats, recordGameResult, resetStreak } from "./persistence/statsStore.js";
-import { renderRulesFigures } from "./ui/rulesFigures.js";
+import { renderRuneFigure, renderRulesFigures } from "./ui/rulesFigures.js";
 import { fetchLeaderboard, fetchMyGames, fetchMyServerStats, fetchOngoingRooms } from "./net/apiClient.js";
 import { createReplayController } from "./replay/replayController.js";
 import { disablePush, enablePush, getPushState, isPushSupported, needsInstallForPush } from "./push/pushClient.js";
@@ -125,6 +125,7 @@ const elements = {
   runeDetailIcon: document.getElementById("rune-detail-icon"),
   runeDetailName: document.getElementById("rune-detail-name"),
   runeDetailDesc: document.getElementById("rune-detail-desc"),
+  runeDetailFigure: document.getElementById("rune-detail-figure"),
   runeDetailClose: document.getElementById("rune-detail-close"),
   settingsPanel: document.getElementById("settings-panel"),
   statsPanel: document.getElementById("stats-panel"),
@@ -325,6 +326,9 @@ let soundEnabled = true;
 let sfxVolume = DEFAULT_SFX_VOLUME;
 let previousBoardSnapshot = null;
 let previousRenderRound = null;
+// When each effect ghost first appeared, so a board rebuild can resume its
+// fade instead of restarting it. Keyed by "row:col".
+const ghostStartedAt = new Map();
 let ghostCleanupTimer = null;
 let previousPendingActionSnapshot = null;
 let previousAudioSnapshot = null;
@@ -1590,6 +1594,7 @@ function render() {
   }
   previousRenderPhase = state.phase;
 
+  applyGhostTiming(animationFrame);
   renderBoard(state, elements, pendingTargets, winningLine, forcedColumns, animationFrame);
   previousBoardSnapshot = boardSnapshot;
   scheduleGhostCleanup(animationFrame);
@@ -3463,6 +3468,8 @@ function openRuneDetail(runeId) {
   elements.runeDetailIcon.alt = rune.name;
   elements.runeDetailName.textContent = rune.name;
   elements.runeDetailDesc.textContent = runeDescription(rune);
+  // Runes whose effect is spatial get the same mini-board the Rules screen uses.
+  elements.runeDetailFigure.hidden = !renderRuneFigure(elements.runeDetailFigure, runeId);
   elements.runeDetailOverlay.hidden = false;
   elements.runeDetailClose.focus();
 }
@@ -3517,7 +3524,10 @@ async function initializePush() {
       return;
     }
 
-    const result = await enablePush(getLang());
+    const result = await enablePush(getLang(), {
+      name: online.getSession().displayName || null,
+      avatar: online.getAvatar() || null,
+    });
     if (result.ok) {
       showToast(t("settings.pushEnabled"));
       return;
@@ -3527,8 +3537,6 @@ async function initializePush() {
     elements.pushToggle.checked = false;
     if (result.reason === "denied") {
       showToast(t("settings.pushDenied"));
-    } else if (result.reason === "no_player") {
-      showToast(t("settings.pushNeedsGame"));
     } else {
       showToast(t("settings.pushError"));
     }
@@ -3913,6 +3921,68 @@ function snapshotPendingAction(action) {
 // follow-up render once the animation has finished so the ghost node is dropped
 // even if the player never clicks. previousBoardSnapshot is already advanced, so
 // this cleanup render diffs empty and re-triggers no animation.
+// Effect ghosts used to be re-derived from the board diff on every render, so
+// they behaved badly in two opposite ways: a render during the fade rebuilt the
+// element and restarted it at full opacity, and a render after the diff had
+// moved on removed it mid-fade, making it pop. They are now owned here — once a
+// ghost appears it lives for exactly its fade, whatever the render cadence.
+const GHOST_FADE_MS = 380;
+const GHOST_LIFT_MS = 240;
+
+function applyGhostTiming(animationFrame) {
+  const now = Date.now();
+
+  if (!animationFrame.enabled && ghostStartedAt.size === 0) {
+    return;
+  }
+
+  // Adopt ghosts the diff just produced, keeping the original start time for
+  // any that were already on screen.
+  const incoming = [
+    ["fade", animationFrame.ansuzGhostByCell],
+    ["fade", animationFrame.geboGhostByCell],
+    ["lift", animationFrame.teiwazLiftGhostByCell],
+  ];
+  for (const [kind, map] of incoming) {
+    if (!map) {
+      continue;
+    }
+    for (const [key, rune] of map) {
+      if (!ghostStartedAt.has(key)) {
+        ghostStartedAt.set(key, { kind, rune, startedAt: now });
+      }
+    }
+  }
+
+  // Rebuild the frame's maps from what is actually still fading, so a ghost
+  // survives renders whose diff no longer mentions it.
+  const fadeGhosts = new Map();
+  const liftGhosts = new Map();
+  const elapsedByCell = new Map();
+
+  for (const [key, entry] of [...ghostStartedAt]) {
+    const elapsed = now - entry.startedAt;
+    const duration = entry.kind === "lift" ? GHOST_LIFT_MS : GHOST_FADE_MS;
+    if (elapsed >= duration) {
+      ghostStartedAt.delete(key);
+      continue;
+    }
+    elapsedByCell.set(key, elapsed);
+    (entry.kind === "lift" ? liftGhosts : fadeGhosts).set(key, entry.rune);
+  }
+
+  animationFrame.ansuzGhostByCell = new Map();
+  animationFrame.geboGhostByCell = fadeGhosts;
+  animationFrame.teiwazLiftGhostByCell = liftGhosts;
+  animationFrame.ghostElapsedByCell = elapsedByCell;
+
+  // Ghosts render on their own; keep the frame alive for them even when the
+  // diff itself found nothing else to animate.
+  if (fadeGhosts.size > 0 || liftGhosts.size > 0) {
+    animationFrame.enabled = true;
+  }
+}
+
 function scheduleGhostCleanup(animationFrame) {
   if (ghostCleanupTimer !== null) {
     window.clearTimeout(ghostCleanupTimer);
@@ -3931,8 +4001,11 @@ function scheduleGhostCleanup(animationFrame) {
     return;
   }
 
+  // Fire just after the fade ends so the node leaves the DOM the moment it
+  // becomes invisible, instead of lingering until the next interaction.
   ghostCleanupTimer = window.setTimeout(() => {
     ghostCleanupTimer = null;
+    ghostStartedAt.clear();
     // Drop the nodes outright rather than trusting the follow-up render: if
     // the player left the game screen meanwhile, render() bails out early and
     // would strand them in the DOM until the next board rebuild.
@@ -3940,7 +4013,7 @@ function scheduleGhostCleanup(animationFrame) {
       .querySelectorAll(".effect-fade-ghost, .effect-lift-ghost")
       .forEach((node) => node.remove());
     render();
-  }, 900);
+  }, GHOST_FADE_MS + 60);
 }
 
 function buildBoardAnimationFrame(

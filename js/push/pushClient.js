@@ -33,7 +33,7 @@ export async function getPushState() {
 }
 
 // Must be called from a user gesture — iOS rejects permission prompts otherwise.
-export async function enablePush(lang) {
+export async function enablePush(lang, identity = {}) {
   if (!isPushSupported()) {
     return { ok: false, reason: "unsupported" };
   }
@@ -54,12 +54,12 @@ export async function enablePush(lang) {
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(key),
     });
-    const saved = await subscribePush(subscription.toJSON(), lang);
+    const saved = await subscribePush(subscription.toJSON(), lang, identity);
     if (!saved?.ok) {
-      // The server has no player row for this guest yet (no online game
-      // played): drop the local subscription so the toggle stays honest.
+      // Server-side storage refused it — drop the local subscription so the
+      // toggle never claims notifications are on when they aren't.
       await subscription.unsubscribe().catch(() => {});
-      return { ok: false, reason: "no_player" };
+      return { ok: false, reason: "error" };
     }
     return { ok: true };
   } catch {

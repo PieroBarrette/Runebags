@@ -63,9 +63,15 @@ export function renderBoard(
         ? animationFrame.teiwazLiftGhostByCell?.get(animationKey)
         : null;
 
+      // renderBoard rebuilds every cell, so a ghost re-created mid-fade would
+      // restart its animation and sit at full opacity forever. A negative delay
+      // resumes it exactly where the previous element left off.
+      const ghostDelay = animationFrame.ghostElapsedByCell?.get(animationKey) || 0;
+
       if (fadeGhost) {
         const ghost = document.createElement("span");
         ghost.className = "effect-fade-ghost";
+        ghost.style.animationDelay = `-${ghostDelay}ms`;
         if (fadeGhost.owner === 1) {
           ghost.classList.add("p1");
         } else if (fadeGhost.owner === 2) {
@@ -79,6 +85,7 @@ export function renderBoard(
           ghostSymbol.src = `./assets/runes/${fadeGhost.id}.svg`;
           ghostSymbol.alt = fadeGhost.id;
           ghostSymbol.className = "effect-fade-ghost-symbol";
+          ghostSymbol.style.animationDelay = `-${ghostDelay}ms`;
           ghost.appendChild(ghostSymbol);
         }
 
@@ -88,6 +95,7 @@ export function renderBoard(
       if (teiwazLiftGhost) {
         const ghost = document.createElement("span");
         ghost.className = "effect-lift-ghost";
+        ghost.style.animationDelay = `-${ghostDelay}ms`;
         if (teiwazLiftGhost.owner === 1) {
           ghost.classList.add("p1");
         } else if (teiwazLiftGhost.owner === 2) {
@@ -101,6 +109,7 @@ export function renderBoard(
           ghostSymbol.src = `./assets/runes/${teiwazLiftGhost.id}.svg`;
           ghostSymbol.alt = teiwazLiftGhost.id;
           ghostSymbol.className = "effect-lift-ghost-symbol";
+          ghostSymbol.style.animationDelay = `-${ghostDelay}ms`;
           ghost.appendChild(ghostSymbol);
         }
 
