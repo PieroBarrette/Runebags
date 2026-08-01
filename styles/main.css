@@ -1783,6 +1783,42 @@ body[data-theme="dark"] .qc-btn {
   margin: 0.5rem auto 0;
 }
 
+.online-leaderboard-row.is-clickable {
+  cursor: pointer;
+  border-radius: 8px;
+  padding-inline: 0.3rem;
+}
+
+.online-leaderboard-row.is-clickable:hover,
+.online-leaderboard-row.is-clickable:focus-visible {
+  background: rgba(212, 175, 88, 0.12);
+  outline: none;
+}
+
+.online-leaderboard-rank {
+  min-width: 1.6rem;
+  color: var(--text-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.profile-head {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 0.5rem;
+}
+
+.profile-name {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.profile-rank {
+  margin: 0.1rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-soft);
+}
+
 .stats-rating {
   margin: 0.3rem 0 0.1rem;
   font-family: "Cinzel", Georgia, serif;

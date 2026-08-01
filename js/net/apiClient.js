@@ -112,6 +112,19 @@ export async function fetchOngoingRooms() {
   return data?.rooms || [];
 }
 
+export async function searchPlayers(query, limit = 8) {
+  const text = String(query || "").trim();
+  if (text.length < 2) {
+    return [];
+  }
+  const data = await getJson(`/api/players/search?q=${encodeURIComponent(text)}&limit=${limit}`);
+  return data?.players || [];
+}
+
+export function fetchProfile(handle) {
+  return getJson(`/api/profile/${encodeURIComponent(handle)}`);
+}
+
 export async function fetchReplay(gameId) {
   const data = await getJson(`/api/games/${encodeURIComponent(gameId)}`);
   return data?.game || null;

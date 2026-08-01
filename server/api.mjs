@@ -11,8 +11,11 @@ import {
   getGamesForPlayer,
   getLeaderboard,
   getPlayerIdByGuestId,
+  getPlayerRank,
   getPlayerStatsByGuestId,
+  getProfileByHandle,
   savePushSubscription,
+  searchPlayersByHandle,
   upsertPlayer,
 } from "./db.mjs";
 import { getVapidPublicKey } from "./push.mjs";
@@ -81,6 +84,31 @@ export async function handleApiRequest(req, res, context) {
 
   if (req.method === "GET" && route === "/api/leaderboard") {
     sendJson(res, 200, { players: getLeaderboard(url.searchParams.get("limit")) });
+    return;
+  }
+
+  if (req.method === "GET" && route === "/api/players/search") {
+    sendJson(res, 200, {
+      players: searchPlayersByHandle(url.searchParams.get("q"), url.searchParams.get("limit")),
+    });
+    return;
+  }
+
+  // Public on purpose: a profile is the point of a ladder. It carries only what
+  // is already visible on the leaderboard plus a finished-game history, never
+  // an email, a guest id or anything said in chat.
+  if (req.method === "GET" && route.startsWith("/api/profile/")) {
+    const handle = decodeURIComponent(route.slice("/api/profile/".length));
+    const player = getProfileByHandle(handle);
+    if (!player) {
+      sendJson(res, 404, { error: "not_found" });
+      return;
+    }
+    sendJson(res, 200, {
+      player,
+      rank: getPlayerRank(player.id),
+      games: getGamesForPlayer(player.id, 20),
+    });
     return;
   }
 

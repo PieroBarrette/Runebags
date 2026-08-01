@@ -314,6 +314,51 @@ export function getLeaderboard(limit = 20) {
       .map(publicPlayer));
 }
 
+// Prefix search over claimed handles only — a guest's free-text display name is
+// not an identity anyone can look up or challenge.
+export function searchPlayersByHandle(query, limit = 10) {
+  const text = String(query || "").trim();
+  if (text.length < 2) {
+    return [];
+  }
+  return guard([], (database) =>
+    database
+      .prepare(`${PLAYER_WITH_HANDLE} WHERE u.handle LIKE ? ESCAPE '\\' ORDER BY p.rating DESC LIMIT ?`)
+      .all(`${escapeLike(text)}%`, Math.min(Math.max(Number(limit) || 10, 1), 25))
+      .map(publicPlayer));
+}
+
+// % and _ are wildcards in LIKE; a handle may legitimately contain _.
+function escapeLike(text) {
+  return text.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
+export function getProfileByHandle(handle) {
+  const text = String(handle || "").trim();
+  if (!text) {
+    return null;
+  }
+  return guard(null, (database) =>
+    publicPlayer(database.prepare(`${PLAYER_WITH_HANDLE} WHERE u.handle = ? COLLATE NOCASE`).get(text)));
+}
+
+// Where a player sits on the rating ladder, so a profile can say "12th" rather
+// than only showing a number in isolation.
+export function getPlayerRank(playerRowId) {
+  if (!playerRowId) {
+    return null;
+  }
+  return guard(null, (database) => {
+    const row = database
+      .prepare(`
+        SELECT COUNT(*) + 1 AS rank FROM players
+        WHERE ranked_games > 0 AND rating > (SELECT rating FROM players WHERE id = ?)
+      `)
+      .get(Number(playerRowId));
+    return row?.rank || null;
+  });
+}
+
 // A rated game needs an account on both sides, so a guest can never move
 // anyone's rating.
 export function isAccountPlayer(playerRowId) {

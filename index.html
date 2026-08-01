@@ -272,8 +272,35 @@
       <div id="stats-online-server" class="stats-server" hidden></div>
       <!-- Recent online games, each opening the replay viewer. -->
       <div id="stats-history" class="stats-history" hidden></div>
+
+      <!-- Global ladder plus a search box, so any player can be looked up. -->
+      <section id="stats-players" class="stats-server">
+        <h3 class="stats-mode-title" data-i18n="players.title">Players</h3>
+        <div class="account-row">
+          <input id="players-search" type="search" autocomplete="off" placeholder="Pseudo" data-i18n-attr="placeholder:players.searchPlaceholder;aria-label:players.searchPlaceholder">
+        </div>
+        <p id="players-empty" class="stats-line stats-empty" hidden></p>
+        <ol id="players-list" class="online-leaderboard-list"></ol>
+      </section>
       <div class="menu-actions compact">
         <button id="stats-back-btn" class="menu-btn secondary" type="button" data-i18n="nav.back">Back</button>
+      </div>
+    </section>
+
+    <section id="profile-panel" class="panel menu-panel" hidden>
+      <div class="profile-head">
+        <span id="profile-avatar" class="online-avatar-chip"></span>
+        <div>
+          <h2 id="profile-name" class="profile-name"></h2>
+          <p id="profile-rank" class="profile-rank"></p>
+        </div>
+      </div>
+      <p id="profile-rating" class="stats-rating"></p>
+      <p id="profile-record" class="stats-line"></p>
+      <p id="profile-streak" class="stats-line stats-streak"></p>
+      <div id="profile-history" class="stats-history"></div>
+      <div class="menu-actions compact">
+        <button id="profile-back-btn" class="menu-btn secondary" type="button" data-i18n="nav.back">Back</button>
       </div>
     </section>
 

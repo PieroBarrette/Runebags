@@ -42,7 +42,9 @@ import {
   fetchMyGames,
   fetchMyServerStats,
   fetchOngoingRooms,
+  fetchProfile,
   requestLoginLink,
+  searchPlayers,
   signOut,
   verifyLogin,
 } from "./net/apiClient.js";
@@ -141,6 +143,19 @@ const elements = {
   statsOnlineServer: document.getElementById("stats-online-server"),
   statsHistory: document.getElementById("stats-history"),
   statsBackBtn: document.getElementById("stats-back-btn"),
+  statsPlayers: document.getElementById("stats-players"),
+  playersSearch: document.getElementById("players-search"),
+  playersList: document.getElementById("players-list"),
+  playersEmpty: document.getElementById("players-empty"),
+  profilePanel: document.getElementById("profile-panel"),
+  profileAvatar: document.getElementById("profile-avatar"),
+  profileName: document.getElementById("profile-name"),
+  profileRank: document.getElementById("profile-rank"),
+  profileRating: document.getElementById("profile-rating"),
+  profileRecord: document.getElementById("profile-record"),
+  profileStreak: document.getElementById("profile-streak"),
+  profileHistory: document.getElementById("profile-history"),
+  profileBackBtn: document.getElementById("profile-back-btn"),
   onlineOngoing: document.getElementById("online-ongoing"),
   onlineOngoingList: document.getElementById("online-ongoing-list"),
   onlineLeaderboard: document.getElementById("online-leaderboard"),
@@ -732,6 +747,18 @@ function bindEvents() {
 
   elements.statsBackBtn.addEventListener("click", () => {
     showMainMenu();
+  });
+
+  elements.profileBackBtn.addEventListener("click", () => {
+    showStatsPanel();
+  });
+
+  // Debounced so typing a name doesn't fire a request per keystroke.
+  elements.playersSearch.addEventListener("input", () => {
+    window.clearTimeout(playersSearchTimer);
+    playersSearchTimer = window.setTimeout(() => {
+      renderPlayersDirectory(elements.playersSearch.value);
+    }, 250);
   });
 
   elements.settingsBackBtn.addEventListener("click", () => {
@@ -1953,26 +1980,7 @@ async function refreshLobbySocial() {
   }
 
   players.forEach((player) => {
-    const item = document.createElement("li");
-    item.className = "online-leaderboard-row";
-
-    const chip = document.createElement("span");
-    chip.className = "online-avatar-chip";
-    renderAvatarChip(chip, player.avatar);
-    item.appendChild(chip);
-
-    const name = document.createElement("span");
-    name.className = "online-leaderboard-name";
-    name.textContent = player.name;
-    item.appendChild(name);
-
-    const score = document.createElement("span");
-    score.className = "online-leaderboard-score";
-    // Sorted by rating now, so that is what the row must show.
-    score.textContent = t("lb.rating", { rating: player.rating });
-    item.appendChild(score);
-
-    elements.onlineLeaderboardList.appendChild(item);
+    elements.onlineLeaderboardList.appendChild(buildPlayerRow(player));
   });
   elements.onlineLeaderboard.hidden = false;
 }
@@ -2057,23 +2065,93 @@ async function renderOnlineOngoing() {
   elements.onlineOngoing.hidden = false;
 }
 
-// Finished online games, newest first; each row opens the replay viewer.
-async function renderStatsHistory() {
-  if (!elements.statsHistory) {
+// Builds one clickable ladder row. Used by the lobby's top ten and by the
+// searchable directory on the stats screen.
+function buildPlayerRow(player, rank) {
+  const item = document.createElement("li");
+  item.className = "online-leaderboard-row";
+  if (rank) {
+    item.style.listStyle = "none";
+    const position = document.createElement("span");
+    position.className = "online-leaderboard-rank";
+    position.textContent = `${rank}.`;
+    item.appendChild(position);
+  }
+
+  const chip = document.createElement("span");
+  chip.className = "online-avatar-chip";
+  renderAvatarChip(chip, player.avatar);
+  item.appendChild(chip);
+
+  const name = document.createElement("span");
+  name.className = "online-leaderboard-name";
+  name.textContent = player.name;
+  item.appendChild(name);
+
+  const score = document.createElement("span");
+  score.className = "online-leaderboard-score";
+  score.textContent = t("lb.rating", { rating: player.rating });
+  item.appendChild(score);
+
+  // Only a claimed handle has a profile to open; guests are listed but inert.
+  if (player.handle) {
+    item.classList.add("is-clickable");
+    item.tabIndex = 0;
+    item.addEventListener("click", () => showProfilePanel(player.handle));
+    item.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        showProfilePanel(player.handle);
+      }
+    });
+  }
+
+  return item;
+}
+
+// The searchable directory: the global ladder by default, matching players
+// once something is typed.
+let playersSearchTimer = null;
+
+async function renderPlayersDirectory(query = "") {
+  if (!elements.playersList) {
     return;
   }
 
-  const games = await fetchMyGames(10);
-  elements.statsHistory.innerHTML = "";
-  if (games.length === 0) {
-    elements.statsHistory.hidden = true;
+  const text = String(query || "").trim();
+  const players = text.length >= 2
+    ? await searchPlayers(text)
+    : await fetchLeaderboard(25);
+
+  elements.playersList.innerHTML = "";
+  if (players.length === 0) {
+    elements.playersEmpty.textContent = text.length >= 2 ? t("players.noMatch") : t("players.empty");
+    elements.playersEmpty.hidden = false;
+    return;
+  }
+
+  elements.playersEmpty.hidden = true;
+  players.forEach((player, index) => {
+    // Ranks only mean something on the full ladder, not on a filtered list.
+    elements.playersList.appendChild(buildPlayerRow(player, text.length >= 2 ? null : index + 1));
+  });
+}
+
+// Finished games for one player, newest first; each row opens its replay.
+function renderGameHistory(container, games) {
+  container.innerHTML = "";
+  if (!games || games.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "stats-line stats-empty";
+    empty.textContent = t("history.empty");
+    container.appendChild(empty);
     return;
   }
 
   const heading = document.createElement("h3");
   heading.className = "stats-mode-title";
   heading.textContent = t("history.title");
-  elements.statsHistory.appendChild(heading);
+  container.appendChild(heading);
 
   games.forEach((game) => {
     const row = document.createElement("button");
@@ -2103,11 +2181,53 @@ async function renderStatsHistory() {
     score.textContent = `${game.points[1]} – ${game.points[2]}`;
     row.appendChild(score);
 
-    row.addEventListener("click", () => {
-      showReplayPanel(game.id);
-    });
-    elements.statsHistory.appendChild(row);
+    row.addEventListener("click", () => showReplayPanel(game.id));
+    container.appendChild(row);
   });
+}
+
+async function renderProfile(handle) {
+  const data = await fetchProfile(handle);
+  if (!data?.player) {
+    elements.profileName.textContent = t("players.notFound");
+    elements.profileRank.textContent = "";
+    elements.profileRating.textContent = "";
+    elements.profileRecord.textContent = "";
+    elements.profileStreak.textContent = "";
+    elements.profileHistory.innerHTML = "";
+    return;
+  }
+
+  const player = data.player;
+  renderAvatarChip(elements.profileAvatar, player.avatar);
+  elements.profileName.textContent = player.name;
+  elements.profileRank.textContent = player.rankedGames > 0 && data.rank
+    ? tp("players.rank", data.rank)
+    : t("players.unranked");
+  elements.profileRating.textContent = player.rankedGames > 0
+    ? t("stats.server.rating", { rating: player.rating })
+    : "";
+  elements.profileRecord.textContent = formatRecord(player.wins, player.losses, player.draws);
+  elements.profileStreak.textContent = t("statsScreen.streak", {
+    s: player.currentStreak,
+    b: player.bestStreak,
+  });
+  renderGameHistory(elements.profileHistory, data.games);
+}
+
+// Your own finished games — same rows a public profile shows.
+async function renderStatsHistory() {
+  if (!elements.statsHistory) {
+    return;
+  }
+
+  const games = await fetchMyGames(10);
+  if (games.length === 0) {
+    elements.statsHistory.hidden = true;
+    return;
+  }
+
+  renderGameHistory(elements.statsHistory, games);
   elements.statsHistory.hidden = false;
 }
 
@@ -2629,6 +2749,7 @@ function showMainMenu() {
   elements.settingsPanel.hidden = true;
   elements.statsPanel.hidden = true;
   elements.replayPanel.hidden = true;
+  elements.profilePanel.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
@@ -2641,6 +2762,7 @@ function showAiPanel() {
   elements.settingsPanel.hidden = true;
   elements.statsPanel.hidden = true;
   elements.replayPanel.hidden = true;
+  elements.profilePanel.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
@@ -2664,6 +2786,8 @@ function showOnlinePanel() {
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
   elements.statsPanel.hidden = true;
+  elements.replayPanel.hidden = true;
+  elements.profilePanel.hidden = true;
   elements.onlinePanel.hidden = false;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
@@ -2695,6 +2819,7 @@ function showRulesPanel() {
   elements.settingsPanel.hidden = true;
   elements.statsPanel.hidden = true;
   elements.replayPanel.hidden = true;
+  elements.profilePanel.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = false;
   elements.gameScreen.hidden = true;
@@ -2706,6 +2831,7 @@ function showSettingsPanel() {
   elements.settingsPanel.hidden = false;
   elements.statsPanel.hidden = true;
   elements.replayPanel.hidden = true;
+  elements.profilePanel.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
@@ -2717,12 +2843,27 @@ function showStatsPanel() {
   elements.settingsPanel.hidden = true;
   elements.statsPanel.hidden = false;
   elements.replayPanel.hidden = true;
+  elements.profilePanel.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
   renderStatsPanel();
   renderStatsServerRecord();
   renderStatsHistory();
+  renderPlayersDirectory(elements.playersSearch?.value || "");
+}
+
+function showProfilePanel(handle) {
+  elements.mainMenu.hidden = true;
+  elements.aiPanel.hidden = true;
+  elements.settingsPanel.hidden = true;
+  elements.statsPanel.hidden = true;
+  elements.replayPanel.hidden = true;
+  elements.profilePanel.hidden = false;
+  elements.onlinePanel.hidden = true;
+  elements.rulesPanel.hidden = true;
+  elements.gameScreen.hidden = true;
+  renderProfile(handle);
 }
 
 function showReplayPanel(gameId) {
@@ -2730,6 +2871,7 @@ function showReplayPanel(gameId) {
   elements.aiPanel.hidden = true;
   elements.settingsPanel.hidden = true;
   elements.statsPanel.hidden = true;
+  elements.profilePanel.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
@@ -2743,6 +2885,7 @@ function enterGameScreen(mode, roomCode = null) {
   elements.settingsPanel.hidden = true;
   elements.statsPanel.hidden = true;
   elements.replayPanel.hidden = true;
+  elements.profilePanel.hidden = true;
   elements.onlinePanel.hidden = true;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = false;
