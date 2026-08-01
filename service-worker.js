@@ -1,4 +1,4 @@
-const CACHE_NAME = "runebags-v40";
+const CACHE_NAME = "runebags-v41";
 const APP_SHELL = [
   "./",
   "./index.html",

@@ -1,2 +1,12 @@
 __pycache__/
 .claude/
+
+# Never commit credentials. The DATA_SECRET, VAPID keys and API keys belong in
+# Render's environment settings, not in the repository.
+*.env
+.env*
+*[Ss]ecret*
+*[Ss]ecret*.txt
+server/rooms.json
+server/*.db
+server/*.db-*

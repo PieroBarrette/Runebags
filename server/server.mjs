@@ -7,17 +7,22 @@ import { WebSocketServer } from "ws";
 import { createInitialState, ENGINE_VERSION, restoreState, startRoundFromShop } from "../js/core/gameState.js";
 import { applyAction } from "../js/core/onlineActions.js";
 import {
+  applyRating,
   closeDb,
   finishGame,
   getPlayerIdByGuestId,
+  getRatingSnapshot,
   insertGame,
   insertGameAction,
+  isAccountPlayer,
   markGameAbandonedIfActive,
   openDb,
   purgeExpiredAuthRows,
+  recordGameRatings,
   recordPlayerOutcome,
   upsertPlayer,
 } from "./db.mjs";
+import { computeRatingChange } from "./elo.mjs";
 import { handleApiRequest } from "./api.mjs";
 import { initPush, sendPush } from "./push.mjs";
 import { initCrypto } from "./crypto.mjs";
@@ -1156,14 +1161,50 @@ function onGameOver(room) {
     },
   });
 
+  const seatPlayerIds = {
+    1: getPlayerIdByGuestId(room.players[1]?.guestId),
+    2: getPlayerIdByGuestId(room.players[2]?.guestId),
+  };
+
   for (const seat of [1, 2]) {
-    const rowId = getPlayerIdByGuestId(room.players[seat]?.guestId);
+    const rowId = seatPlayerIds[seat];
     if (!rowId) {
       continue;
     }
     const outcome = !winner ? "draw" : (winner === seat ? "win" : "loss");
     recordPlayerOutcome(rowId, outcome);
   }
+
+  applyRatingsIfRanked(room, seatPlayerIds, winner);
+}
+
+// Rated only when both seats belong to an account: a guest has no identity that
+// survives a cleared browser, so letting one move ratings would be farmable.
+function applyRatingsIfRanked(room, seatPlayerIds, winner) {
+  const p1Id = seatPlayerIds[1];
+  const p2Id = seatPlayerIds[2];
+  if (!p1Id || !p2Id || p1Id === p2Id) {
+    return;
+  }
+  if (!isAccountPlayer(p1Id) || !isAccountPlayer(p2Id)) {
+    return;
+  }
+
+  const p1 = getRatingSnapshot(p1Id);
+  const p2 = getRatingSnapshot(p2Id);
+  if (!p1 || !p2) {
+    return;
+  }
+
+  const { p1After, p2After } = computeRatingChange(p1, p2, winner);
+  applyRating(p1Id, p1After);
+  applyRating(p2Id, p2After);
+  recordGameRatings(room.gameId, {
+    p1Before: p1.rating,
+    p2Before: p2.rating,
+    p1After,
+    p2After,
+  });
 }
 
 function normalizeAvatar(value) {

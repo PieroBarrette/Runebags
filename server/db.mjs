@@ -127,6 +127,23 @@ const MIGRATIONS = [
     created_at INTEGER NOT NULL
   );
   `,
+  `
+  -- Rating lives on players, not users: that is what games already reference,
+  -- so nothing in the recording path has to change. A guest keeps a rating
+  -- column too, it simply never moves — a game only counts when both seats
+  -- belong to an account.
+  ALTER TABLE players ADD COLUMN rating INTEGER NOT NULL DEFAULT 1200;
+  ALTER TABLE players ADD COLUMN ranked_games INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE players ADD COLUMN peak_rating INTEGER NOT NULL DEFAULT 1200;
+
+  ALTER TABLE games ADD COLUMN ranked INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE games ADD COLUMN p1_rating_before INTEGER;
+  ALTER TABLE games ADD COLUMN p2_rating_before INTEGER;
+  ALTER TABLE games ADD COLUMN p1_rating_after INTEGER;
+  ALTER TABLE games ADD COLUMN p2_rating_after INTEGER;
+
+  CREATE INDEX idx_players_rating ON players(rating DESC);
+  `,
 ];
 
 export function openDb(dataDir) {
@@ -247,7 +264,10 @@ function publicPlayer(row) {
   }
   return {
     id: row.id,
-    name: row.name,
+    // The claimed account handle is the public identity when there is one; the
+    // free-text display name is only a fallback for guests.
+    name: row.handle || row.name,
+    handle: row.handle || null,
     avatar: row.avatar_glyph && row.avatar_color
       ? { glyph: row.avatar_glyph, color: row.avatar_color }
       : null,
@@ -257,24 +277,95 @@ function publicPlayer(row) {
     draws: row.draws,
     currentStreak: row.current_streak,
     bestStreak: row.best_streak,
+    rating: row.rating ?? 1200,
+    rankedGames: row.ranked_games ?? 0,
+    peakRating: row.peak_rating ?? 1200,
   };
 }
+
+// Joined everywhere a player is shown publicly, so the account handle wins over
+// the free-text name.
+const PLAYER_WITH_HANDLE = `
+  SELECT p.*, u.handle AS handle
+  FROM players p
+  LEFT JOIN users u ON u.player_id = p.id
+`;
 
 export function getPlayerStatsByGuestId(guestId) {
   if (!guestId) {
     return null;
   }
-  return guard(null, (database) =>
-    publicPlayer(database.prepare("SELECT * FROM players WHERE guest_id = ?").get(guestId)));
+  return guard(null, (database) => {
+    const linked = database.prepare("SELECT player_id FROM guest_links WHERE guest_id = ?").get(guestId);
+    const row = linked
+      ? database.prepare(`${PLAYER_WITH_HANDLE} WHERE p.id = ?`).get(linked.player_id)
+      : database.prepare(`${PLAYER_WITH_HANDLE} WHERE p.guest_id = ?`).get(guestId);
+    return publicPlayer(row);
+  });
 }
 
-// Ordered by wins, then by fewest games so a high win rate breaks ties.
+// Rating first — the old "most wins" order rewarded whoever played most, which
+// a rematch loop could farm. Only rated players appear.
 export function getLeaderboard(limit = 20) {
   return guard([], (database) =>
     database
-      .prepare("SELECT * FROM players WHERE games > 0 ORDER BY wins DESC, games ASC, best_streak DESC LIMIT ?")
+      .prepare(`${PLAYER_WITH_HANDLE} WHERE p.ranked_games > 0 ORDER BY p.rating DESC, p.ranked_games DESC LIMIT ?`)
       .all(Math.min(Math.max(Number(limit) || 20, 1), 50))
       .map(publicPlayer));
+}
+
+// A rated game needs an account on both sides, so a guest can never move
+// anyone's rating.
+export function isAccountPlayer(playerRowId) {
+  if (!playerRowId) {
+    return false;
+  }
+  return guard(false, (database) =>
+    Boolean(database.prepare("SELECT 1 FROM users WHERE player_id = ?").get(Number(playerRowId))));
+}
+
+export function getRatingSnapshot(playerRowId) {
+  if (!playerRowId) {
+    return null;
+  }
+  return guard(null, (database) => {
+    const row = database.prepare("SELECT rating, ranked_games FROM players WHERE id = ?").get(Number(playerRowId));
+    return row ? { rating: row.rating ?? 1200, rankedGames: row.ranked_games ?? 0 } : null;
+  });
+}
+
+export function applyRating(playerRowId, newRating) {
+  if (!playerRowId) {
+    return;
+  }
+  guard(null, (database) => {
+    database
+      .prepare(`
+        UPDATE players
+        SET rating = @rating,
+            ranked_games = ranked_games + 1,
+            peak_rating = MAX(peak_rating, @rating)
+        WHERE id = @id
+      `)
+      .run({ id: Number(playerRowId), rating: Number(newRating) });
+    return null;
+  });
+}
+
+export function recordGameRatings(gameId, ratings) {
+  if (!gameId) {
+    return;
+  }
+  guard(null, (database) => {
+    database
+      .prepare(`
+        UPDATE games
+        SET ranked = 1, p1_rating_before = ?, p2_rating_before = ?, p1_rating_after = ?, p2_rating_after = ?
+        WHERE id = ?
+      `)
+      .run(ratings.p1Before, ratings.p2Before, ratings.p1After, ratings.p2After, gameId);
+    return null;
+  });
 }
 
 // outcome per player id: "win" | "loss" | "draw".

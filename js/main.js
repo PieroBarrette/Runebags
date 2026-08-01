@@ -1935,12 +1935,10 @@ async function refreshLobbySocial() {
     const show = Boolean(myStats && myStats.games > 0);
     elements.onlineMyStats.hidden = !show;
     if (show) {
-      elements.onlineMyStats.textContent = t("lb.you", {
-        w: myStats.wins,
-        l: myStats.losses,
-        d: myStats.draws,
-        s: myStats.currentStreak,
-      });
+      // Signed-in players lead with their rating; guests keep the plain record.
+      elements.onlineMyStats.textContent = myStats.rankedGames > 0
+        ? t("lb.youRated", { rating: myStats.rating, w: myStats.wins, l: myStats.losses, d: myStats.draws })
+        : t("lb.you", { w: myStats.wins, l: myStats.losses, d: myStats.draws, s: myStats.currentStreak });
     }
   }
 
@@ -1970,7 +1968,8 @@ async function refreshLobbySocial() {
 
     const score = document.createElement("span");
     score.className = "online-leaderboard-score";
-    score.textContent = `${tp("count.wins", player.wins)} / ${tp("count.games", player.games)}`;
+    // Sorted by rating now, so that is what the row must show.
+    score.textContent = t("lb.rating", { rating: player.rating });
     item.appendChild(score);
 
     elements.onlineLeaderboardList.appendChild(item);
@@ -2125,8 +2124,30 @@ async function renderStatsServerRecord() {
   elements.statsOnlineServer.innerHTML = "";
   const heading = document.createElement("h3");
   heading.className = "stats-mode-title";
-  heading.textContent = t("stats.server.title");
+  heading.textContent = stats.handle
+    ? t("stats.server.titleNamed", { handle: stats.handle })
+    : t("stats.server.title");
   elements.statsOnlineServer.appendChild(heading);
+
+  // Rating is the headline for an account; guests only ever see the record.
+  if (stats.rankedGames > 0) {
+    const rating = document.createElement("p");
+    rating.className = "stats-rating";
+    rating.textContent = t("stats.server.rating", { rating: stats.rating });
+    elements.statsOnlineServer.appendChild(rating);
+
+    const meta = document.createElement("p");
+    meta.className = "stats-line";
+    meta.textContent = stats.rankedGames < 10
+      ? t("stats.server.provisional", { n: stats.rankedGames })
+      : t("stats.server.peak", { rating: stats.peakRating, n: stats.rankedGames });
+    elements.statsOnlineServer.appendChild(meta);
+  } else if (stats.handle) {
+    const hint = document.createElement("p");
+    hint.className = "stats-line stats-empty";
+    hint.textContent = t("stats.server.noRanked");
+    elements.statsOnlineServer.appendChild(hint);
+  }
 
   const line = document.createElement("p");
   line.className = "stats-line";
@@ -2646,7 +2667,7 @@ function showOnlinePanel() {
   elements.onlinePanel.hidden = false;
   elements.rulesPanel.hidden = true;
   elements.gameScreen.hidden = true;
-  elements.onlinePseudo.value = normalizePseudo(elements.onlinePseudo.value || online.getSession().displayName || "");
+  applyAccountIdentity();
   if (activeRoomCode && /^[A-Z2-9]{6}$/.test(activeRoomCode)) {
     elements.onlineJoinCode.value = activeRoomCode;
   }
@@ -3555,6 +3576,31 @@ function renderAccount() {
 async function refreshAccount() {
   currentAccount = await fetchAccount();
   renderAccount();
+  applyAccountIdentity();
+}
+
+// A claimed handle IS the player's online identity — it is what the leaderboard
+// and every profile show — so the lobby's free-text field stops being editable
+// and simply reflects it.
+function applyAccountIdentity() {
+  if (!elements.onlinePseudo) {
+    return;
+  }
+
+  const handle = currentAccount?.handle || null;
+  if (handle) {
+    elements.onlinePseudo.value = handle;
+    elements.onlinePseudo.readOnly = true;
+    elements.onlinePseudo.title = t("account.handleLocked");
+    online.setDisplayName(handle);
+    return;
+  }
+
+  elements.onlinePseudo.readOnly = false;
+  elements.onlinePseudo.removeAttribute("title");
+  elements.onlinePseudo.value = normalizePseudo(
+    elements.onlinePseudo.value || online.getSession().displayName || "",
+  );
 }
 
 // A sign-in link lands on /?login=<token>. Consume it, then scrub the URL so
@@ -3581,6 +3627,7 @@ async function consumeLoginLinkFromUrl() {
 
   currentAccount = user;
   renderAccount();
+  applyAccountIdentity();
   showToast(user.handle ? t("account.welcomeBack") : t("account.pickHandle"));
   if (!user.handle) {
     showSettingsPanel();
@@ -3623,6 +3670,7 @@ function bindAccountEvents() {
       currentAccount = result.data.user;
       elements.accountHandleHint.hidden = true;
       renderAccount();
+      applyAccountIdentity();
       showToast(t("account.handleClaimed", { handle: currentAccount.handle }));
       return;
     }
@@ -3637,6 +3685,7 @@ function bindAccountEvents() {
     await signOut();
     currentAccount = null;
     renderAccount();
+    applyAccountIdentity();
     showToast(t("account.signedOut"));
   });
 }
