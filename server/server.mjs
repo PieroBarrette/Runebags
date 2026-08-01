@@ -22,7 +22,7 @@ import {
   recordPlayerOutcome,
   upsertPlayer,
 } from "./db.mjs";
-import { computeRatingChange } from "./elo.mjs";
+import { computeRatingChange, START_RATING } from "./elo.mjs";
 import { handleApiRequest } from "./api.mjs";
 import { initPush, sendPush } from "./push.mjs";
 import { initCrypto } from "./crypto.mjs";
@@ -43,6 +43,16 @@ const ROOM_TTL_NEVER_STARTED_MS = 24 * 60 * 60 * 1000;
 const ROOM_TTL_FINISHED_MS = 48 * 60 * 60 * 1000;
 const ROOM_TTL_IDLE_MS = 30 * 24 * 60 * 60 * 1000;
 const ROOM_SWEEP_INTERVAL_MS = 60 * 60 * 1000;
+
+// Quick play pairs on rating, with a window that opens as someone waits.
+const QUEUE_WINDOW_START = 100;
+const QUEUE_WINDOW_UNRATED = 400;
+const QUEUE_WINDOW_MAX = 800;
+const QUEUE_WINDOW_FULL_MS = 60 * 1000;
+const QUEUE_OPEN_AFTER_MS = 120 * 1000;
+// Windows widen with time, so waiting players have to be re-examined even when
+// nobody joins or leaves the queue.
+const QUEUE_RETRY_INTERVAL_MS = 5 * 1000;
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -86,6 +96,11 @@ await initPush(process.env);
 await loadRooms();
 sweepRooms();
 setInterval(sweepRooms, ROOM_SWEEP_INTERVAL_MS).unref();
+setInterval(() => {
+  if (quickQueue.length >= 2) {
+    tryMatchQueue();
+  }
+}, QUEUE_RETRY_INTERVAL_MS).unref();
 
 const server = createServer(handleHttp);
 const wss = new WebSocketServer({ noServer: true });
@@ -338,7 +353,21 @@ function onQueueJoin(ws, message) {
   const avatar = normalizeAvatar(message.avatar);
   const existing = quickQueue.find((entry) => entry.ws === ws);
   if (!existing) {
-    quickQueue.push({ ws, guestId, displayName, avatar, joinedAt: Date.now() });
+    // Rating is read once on entry: pairing has to compare something, and a
+    // player's rating cannot change while they sit in the queue anyway.
+    const playerId = getPlayerIdByGuestId(guestId);
+    const snapshot = playerId ? getRatingSnapshot(playerId) : null;
+    quickQueue.push({
+      ws,
+      guestId,
+      displayName,
+      avatar,
+      joinedAt: Date.now(),
+      rating: snapshot?.rating ?? START_RATING,
+      // Unrated players get a wider opening window: we have no idea what
+      // level they are, so insisting on a close match just makes them wait.
+      provisional: !snapshot || snapshot.rankedGames === 0,
+    });
   } else {
     existing.displayName = displayName;
     existing.avatar = avatar || existing.avatar;
@@ -367,21 +396,57 @@ function onQueueCancel(ws) {
   });
 }
 
-function tryMatchQueue() {
-  while (quickQueue.length >= 2) {
-    const first = quickQueue.shift();
-    const second = quickQueue.shift();
+// How far apart two ratings may be for this player to accept a match. It opens
+// with the waiting time so that a close game is tried first, but nobody is left
+// waiting forever — which matters far more than precision with a small player
+// base, where an exact match may simply not exist.
+function searchWindow(entry, now) {
+  const waited = now - entry.joinedAt;
+  if (waited >= QUEUE_OPEN_AFTER_MS) {
+    return Infinity;
+  }
+  const base = entry.provisional ? QUEUE_WINDOW_UNRATED : QUEUE_WINDOW_START;
+  const progress = Math.min(1, waited / QUEUE_WINDOW_FULL_MS);
+  return base + (QUEUE_WINDOW_MAX - base) * progress;
+}
 
-    if (!isSocketOpen(first.ws) || !isSocketOpen(second.ws)) {
-      if (isSocketOpen(first.ws)) {
-        send(first.ws, { type: "queue_status", queued: true, position: 1, code: "queue_searching", message: "Searching for opponent..." });
+function tryMatchQueue() {
+  // Sockets that closed while queued would otherwise be paired into a room
+  // nobody is sitting in.
+  for (let i = quickQueue.length - 1; i >= 0; i -= 1) {
+    if (!isSocketOpen(quickQueue[i].ws)) {
+      quickQueue.splice(i, 1);
+    }
+  }
+
+  // Repeatedly take the closest pair that both sides currently accept. The
+  // queue is small, so comparing every pair is cheaper than maintaining an
+  // index — and it gives the best available match rather than the first one.
+  for (;;) {
+    const now = Date.now();
+    let best = null;
+
+    for (let i = 0; i < quickQueue.length; i += 1) {
+      for (let j = i + 1; j < quickQueue.length; j += 1) {
+        const a = quickQueue[i];
+        const b = quickQueue[j];
+        const gap = Math.abs(a.rating - b.rating);
+        // The more patient of the two decides: one player having waited long
+        // enough is what unlocks a wider match.
+        const limit = Math.max(searchWindow(a, now), searchWindow(b, now));
+        if (gap <= limit && (!best || gap < best.gap)) {
+          best = { i, j, gap };
+        }
       }
-      if (isSocketOpen(second.ws)) {
-        send(second.ws, { type: "queue_status", queued: true, position: 1, code: "queue_searching", message: "Searching for opponent..." });
-      }
-      continue;
     }
 
+    if (!best) {
+      break;
+    }
+
+    // Splice the higher index first so the lower one stays valid.
+    const second = quickQueue.splice(best.j, 1)[0];
+    const first = quickQueue.splice(best.i, 1)[0];
     createInstantMatch(first, second);
   }
 
