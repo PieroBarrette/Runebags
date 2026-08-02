@@ -144,6 +144,21 @@ const MIGRATIONS = [
 
   CREATE INDEX idx_players_rating ON players(rating DESC);
   `,
+  `
+  CREATE TABLE challenges (
+    id INTEGER PRIMARY KEY,
+    from_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    to_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    ranked INTEGER NOT NULL DEFAULT 1,
+    status TEXT NOT NULL DEFAULT 'pending',
+    room_code TEXT,
+    created_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL,
+    responded_at INTEGER
+  );
+  CREATE INDEX idx_challenges_to ON challenges(to_user_id, status);
+  CREATE INDEX idx_challenges_from ON challenges(from_user_id, status);
+  `,
 ];
 
 export function openDb(dataDir) {
@@ -731,6 +746,15 @@ export function getUserByEmailIndex(emailIndex) {
     database.prepare("SELECT * FROM users WHERE email_index = ?").get(emailIndex) || null);
 }
 
+export function getUserByHandle(handle) {
+  const text = String(handle || "").trim();
+  if (!text) {
+    return null;
+  }
+  return guard(null, (database) =>
+    database.prepare("SELECT * FROM users WHERE handle = ? COLLATE NOCASE").get(text) || null);
+}
+
 export function getUserById(userId) {
   return guard(null, (database) =>
     database.prepare("SELECT * FROM users WHERE id = ?").get(Number(userId)) || null);
@@ -829,6 +853,123 @@ export function purgeExpiredAuthRows() {
     const now = Date.now();
     database.prepare("DELETE FROM sessions WHERE expires_at < ?").run(now);
     database.prepare("DELETE FROM login_tokens WHERE expires_at < ?").run(now - 24 * 60 * 60 * 1000);
+    database.prepare("UPDATE challenges SET status = 'expired' WHERE status = 'pending' AND expires_at < ?").run(now);
+    database.prepare("DELETE FROM challenges WHERE status != 'pending' AND created_at < ?").run(now - 7 * 24 * 60 * 60 * 1000);
     return null;
+  });
+}
+
+/* ------------------------------------------------------------- challenges */
+
+const CHALLENGE_WITH_NAMES = `
+  SELECT c.*,
+         fu.handle AS from_handle, fp.rating AS from_rating,
+         fp.avatar_glyph AS from_glyph, fp.avatar_color AS from_color,
+         tu.handle AS to_handle, tp.rating AS to_rating,
+         tp.avatar_glyph AS to_glyph, tp.avatar_color AS to_color
+  FROM challenges c
+  JOIN users fu ON fu.id = c.from_user_id
+  JOIN users tu ON tu.id = c.to_user_id
+  LEFT JOIN players fp ON fp.id = fu.player_id
+  LEFT JOIN players tp ON tp.id = tu.player_id
+`;
+
+function publicChallenge(row, viewerUserId) {
+  if (!row) {
+    return null;
+  }
+  const outgoing = row.from_user_id === viewerUserId;
+  return {
+    id: row.id,
+    outgoing,
+    ranked: Boolean(row.ranked),
+    status: row.status,
+    roomCode: row.room_code || null,
+    expiresAt: row.expires_at,
+    opponent: {
+      handle: outgoing ? row.to_handle : row.from_handle,
+      rating: outgoing ? row.to_rating : row.from_rating,
+      avatar: (outgoing ? row.to_glyph : row.from_glyph) && (outgoing ? row.to_color : row.from_color)
+        ? { glyph: outgoing ? row.to_glyph : row.from_glyph, color: outgoing ? row.to_color : row.from_color }
+        : null,
+    },
+  };
+}
+
+export function countPendingChallengesFrom(fromUserId) {
+  return guard(99, (database) => {
+    const row = database
+      .prepare("SELECT COUNT(*) AS n FROM challenges WHERE from_user_id = ? AND status = 'pending' AND expires_at > ?")
+      .get(Number(fromUserId), Date.now());
+    return row?.n || 0;
+  });
+}
+
+export function hasPendingChallengeBetween(fromUserId, toUserId) {
+  return guard(true, (database) =>
+    Boolean(database
+      .prepare(`
+        SELECT 1 FROM challenges
+        WHERE status = 'pending' AND expires_at > @now
+          AND ((from_user_id = @a AND to_user_id = @b) OR (from_user_id = @b AND to_user_id = @a))
+      `)
+      .get({ now: Date.now(), a: Number(fromUserId), b: Number(toUserId) })));
+}
+
+export function createChallenge({ fromUserId, toUserId, ranked, expiresAt }) {
+  return guard(null, (database) => {
+    const info = database
+      .prepare(`
+        INSERT INTO challenges (from_user_id, to_user_id, ranked, created_at, expires_at)
+        VALUES (?, ?, ?, ?, ?)
+      `)
+      .run(Number(fromUserId), Number(toUserId), ranked ? 1 : 0, Date.now(), expiresAt);
+    return Number(info.lastInsertRowid);
+  });
+}
+
+export function getChallengesForUser(userId) {
+  return guard([], (database) =>
+    database
+      .prepare(`${CHALLENGE_WITH_NAMES} WHERE (c.from_user_id = @id OR c.to_user_id = @id)
+                AND c.status IN ('pending', 'accepted') AND c.expires_at > @now
+                ORDER BY c.created_at DESC LIMIT 20`)
+      .all({ id: Number(userId), now: Date.now() })
+      .map((row) => publicChallenge(row, Number(userId))));
+}
+
+export function getChallengeById(id) {
+  return guard(null, (database) =>
+    database.prepare("SELECT * FROM challenges WHERE id = ?").get(Number(id)) || null);
+}
+
+// Claimed inside a transaction so two taps on Accept cannot open two rooms.
+export function acceptChallenge(id, toUserId, roomCode) {
+  return guard(false, (database) => {
+    const claim = database.transaction(() => {
+      const row = database
+        .prepare("SELECT * FROM challenges WHERE id = ? AND to_user_id = ? AND status = 'pending' AND expires_at > ?")
+        .get(Number(id), Number(toUserId), Date.now());
+      if (!row) {
+        return false;
+      }
+      database
+        .prepare("UPDATE challenges SET status = 'accepted', room_code = ?, responded_at = ? WHERE id = ?")
+        .run(roomCode, Date.now(), Number(id));
+      return true;
+    });
+    return claim();
+  });
+}
+
+export function declineChallenge(id, userId) {
+  return guard(false, (database) => {
+    const info = database
+      .prepare(`
+        UPDATE challenges SET status = 'declined', responded_at = @now
+        WHERE id = @id AND (to_user_id = @u OR from_user_id = @u) AND status = 'pending'
+      `)
+      .run({ now: Date.now(), id: Number(id), u: Number(userId) });
+    return info.changes > 0;
   });
 }

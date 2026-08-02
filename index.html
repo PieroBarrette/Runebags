@@ -296,6 +296,9 @@
         </div>
       </div>
       <p id="profile-rating" class="stats-rating"></p>
+      <div id="profile-actions" class="menu-actions compact" hidden>
+        <button id="profile-challenge-btn" class="menu-btn" type="button" data-i18n="challenge.send">Challenge</button>
+      </div>
       <p id="profile-record" class="stats-line"></p>
       <p id="profile-streak" class="stats-line stats-streak"></p>
       <div id="profile-history" class="stats-history"></div>
@@ -364,6 +367,10 @@
             <button id="online-join-btn" class="menu-btn" type="button" data-i18n="online.join">Join</button>
           </div>
         </div>
+        <section id="online-challenges" class="home-ongoing" hidden>
+          <h3 class="home-ongoing-title" data-i18n="challenge.title">Challenges</h3>
+          <div id="online-challenges-list" class="home-ongoing-list"></div>
+        </section>
         <!-- Games still running on the server, resumable days later. -->
         <section id="online-ongoing" class="home-ongoing" hidden>
           <h3 class="home-ongoing-title" data-i18n="home.ongoing.title">Games in progress</h3>

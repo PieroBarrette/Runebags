@@ -43,6 +43,10 @@ import {
   fetchMyServerStats,
   fetchOngoingRooms,
   fetchProfile,
+  acceptChallenge,
+  declineChallenge,
+  fetchChallenges,
+  sendChallenge,
   requestLoginLink,
   searchPlayers,
   signOut,
@@ -156,6 +160,10 @@ const elements = {
   profileStreak: document.getElementById("profile-streak"),
   profileHistory: document.getElementById("profile-history"),
   profileBackBtn: document.getElementById("profile-back-btn"),
+  profileActions: document.getElementById("profile-actions"),
+  profileChallengeBtn: document.getElementById("profile-challenge-btn"),
+  onlineChallenges: document.getElementById("online-challenges"),
+  onlineChallengesList: document.getElementById("online-challenges-list"),
   onlineOngoing: document.getElementById("online-ongoing"),
   onlineOngoingList: document.getElementById("online-ongoing-list"),
   onlineLeaderboard: document.getElementById("online-leaderboard"),
@@ -555,6 +563,13 @@ function wireOnlineEvents() {
       onlinePresenceCount = Math.max(0, Number(info?.count) || 0);
       updatePresenceUI();
     },
+    challenge: (info) => {
+      // Arrives while connected; an absent player gets a push instead.
+      showToast(t("challenge.received", { player: info?.from || "?" }));
+      if (!elements.onlinePanel.hidden) {
+        renderChallenges();
+      }
+    },
     rematch: (info) => {
       rematchStatus = {
         youRequested: Boolean(info?.youRequested),
@@ -751,6 +766,30 @@ function bindEvents() {
 
   elements.profileBackBtn.addEventListener("click", () => {
     showStatsPanel();
+  });
+
+  elements.profileChallengeBtn.addEventListener("click", async () => {
+    const handle = elements.profileChallengeBtn.dataset.handle;
+    if (!handle) {
+      return;
+    }
+    elements.profileChallengeBtn.disabled = true;
+    const result = await sendChallenge(handle, true);
+    elements.profileChallengeBtn.disabled = false;
+
+    if (result?.ok) {
+      showToast(t("challenge.sent", { player: handle }));
+      return;
+    }
+    if (result?.status === 409) {
+      showToast(t("challenge.alreadyPending"));
+      return;
+    }
+    if (result?.status === 429) {
+      showToast(t("challenge.tooMany"));
+      return;
+    }
+    showToast(t("challenge.failed"));
   });
 
   // Debounced so typing a name doesn't fire a request per keystroke.
@@ -2213,6 +2252,104 @@ async function renderProfile(handle) {
     b: player.bestStreak,
   });
   renderGameHistory(elements.profileHistory, data.games);
+
+  // Challenging needs an account on both sides, and challenging yourself is
+  // never useful.
+  const canChallenge = Boolean(currentAccount?.handle)
+    && player.handle
+    && player.handle.toLowerCase() !== currentAccount.handle.toLowerCase();
+  elements.profileActions.hidden = !canChallenge;
+  elements.profileChallengeBtn.dataset.handle = player.handle || "";
+}
+
+// Challenges this account has sent or received, shown in the lobby.
+async function renderChallenges() {
+  if (!elements.onlineChallenges || !elements.onlineChallengesList) {
+    return;
+  }
+
+  const challenges = await fetchChallenges();
+  elements.onlineChallengesList.innerHTML = "";
+  if (challenges.length === 0) {
+    elements.onlineChallenges.hidden = true;
+    return;
+  }
+
+  challenges.forEach((challenge) => {
+    const card = document.createElement("div");
+    card.className = "home-ongoing-card challenge-card";
+
+    const who = document.createElement("span");
+    who.className = "home-ongoing-opponent";
+    who.textContent = challenge.outgoing
+      ? t("challenge.sentTo", { player: challenge.opponent.handle })
+      : t("challenge.from", { player: challenge.opponent.handle });
+    card.appendChild(who);
+
+    const kind = document.createElement("span");
+    kind.className = "home-ongoing-meta";
+    kind.textContent = challenge.ranked ? t("challenge.ranked") : t("challenge.casual");
+    card.appendChild(kind);
+
+    const actions = document.createElement("div");
+    actions.className = "challenge-actions";
+
+    // An accepted challenge is just a room to walk into, for either side.
+    if (challenge.status === "accepted" && challenge.roomCode) {
+      const join = document.createElement("button");
+      join.type = "button";
+      join.className = "menu-btn primary";
+      join.textContent = t("challenge.join");
+      join.addEventListener("click", () => resumeOnlineRoom(challenge.roomCode));
+      actions.appendChild(join);
+    } else if (challenge.outgoing) {
+      const status = document.createElement("span");
+      status.className = "home-ongoing-status";
+      status.textContent = t("challenge.waiting");
+      card.appendChild(status);
+
+      const cancel = document.createElement("button");
+      cancel.type = "button";
+      cancel.className = "menu-btn secondary";
+      cancel.textContent = t("challenge.cancel");
+      cancel.addEventListener("click", async () => {
+        await declineChallenge(challenge.id);
+        renderChallenges();
+      });
+      actions.appendChild(cancel);
+    } else {
+      const accept = document.createElement("button");
+      accept.type = "button";
+      accept.className = "menu-btn primary";
+      accept.textContent = t("challenge.accept");
+      accept.addEventListener("click", async () => {
+        accept.disabled = true;
+        const result = await acceptChallenge(challenge.id);
+        if (result?.ok && result.data?.roomCode) {
+          resumeOnlineRoom(result.data.roomCode);
+          return;
+        }
+        accept.disabled = false;
+        showToast(t("challenge.failed"));
+        renderChallenges();
+      });
+      actions.appendChild(accept);
+
+      const decline = document.createElement("button");
+      decline.type = "button";
+      decline.className = "menu-btn secondary";
+      decline.textContent = t("challenge.decline");
+      decline.addEventListener("click", async () => {
+        await declineChallenge(challenge.id);
+        renderChallenges();
+      });
+      actions.appendChild(decline);
+    }
+
+    card.appendChild(actions);
+    elements.onlineChallengesList.appendChild(card);
+  });
+  elements.onlineChallenges.hidden = false;
 }
 
 // Your own finished games — same rows a public profile shows.
@@ -2804,6 +2941,7 @@ function showOnlinePanel() {
   updateOnlineConnectionStatus();
   refreshLobbySocial();
   renderOnlineOngoing();
+  renderChallenges();
 }
 
 function showOnlineLobbyStep() {

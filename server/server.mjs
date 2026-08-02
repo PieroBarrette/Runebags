@@ -241,8 +241,45 @@ function isAllowedPublicPath(target) {
     || target.startsWith("/assets/");
 }
 
+// An accepted challenge needs a room before either player has a socket in it,
+// so it is created empty here; both sides then join by code through the normal
+// path, which assigns the seats.
+function createRoomForChallenge(ranked) {
+  const roomCode = generateRoomCode();
+  rooms.set(roomCode, {
+    code: roomCode,
+    createdAt: Date.now(),
+    started: false,
+    seq: 0,
+    state: null,
+    chat: [],
+    shopSync: null,
+    ranked: Boolean(ranked),
+    lastActivityAt: Date.now(),
+    players: {
+      1: createPlayerRecord(null, "Player 1"),
+      2: createPlayerRecord(null, "Player 2"),
+    },
+  });
+  schedulePersistRooms().catch(() => {});
+  return roomCode;
+}
+
+// Tells a challenged player about it right away when they are connected, so a
+// challenge doesn't wait on a page refresh. Offline players get a push instead.
+function notifyChallenge(toPlayerRowId, fromHandle) {
+  for (const [ws, session] of wsToSession) {
+    const room = rooms.get(session.roomCode);
+    const guestId = room?.players?.[session.playerId]?.guestId;
+    if (guestId && getPlayerIdByGuestId(guestId) === toPlayerRowId) {
+      send(ws, { type: "challenge_received", from: fromHandle });
+    }
+  }
+  sendPush(toPlayerRowId, "challenge", { opponentName: fromHandle });
+}
+
 function handleApi(req, res) {
-  handleApiRequest(req, res, { rooms }).catch((error) => {
+  handleApiRequest(req, res, { rooms, createRoomForChallenge, notifyChallenge }).catch((error) => {
     console.warn(`[api] request failed: ${error?.message || error}`);
     if (!res.headersSent) {
       sendJson(res, 500, { error: "internal_error" });
@@ -482,6 +519,8 @@ function createInstantMatch(firstEntry, secondEntry) {
     chat: [],
     shopSync: createShopSyncState(),
     lastActivityAt: Date.now(),
+    // Quick play is the ranked ladder.
+    ranked: true,
     players: {
       1: createPlayerRecord(token1, normalizeDisplayName(firstEntry?.displayName, "Player 1"), firstEntry?.avatar, firstEntry?.guestId),
       2: createPlayerRecord(token2, normalizeDisplayName(secondEntry?.displayName, "Player 2"), secondEntry?.avatar, secondEntry?.guestId),
@@ -1254,6 +1293,12 @@ function applyRatingsIfRanked(room, seatPlayerIds, winner) {
   if (!isAccountPlayer(p1Id) || !isAccountPlayer(p2Id)) {
     return;
   }
+  // Only quick play and accepted ranked challenges count. A room joined by
+  // code is a friendly game even between two accounts — otherwise two friends
+  // could trade wins to inflate each other.
+  if (!room.ranked) {
+    return;
+  }
 
   const p1 = getRatingSnapshot(p1Id);
   const p2 = getRatingSnapshot(p2Id);
@@ -1449,6 +1494,7 @@ async function loadRooms() {
         state: entry.state ? restoreState(entry.state) : null,
         chat: Array.isArray(entry.chat) ? entry.chat.slice(-100) : [],
         shopSync: entry.shopSync || null,
+        ranked: Boolean(entry.ranked),
         gameId: Number.isInteger(entry.gameId) ? entry.gameId : null,
         actionCount: Number(entry.actionCount || 0),
         resultRecorded: Boolean(entry.resultRecorded),
@@ -1486,6 +1532,7 @@ function serializeRooms() {
       state: room.state,
       chat: Array.isArray(room.chat) ? room.chat.slice(-100) : [],
       shopSync: room.shopSync,
+      ranked: Boolean(room.ranked),
       gameId: room.gameId || null,
       actionCount: room.actionCount || 0,
       resultRecorded: Boolean(room.resultRecorded),

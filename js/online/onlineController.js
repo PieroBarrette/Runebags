@@ -34,6 +34,7 @@ export function createOnlineController() {
     status: () => {},
     rematch: () => {},
     presence: () => {},
+    challenge: () => {},
     wake: () => {},
   };
 
@@ -365,6 +366,11 @@ export function createOnlineController() {
 
     if (msg.type === "presence") {
       listeners.presence({ count: Number(msg.count) || 0 });
+      return;
+    }
+
+    if (msg.type === "challenge_received") {
+      listeners.challenge({ from: msg.from || "" });
       return;
     }
 

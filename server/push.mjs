@@ -21,12 +21,14 @@ const PUSH_TEXT = {
     shop_open: { title: "RuneBags", body: "The round is over — time to shop." },
     rematch: { title: "RuneBags", body: "{opponent} wants a rematch." },
     opponent_joined: { title: "RuneBags", body: "{opponent} joined your room." },
+    challenge: { title: "RuneBags", body: "{opponent} has challenged you." },
   },
   fr: {
     your_turn: { title: "RuneBags", body: "C'est votre tour contre {opponent}." },
     shop_open: { title: "RuneBags", body: "La manche est finie — passez à la boutique." },
     rematch: { title: "RuneBags", body: "{opponent} veut une revanche." },
     opponent_joined: { title: "RuneBags", body: "{opponent} a rejoint votre salle." },
+    challenge: { title: "RuneBags", body: "{opponent} vous a défié." },
   },
 };
 

@@ -6,8 +6,16 @@
 // so it is only ever accepted as INPUT — no response ever contains a guest id,
 // its own included. Public identity is the numeric player id + name + avatar.
 import {
+  acceptChallenge,
+  countPendingChallengesFrom,
+  createChallenge,
+  declineChallenge,
   deletePushSubscription,
+  getChallengeById,
+  getChallengesForUser,
   getGameForReplay,
+  getUserByHandle,
+  hasPendingChallengeBetween,
   getGamesForPlayer,
   getLeaderboard,
   getPlayerIdByGuestId,
@@ -29,6 +37,8 @@ import {
 } from "./auth.mjs";
 
 const MAX_BODY_BYTES = 8 * 1024;
+const CHALLENGE_TTL_MS = 48 * 60 * 60 * 1000;
+const MAX_PENDING_CHALLENGES = 5;
 
 export async function handleApiRequest(req, res, context) {
   const url = new URL(req.url || "/", "http://localhost");
@@ -79,6 +89,99 @@ export async function handleApiRequest(req, res, context) {
 
   if (req.method === "POST" && route === "/api/auth/logout") {
     sendJson(res, 200, logout(readSessionToken(req)).body);
+    return;
+  }
+
+  /* ------------------------------------------------------------ challenges */
+
+  if (req.method === "GET" && route === "/api/me/challenges") {
+    const user = getUserFromSession(readSessionToken(req));
+    sendJson(res, 200, { challenges: user ? getChallengesForUser(user.id) : [] });
+    return;
+  }
+
+  if (req.method === "POST" && route === "/api/challenges") {
+    const user = getUserFromSession(readSessionToken(req));
+    if (!user) {
+      sendJson(res, 401, { error: "not_signed_in" });
+      return;
+    }
+    if (!user.handle) {
+      sendJson(res, 409, { error: "handle_required" });
+      return;
+    }
+
+    const body = await readJsonBody(req);
+    const target = getUserByHandle(body?.handle);
+    if (!target || target.id === user.id) {
+      sendJson(res, 404, { error: "player_not_found" });
+      return;
+    }
+    // One live challenge per pair, and a cap per sender: a challenge is a
+    // notification someone else receives, so it has to be hard to spam.
+    if (hasPendingChallengeBetween(user.id, target.id)) {
+      sendJson(res, 409, { error: "already_pending" });
+      return;
+    }
+    if (countPendingChallengesFrom(user.id) >= MAX_PENDING_CHALLENGES) {
+      sendJson(res, 429, { error: "too_many_pending" });
+      return;
+    }
+
+    const id = createChallenge({
+      fromUserId: user.id,
+      toUserId: target.id,
+      ranked: body?.ranked !== false,
+      expiresAt: Date.now() + CHALLENGE_TTL_MS,
+    });
+    if (!id) {
+      sendJson(res, 503, { error: "storage_unavailable" });
+      return;
+    }
+
+    context?.notifyChallenge?.(target.player_id, user.handle);
+    sendJson(res, 200, { ok: true, id });
+    return;
+  }
+
+  if (req.method === "POST" && route.startsWith("/api/challenges/")) {
+    const user = getUserFromSession(readSessionToken(req));
+    if (!user) {
+      sendJson(res, 401, { error: "not_signed_in" });
+      return;
+    }
+
+    const [rawId, action] = route.slice("/api/challenges/".length).split("/");
+    const id = Number(rawId);
+    if (!Number.isInteger(id)) {
+      sendJson(res, 400, { error: "bad_id" });
+      return;
+    }
+
+    if (action === "decline") {
+      sendJson(res, 200, { ok: declineChallenge(id, user.id) });
+      return;
+    }
+
+    if (action === "accept") {
+      const challenge = getChallengeById(id);
+      if (!challenge || challenge.to_user_id !== user.id) {
+        sendJson(res, 404, { error: "not_found" });
+        return;
+      }
+      // The room is created first: if claiming the challenge then fails (a
+      // double tap, an expiry), an unused empty room is harmless, whereas a
+      // claimed challenge without a room would be a dead end.
+      const roomCode = context?.createRoomForChallenge?.(Boolean(challenge.ranked));
+      if (!roomCode || !acceptChallenge(id, user.id, roomCode)) {
+        sendJson(res, 409, { error: "cannot_accept" });
+        return;
+      }
+      sendJson(res, 200, { ok: true, roomCode });
+      return;
+    }
+
+    sendJson(res, 404, { error: "not_found" });
     return;
   }
 

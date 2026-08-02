@@ -182,6 +182,28 @@ export function claimHandle(handle) {
   return postJson("/api/auth/handle", { handle }, { raw: true });
 }
 
+/* -------------------------------------------------------------- challenges */
+
+export function sendChallenge(handle, ranked = true) {
+  return postJson("/api/challenges", { handle, ranked }, { raw: true });
+}
+
+export async function fetchChallenges() {
+  if (!getSessionToken()) {
+    return [];
+  }
+  const data = await getJson("/api/me/challenges");
+  return data?.challenges || [];
+}
+
+export function acceptChallenge(id) {
+  return postJson(`/api/challenges/${encodeURIComponent(id)}/accept`, {}, { raw: true });
+}
+
+export function declineChallenge(id) {
+  return postJson(`/api/challenges/${encodeURIComponent(id)}/decline`, {}, { raw: true });
+}
+
 export async function signOut() {
   await postJson("/api/auth/logout", {});
   setSessionToken(null);
