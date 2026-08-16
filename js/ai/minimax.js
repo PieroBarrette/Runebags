@@ -10,6 +10,43 @@ import {
 
 const WIN_SCORE = 100000;
 
+// The turn log grows all game and is pure narration — cloning it at every node
+// was costing more than the search itself. Swapping it out for the clone and
+// restoring it afterwards leaves the caller's state untouched.
+function cloneForSearch(state) {
+  const log = state.log;
+  state.log = [];
+  const copy = structuredClone(state);
+  state.log = log;
+  return copy;
+}
+
+// How much a rune is worth to hold, mirroring the shop policy's ordering so the
+// search stops treating a bag of basics as equal to a bag of Raido and Teiwaz.
+const RUNE_VALUE = {
+  raido: 9, perth: 9, teiwaz: 8, gebo: 8, thurisa: 8, dagaz: 8, nauthiz: 8,
+  algiz: 7, ansuz: 7, fehu: 7, mannaz: 7, eihwaz: 7, sowelu: 7, kenaz: 7,
+  uruz: 6, ehwaz: 6, berkana: 6, hagalz: 6, isa: 6,
+  inguz: 4, jera: 4, neutral: -2, basic: 1,
+};
+
+// Runes whose presence on the board is worth something beyond occupying a cell.
+const BOARD_RUNE_VALUE = {
+  laguz: 10,   // cannot be moved or removed: a permanent anchor
+  isa: 8,      // survives into the next round
+  hagalz: 6,   // lets an adjacent neutral count in a line
+  berkana: 5,  // an extra point if it ends up in the winning line
+  eihwaz: 4,   // pays its owner when destroyed
+  kenaz: 3,
+};
+
+let useLegacyEvaluation = false;
+
+// Used by the bench to pit the old evaluation against the new one.
+export function setEvaluationMode(legacy) {
+  useLegacyEvaluation = Boolean(legacy);
+}
+
 export function chooseRoundMove(state, aiPlayerId, depth = 2) {
   const legalMoves = getLegalMovesForPlayer(state, state.currentPlayer);
   if (legalMoves.length === 0) {
@@ -26,7 +63,7 @@ export function chooseRoundMove(state, aiPlayerId, depth = 2) {
 
   const orderedMoves = orderMoves(legalMoves);
   for (const move of orderedMoves) {
-    const nextState = structuredClone(state);
+    const nextState = cloneForSearch(state);
     if (!applyMove(nextState, move, nextState.currentPlayer)) {
       continue;
     }
@@ -71,7 +108,7 @@ export function autoResolvePending(state, aiPlayerId) {
     let bestScore = chooserIsAi ? -Infinity : Infinity;
 
     for (const choice of choices) {
-      const branch = structuredClone(state);
+      const branch = cloneForSearch(state);
       const resolved = resolvePendingBoardChoice(branch, normalizeChoice(choice));
       if (resolved.error) {
         continue;
@@ -144,7 +181,7 @@ function minimax(state, depth, alpha, beta, aiPlayerId, search) {
     if (chooserId === aiPlayerId) {
       let maxScore = -Infinity;
       for (const choice of choices) {
-        const branch = structuredClone(state);
+        const branch = cloneForSearch(state);
         const resolved = resolvePendingBoardChoice(branch, normalizeChoice(choice));
         if (resolved.error) {
           continue;
@@ -160,7 +197,7 @@ function minimax(state, depth, alpha, beta, aiPlayerId, search) {
 
     let minScore = Infinity;
     for (const choice of choices) {
-      const branch = structuredClone(state);
+      const branch = cloneForSearch(state);
       const resolved = resolvePendingBoardChoice(branch, normalizeChoice(choice));
       if (resolved.error) {
         continue;
@@ -188,7 +225,7 @@ function minimax(state, depth, alpha, beta, aiPlayerId, search) {
   if (state.currentPlayer === aiPlayerId) {
     let maxScore = -Infinity;
     for (const move of orderedMoves) {
-      const branch = structuredClone(state);
+      const branch = cloneForSearch(state);
       if (!applyMove(branch, move, branch.currentPlayer)) {
         continue;
       }
@@ -204,7 +241,7 @@ function minimax(state, depth, alpha, beta, aiPlayerId, search) {
 
   let minScore = Infinity;
   for (const move of orderedMoves) {
-    const branch = structuredClone(state);
+    const branch = cloneForSearch(state);
     if (!applyMove(branch, move, branch.currentPlayer)) {
       continue;
     }
@@ -263,8 +300,77 @@ function evaluateState(state, aiPlayerId) {
   const centerControl = evaluateCenterControl(state, aiPlayerId) - evaluateCenterControl(state, opponentId);
   const boardPatterns = evaluateBoardWindows(state, aiPlayerId, opponentId);
   const threatPressure = evaluateThreatPressure(state, aiPlayerId, opponentId);
+  const base = pointDelta + bagDelta + handDelta + centerControl + boardPatterns + threatPressure;
 
-  return pointDelta + bagDelta + handDelta + centerControl + boardPatterns + threatPressure;
+  if (useLegacyEvaluation) {
+    return base;
+  }
+
+  // What the old evaluation could not see at all: which runes are on the board
+  // and what is actually in each bag.
+  const runeDelta = evaluateBoardRunes(state, aiPlayerId) - evaluateBoardRunes(state, opponentId);
+  const stockDelta = evaluateStock(state, aiPlayerId) - evaluateStock(state, opponentId);
+  return base + runeDelta + stockDelta;
+}
+
+function evaluateBoardRunes(state, playerId) {
+  let score = 0;
+  for (let row = 0; row < state.rows; row += 1) {
+    for (let col = 0; col < state.columns; col += 1) {
+      if (state.board[row][col] !== playerId) {
+        continue;
+      }
+      const rune = state.boardRunes[row][col];
+      if (!rune) {
+        continue;
+      }
+      score += BOARD_RUNE_VALUE[rune.id] || 0;
+      // A level 2 rune took two runes and a shop action to make.
+      if (rune.level >= 2) {
+        score += 4;
+      }
+    }
+  }
+  return score;
+}
+
+// Quality, not quantity: a hand is worth more than the same runes still in the
+// bag, because it can be played now.
+function evaluateStock(state, playerId) {
+  const player = state.players[playerId];
+  const valueOf = (rune) => (RUNE_VALUE[rune.id] ?? 2) * (rune.level >= 2 ? 2 : 1);
+  let score = 0;
+  for (const rune of player.bag) {
+    score += valueOf(rune);
+  }
+  for (const rune of player.hand) {
+    score += valueOf(rune) * 2;
+  }
+  return score;
+}
+
+// Neutral runes normally block a line, but a Hagalz next to one lets its owner
+// count it. The old evaluation discarded every window containing a neutral,
+// which made it blind to exactly the lines Hagalz exists to create.
+function getHagalzCountedNeutrals(state, playerId) {
+  const counted = new Set();
+  for (let row = 0; row < state.rows; row += 1) {
+    for (let col = 0; col < state.columns; col += 1) {
+      if (state.board[row][col] !== playerId || state.boardRunes[row][col]?.id !== "hagalz") {
+        continue;
+      }
+      for (let dr = -1; dr <= 1; dr += 1) {
+        for (let dc = -1; dc <= 1; dc += 1) {
+          const r = row + dr;
+          const c = col + dc;
+          if (state.board[r]?.[c] === 3) {
+            counted.add(`${r}:${c}`);
+          }
+        }
+      }
+    }
+  }
+  return counted;
 }
 
 function evaluateCenterControl(state, playerId) {
