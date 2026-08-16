@@ -276,6 +276,8 @@ const elements = {
   p2OnlineDot: document.getElementById("p2-online-dot"),
   player1Hand: document.getElementById("p1-hand"),
   player2Hand: document.getElementById("p2-hand"),
+  p1Clock: document.getElementById("p1-clock"),
+  p2Clock: document.getElementById("p2-clock"),
   p1Bag: document.getElementById("p1-bag"),
   p2Bag: document.getElementById("p2-bag"),
   p1Points: document.getElementById("p1-points"),
@@ -1841,7 +1843,54 @@ function renderEndgameBags() {
   renderRuneList(elements.endgameBagWhite, state.players[2].bag, 2, [], { readOnly: true });
 }
 
+// The clock the server last sent, plus when it arrived, so the display can
+// count down smoothly between snapshots without ever inventing time.
+let clockSnapshot = null;
+let clockSnapshotAt = 0;
+let clockTicker = null;
+
+function applyClockSnapshot(clock) {
+  clockSnapshot = clock || null;
+  clockSnapshotAt = Date.now();
+
+  if (clockTicker) {
+    window.clearInterval(clockTicker);
+    clockTicker = null;
+  }
+  // Only the side on move is moving, so there is nothing to animate otherwise.
+  if (clockSnapshot?.running) {
+    clockTicker = window.setInterval(renderClocks, 250);
+  }
+  renderClocks();
+}
+
+function formatClock(ms) {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+
+function renderClocks() {
+  const show = Boolean(clockSnapshot) && online.isOnlineActive();
+  [1, 2].forEach((seat) => {
+    const el = seat === 1 ? elements.p1Clock : elements.p2Clock;
+    if (!el) {
+      return;
+    }
+    el.hidden = !show;
+    if (!show) {
+      return;
+    }
+
+    const elapsed = clockSnapshot.running === seat ? Date.now() - clockSnapshotAt : 0;
+    const left = Math.max(0, clockSnapshot[seat] - elapsed);
+    el.textContent = formatClock(left);
+    el.classList.toggle("is-running", clockSnapshot.running === seat);
+    el.classList.toggle("is-low", left <= 30000);
+  });
+}
+
 const GAME_END_REASON_KEYS = {
+  timeout: "reason.timeout",
   majority: "reason.majority",
   "points-supply-empty": "reason.supplyEmpty",
   "fewest-bag-runes": "reason.fewestBag",
@@ -3180,6 +3229,7 @@ function applyOnlineStateSnapshot(snapshot) {
     pendingShopSnapshot = null;
   }
   state = restoreState(snapshot.state);
+  applyClockSnapshot(snapshot.clock);
   currentLocalMode = MODE_ONLINE;
   onlineChatMessages = Array.isArray(snapshot.chat) ? snapshot.chat.slice(-100) : [];
   waitingRoomState = {

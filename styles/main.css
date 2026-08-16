@@ -1783,6 +1783,23 @@ body[data-theme="dark"] .qc-btn {
   margin: 0.5rem auto 0;
 }
 
+.player-clock {
+  margin: 0.2rem 0 0;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-soft);
+}
+
+.player-clock.is-running {
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.player-clock.is-low.is-running {
+  color: #d9705f;
+}
+
 .challenge-card {
   cursor: default;
   gap: 0.35rem;

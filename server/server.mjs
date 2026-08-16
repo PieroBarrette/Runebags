@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
 import { createInitialState, ENGINE_VERSION, restoreState, startRoundFromShop } from "../js/core/gameState.js";
-import { applyAction } from "../js/core/onlineActions.js";
+import { applyAction, applyForfeit } from "../js/core/onlineActions.js";
 import {
   applyRating,
   closeDb,
@@ -43,6 +43,11 @@ const ROOM_TTL_NEVER_STARTED_MS = 24 * 60 * 60 * 1000;
 const ROOM_TTL_FINISHED_MS = 48 * 60 * 60 * 1000;
 const ROOM_TTL_IDLE_MS = 30 * 24 * 60 * 60 * 1000;
 const ROOM_SWEEP_INTERVAL_MS = 60 * 60 * 1000;
+
+// Ranked games are timed. Friendly rooms are not: those are played over days,
+// where a clock would only ever run out on someone living their life.
+const CLOCK_BUDGET_MS = 10 * 60 * 1000;
+const CLOCK_TICK_MS = 1000;
 
 // Quick play pairs on rating, with a window that opens as someone waits.
 const QUEUE_WINDOW_START = 100;
@@ -101,6 +106,7 @@ setInterval(() => {
     tryMatchQueue();
   }
 }, QUEUE_RETRY_INTERVAL_MS).unref();
+setInterval(sweepClocks, CLOCK_TICK_MS).unref();
 
 const server = createServer(handleHttp);
 const wss = new WebSocketServer({ noServer: true });
@@ -553,6 +559,7 @@ function createInstantMatch(firstEntry, secondEntry) {
   registerSeatIdentity(room, 1, firstEntry?.guestId);
   registerSeatIdentity(room, 2, secondEntry?.guestId);
   beginGameRecording(room);
+  startClock(room);
   attachSession(firstWs, roomCode, 1, token1);
   attachSession(secondWs, roomCode, 2, token2);
 
@@ -789,6 +796,7 @@ function onStartMatch(ws) {
   room.players[1].lastClientSeq = 0;
   room.players[2].lastClientSeq = 0;
   beginGameRecording(room);
+  startClock(room);
 
   schedulePersistRooms().catch(() => {});
   broadcastWaitingState(room);
@@ -839,6 +847,7 @@ function onRematchRequest(ws) {
     room.lastActivityAt = Date.now();
     // The previous game is already finished in the DB; start a new recording.
     beginGameRecording(room);
+  startClock(room);
     schedulePersistRooms().catch(() => {});
     broadcastState(room);
   }
@@ -915,6 +924,7 @@ function onAction(ws, message) {
     }
 
     recordGameAction(room, session.playerId, "shop_ready", { ready: readyValue });
+    syncClock(room);
     if (syncResult.startedRound) {
       // The only state transition the server initiates on its own; recorded
       // under playerId 0 so a replay can reproduce it.
@@ -949,6 +959,7 @@ function onAction(ws, message) {
 
   playerState.lastClientSeq = clientSeq;
   recordGameAction(room, session.playerId, actionType, payload);
+  syncClock(room);
 
   room.seq += 1;
   room.lastActivityAt = Date.now();
@@ -1104,6 +1115,82 @@ function pushToSeatIfOffline(room, seat, kind) {
   });
 }
 
+/* ------------------------------------------------------------------ clock */
+//
+// The clock is deliberately NOT part of the game state: the state is recorded
+// and replayed move by move, and baking wall-clock times into it would make
+// every replay disagree with itself. It lives on the room, the server owns it,
+// and clients only ever receive a snapshot to count down from.
+
+function startClock(room) {
+  if (!room.ranked) {
+    return;
+  }
+  room.clock = { 1: CLOCK_BUDGET_MS, 2: CLOCK_BUDGET_MS, running: null, since: 0 };
+  syncClock(room);
+}
+
+// Charges the player whose time was running, then starts whoever is on move.
+// Only the round phase is timed — both players shop at once, and thinking there
+// is part of the game rather than a race.
+function syncClock(room) {
+  const clock = room.clock;
+  if (!clock) {
+    return;
+  }
+
+  const now = Date.now();
+  if (clock.running && clock.since) {
+    clock[clock.running] = Math.max(0, clock[clock.running] - (now - clock.since));
+  }
+
+  const shouldRun = room.state?.phase === "round" && !room.state.gameWinner;
+  clock.running = shouldRun ? room.state.currentPlayer : null;
+  clock.since = shouldRun ? now : 0;
+}
+
+function clockPayload(room) {
+  const clock = room.clock;
+  if (!clock) {
+    return null;
+  }
+  // `since` lets a client show a smooth countdown between snapshots without
+  // trusting its own idea of what time it is.
+  const elapsed = clock.running && clock.since ? Date.now() - clock.since : 0;
+  return {
+    1: Math.max(0, clock[1] - (clock.running === 1 ? elapsed : 0)),
+    2: Math.max(0, clock[2] - (clock.running === 2 ? elapsed : 0)),
+    running: clock.running,
+    budget: CLOCK_BUDGET_MS,
+  };
+}
+
+// Nobody sends an action when they stall, so expiry has to be looked for.
+function sweepClocks() {
+  for (const room of rooms.values()) {
+    const clock = room.clock;
+    if (!clock?.running || !room.started || room.state?.phase !== "round" || room.state.gameWinner) {
+      continue;
+    }
+    if (clock[clock.running] - (Date.now() - clock.since) > 0) {
+      continue;
+    }
+
+    const loser = clock.running;
+    clock[loser] = 0;
+    clock.running = null;
+    clock.since = 0;
+
+    applyForfeit(room.state, loser);
+    recordGameAction(room, loser, "forfeit", {});
+    room.seq += 1;
+    room.lastActivityAt = Date.now();
+    schedulePersistRooms().catch(() => {});
+    broadcastState(room);
+    onGameOver(room);
+  }
+}
+
 function broadcastState(room) {
   forEachPlayerConnection(room, (ws, playerId) => {
     send(ws, {
@@ -1116,6 +1203,7 @@ function broadcastState(room) {
       playerNames: getRoomPlayerNames(room),
       playerAvatars: getRoomPlayerAvatars(room),
       shopSync: getShopSyncPayload(room, playerId),
+      clock: clockPayload(room),
     });
   });
 }

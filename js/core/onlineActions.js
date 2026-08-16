@@ -115,6 +115,19 @@ export function isPendingChooser(state, playerId) {
   return state.currentPlayer === playerId;
 }
 
+// Running out of time ends the game outside the rules engine, so it is applied
+// through one shared helper: the server calls it live, and a recorded "forfeit"
+// entry replays it identically rather than leaving a replay that disagrees with
+// the stored result.
+export function applyForfeit(state, losingPlayerId) {
+  state.gameWinner = losingPlayerId === 1 ? 2 : 1;
+  state.gameWinnerReason = "timeout";
+  state.winner = null;
+  state.phase = "game-over";
+  state.pendingAction = null;
+  return { state, error: null };
+}
+
 // Replay-side counterpart. Two recorded entries need special handling:
 // `shop_round_start` is the server-initiated transition once both players are
 // ready (playerId 0), and `shop_ready` is room bookkeeping that never touches
@@ -125,6 +138,9 @@ export function applyRecordedAction(state, entry) {
   }
   if (entry.actionType === "shop_ready") {
     return { state, error: null };
+  }
+  if (entry.actionType === "forfeit") {
+    return applyForfeit(state, entry.playerId);
   }
   return applyAction(state, entry.playerId, entry.actionType, entry.payload || {});
 }
