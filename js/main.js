@@ -21,10 +21,10 @@ import {
   createAiConfig,
   getAiThinkingText,
   runAiShopForSide,
-  runAiStep,
   setAiSettings,
   shouldAiAct,
 } from "./ai/aiController.js";
+import { runAiTurn } from "./ai/aiRunner.js";
 import { renderBoard } from "./ui/boardView.js";
 import { renderHands } from "./ui/handView.js";
 import { renderLog } from "./ui/logView.js";
@@ -2872,8 +2872,10 @@ function scheduleAiTurnIfNeeded() {
   }
 
   aiBusy = true;
-  aiTimer = window.setTimeout(() => {
-    const result = runAiStep(state, aiConfig);
+  aiTimer = window.setTimeout(async () => {
+    // Off the main thread when the browser allows it, so a long search no
+    // longer freezes the board.
+    const result = await runAiTurn(state, { ...aiConfig });
     state = result.state;
     aiBusy = false;
     aiTimer = null;
