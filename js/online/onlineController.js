@@ -386,6 +386,9 @@ export function createOnlineController() {
       if (typeof msg.online === "number") {
         listeners.presence({ count: msg.online });
       }
+      // Claim this socket straight away, so a challenge can reach us while we
+      // are only browsing the lobby rather than sitting in a room.
+      send({ type: "identify", guestId: session.guestId });
       return;
     }
 

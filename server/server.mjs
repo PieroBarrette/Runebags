@@ -268,14 +268,22 @@ function createRoomForChallenge(ranked) {
 // Tells a challenged player about it right away when they are connected, so a
 // challenge doesn't wait on a page refresh. Offline players get a push instead.
 function notifyChallenge(toPlayerRowId, fromHandle) {
-  for (const [ws, session] of wsToSession) {
-    const room = rooms.get(session.roomCode);
-    const guestId = room?.players?.[session.playerId]?.guestId;
-    if (guestId && getPlayerIdByGuestId(guestId) === toPlayerRowId) {
+  let delivered = false;
+  for (const ws of wss.clients) {
+    if (ws.readyState !== 1 || !ws.guestId) {
+      continue;
+    }
+    if (getPlayerIdByGuestId(ws.guestId) === toPlayerRowId) {
       send(ws, { type: "challenge_received", from: fromHandle });
+      delivered = true;
     }
   }
-  sendPush(toPlayerRowId, "challenge", { opponentName: fromHandle });
+
+  // Only fall back to a push when nobody is watching: someone already looking
+  // at the lobby does not need their phone to buzz.
+  if (!delivered) {
+    sendPush(toPlayerRowId, "challenge", { opponentName: fromHandle });
+  }
 }
 
 function handleApi(req, res) {
@@ -348,7 +356,18 @@ function handleMessage(ws, message) {
     return;
   }
 
+  // Remember who this socket belongs to, whatever it is doing. Sessions only
+  // exist for players sitting in a room, so without this a challenge could not
+  // reach the very people most able to accept it: those idle in the lobby.
+  const guestId = normalizeGuestId(message.guestId);
+  if (guestId) {
+    ws.guestId = guestId;
+  }
+
   switch (message.type) {
+    case "identify":
+      // Sent on connect so the lobby is reachable before joining anything.
+      return;
     case "create_room":
       return onCreateRoom(ws, message);
     case "join_room":
