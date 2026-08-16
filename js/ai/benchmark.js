@@ -55,7 +55,11 @@ function playGame(configA, configB, seed) {
   return state;
 }
 
-export function runMatches(configA, configB, games = 20) {
+// A full game costs roughly 15-30 seconds of search, so a twenty-game run takes
+// minutes. Pass onProgress to watch it rather than staring at a black box, and
+// prefer running it in a worker — on the main thread it locks the page for the
+// whole run.
+export function runMatches(configA, configB, games = 20, onProgress = null) {
   const tally = { aWins: 0, bWins: 0, draws: 0, unfinished: 0 };
   const startedAt = Date.now();
 
@@ -79,6 +83,10 @@ export function runMatches(configA, configB, games = 20) {
       tally.aWins += 1;
     } else {
       tally.bWins += 1;
+    }
+
+    if (onProgress) {
+      onProgress({ played: i + 1, games, ...tally });
     }
   }
 
