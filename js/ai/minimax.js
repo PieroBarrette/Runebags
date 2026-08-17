@@ -63,24 +63,40 @@ const BOARD_RUNE_VALUE = {
 };
 
 let useLegacyEvaluation = false;
+let useHagalzNeutrals = true;
 
 // Used by the bench to pit the old evaluation against the new one.
 export function setEvaluationMode(legacy) {
   useLegacyEvaluation = Boolean(legacy);
 }
 
+// Separate flag so the Hagalz change can be measured on its own rather than
+// bundled into the rune-aware evaluation that already proved itself.
+export function setHagalzAwareness(enabled) {
+  useHagalzNeutrals = enabled !== false;
+}
+
 // Every root move gets a true score: the root deliberately does not narrow the
 // window between siblings, so these are comparable to each other — which is
 // what lets a caller searching several sampled worlds add them up.
-export function scoreRootMoves(state, aiPlayerId, depth = 2) {
+export function scoreRootMoves(state, aiPlayerId, depth = 2, maxNodes = 0) {
   const legalMoves = getLegalMovesForPlayer(state, state.currentPlayer);
   if (legalMoves.length === 0) {
     return [];
   }
 
+  // The cap is shared across every root move, so once it is spent the remaining
+  // moves come back as a bare evaluation rather than a searched score.
+  //
+  // It used to SHRINK with depth — 12000 from depth 3 up, against 28000 below —
+  // which meant asking for a deeper search handed it less than half the budget
+  // and it ran dry partway through the move list. Depth 3 was measurably worse
+  // than depth 2 because of it (25-31 over 58 games), which is not a horizon
+  // effect, just a starved search. One budget for every depth: deeper costs
+  // more per node, and that is the only way it should cost more.
   const search = {
     nodes: 0,
-    maxNodes: depth >= 3 ? 12000 : 28000,
+    maxNodes: maxNodes > 0 ? maxNodes : 28000,
   };
 
   const scored = [];
@@ -94,23 +110,10 @@ export function scoreRootMoves(state, aiPlayerId, depth = 2) {
   return scored;
 }
 
-export function chooseRoundMove(state, aiPlayerId, depth = 2) {
-  const legalMoves = getLegalMovesForPlayer(state, state.currentPlayer);
-  if (legalMoves.length === 0) {
-    return null;
-  }
-
-  let bestMove = legalMoves[0];
-  let bestScore = -Infinity;
-  for (const { move, score } of scoreRootMoves(state, aiPlayerId, depth)) {
-    if (score > bestScore) {
-      bestScore = score;
-      bestMove = move;
-    }
-  }
-
-  return bestMove;
-}
+// There is deliberately no "pick the best move in this state" entry point any
+// more. Every level chooses from sampled worlds now, and a function that
+// searched the real one would be exactly the shortcut that made the AI
+// clairvoyant in the first place — see chooseRoundMovePimc in sampledWorlds.js.
 
 export function applyRoundMoveOnLiveState(state, move) {
   const currentPlayer = state.currentPlayer;
@@ -327,12 +330,18 @@ export function evaluateState(state, aiPlayerId) {
     }
   }
 
+  // The legacy evaluation is the pre-rune one, so it also predates Hagalz being
+  // understood at all — it keeps reading the raw board.
+  const board = useLegacyEvaluation || !useHagalzNeutrals
+    ? state.board
+    : buildOwnerView(state, aiPlayerId, opponentId);
+
   const pointDelta = (state.players[aiPlayerId].points - state.players[opponentId].points) * 300;
   const bagDelta = (state.players[aiPlayerId].bag.length - state.players[opponentId].bag.length) * 3;
   const handDelta = (state.players[aiPlayerId].hand.length - state.players[opponentId].hand.length) * 5;
   const centerControl = evaluateCenterControl(state, aiPlayerId) - evaluateCenterControl(state, opponentId);
-  const boardPatterns = evaluateBoardWindows(state, aiPlayerId, opponentId);
-  const threatPressure = evaluateThreatPressure(state, aiPlayerId, opponentId);
+  const boardPatterns = evaluateBoardWindows(state, aiPlayerId, opponentId, board);
+  const threatPressure = evaluateThreatPressure(state, aiPlayerId, opponentId, board);
   const base = pointDelta + bagDelta + handDelta + centerControl + boardPatterns + threatPressure;
 
   if (useLegacyEvaluation) {
@@ -383,8 +392,12 @@ function evaluateStock(state, playerId) {
 }
 
 // Neutral runes normally block a line, but a Hagalz next to one lets its owner
-// count it. The old evaluation discarded every window containing a neutral,
-// which made it blind to exactly the lines Hagalz exists to create.
+// count it. The pattern scoring discards every window containing a neutral,
+// which makes it blind to exactly the lines Hagalz exists to create.
+//
+// This helper was written to fix that and then never called — the windows kept
+// reading state.board directly. Wiring it in is the whole point of it, so the
+// board is now read through effectiveOwner() below.
 function getHagalzCountedNeutrals(state, playerId) {
   const counted = new Set();
   for (let row = 0; row < state.rows; row += 1) {
@@ -406,6 +419,33 @@ function getHagalzCountedNeutrals(state, playerId) {
   return counted;
 }
 
+// The board as the pattern scoring should see it: a neutral that one side's
+// Hagalz has claimed reads as that side's cell. A neutral both sides can claim
+// stays neutral — a single value per cell cannot count for both, and leaving it
+// blocking is the conservative reading.
+function buildOwnerView(state, aiPlayerId, opponentId) {
+  const mine = getHagalzCountedNeutrals(state, aiPlayerId);
+  const theirs = getHagalzCountedNeutrals(state, opponentId);
+  if (mine.size === 0 && theirs.size === 0) {
+    return state.board; // Nothing claimed: the raw board is already correct.
+  }
+
+  return state.board.map((cells, row) =>
+    cells.map((owner, col) => {
+      if (owner !== 3) {
+        return owner;
+      }
+      const key = `${row}:${col}`;
+      const claimedByMe = mine.has(key);
+      const claimedByThem = theirs.has(key);
+      if (claimedByMe === claimedByThem) {
+        return 3;
+      }
+      return claimedByMe ? aiPlayerId : opponentId;
+    }),
+  );
+}
+
 function evaluateCenterControl(state, playerId) {
   const center = Math.floor(state.columns / 2);
   let score = 0;
@@ -417,9 +457,8 @@ function evaluateCenterControl(state, playerId) {
   return score;
 }
 
-function evaluateBoardWindows(state, aiPlayerId, opponentId) {
+function evaluateBoardWindows(state, aiPlayerId, opponentId, board) {
   let score = 0;
-  const board = state.board;
   const rows = state.rows;
   const cols = state.columns;
 
@@ -464,9 +503,8 @@ function evaluateBoardWindows(state, aiPlayerId, opponentId) {
   return score;
 }
 
-function evaluateThreatPressure(state, aiPlayerId, opponentId) {
+function evaluateThreatPressure(state, aiPlayerId, opponentId, board) {
   let score = 0;
-  const board = state.board;
   const rows = state.rows;
   const cols = state.columns;
 

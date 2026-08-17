@@ -13,7 +13,14 @@
 //   node tools/bench.mjs --games 100
 import { createInitialState, enterShopPhase, restoreState, startRoundFromShop } from "../core/gameState.js";
 import { runAiShopForSide, runAiStep } from "./aiController.js";
-import { setEvaluationMode } from "./minimax.js";
+import { setEvaluationMode, setHagalzAwareness } from "./minimax.js";
+
+// Both sides share one module, so every switch has to be flipped before each
+// side moves rather than once per run.
+function applyEvaluationFlags(config) {
+  setEvaluationMode(config.legacyEval);
+  setHagalzAwareness(!config.noHagalz);
+}
 
 function playGame(configA, configB, seed) {
   // Same seed for both sides of a pairing: identical bags and shop offers, so
@@ -28,7 +35,7 @@ function playGame(configA, configB, seed) {
 
     if (state.phase === "shop") {
       for (const seat of [1, 2]) {
-        setEvaluationMode(configs[seat].legacyEval);
+        applyEvaluationFlags(configs[seat]);
         runAiShopForSide(state, seat);
       }
       if (startRoundFromShop(state).error) {
@@ -39,7 +46,7 @@ function playGame(configA, configB, seed) {
 
     const actor = state.pendingAction?.playerId ?? state.currentPlayer;
     const config = configs[actor] || configA;
-    setEvaluationMode(config.legacyEval);
+    applyEvaluationFlags(config);
 
     const before = `${state.turnNumber}:${state.phase}:${Boolean(state.pendingAction)}`;
     // Spread the whole config so engine-specific knobs (timeBudgetMs,

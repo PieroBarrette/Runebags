@@ -463,6 +463,19 @@ body[data-theme="dark"] .home-rune-icon {
   font: inherit;
 }
 
+/* Spans the whole config grid rather than taking a single cell in it.
+   No display rule here on purpose, so the hidden attribute still works. */
+.ai-depth-note {
+  grid-column: 1 / -1;
+  margin: 0.15rem 0 0;
+  color: var(--text-soft);
+  font-size: 0.85rem;
+  line-height: 1.35;
+  text-align: center;
+  max-width: 34rem;
+  justify-self: center;
+}
+
 .menu-actions.compact {
   justify-content: flex-start;
 }

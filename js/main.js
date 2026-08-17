@@ -18,6 +18,7 @@ import {
   startRoundFromShop,
 } from "./core/gameState.js";
 import {
+  EXPERT_LEVEL,
   createAiConfig,
   getAiThinkingText,
   runAiShopForSide,
@@ -124,6 +125,7 @@ const elements = {
   menuAiBtn: document.getElementById("menu-ai-btn"),
   aiSideSelect: document.getElementById("ai-side-select"),
   aiDepthSelect: document.getElementById("ai-depth-select"),
+  aiDepthNote: document.getElementById("ai-depth-note"),
   aiPanel: document.getElementById("ai-panel"),
   aiContinueBtn: document.getElementById("ai-continue-btn"),
   aiStartBtn: document.getElementById("ai-start-btn"),
@@ -662,6 +664,8 @@ function bindEvents() {
     enterGameScreen("local");
     render();
   });
+
+  elements.aiDepthSelect.addEventListener("change", updateAiDepthNote);
 
   elements.aiBackBtn.addEventListener("click", () => {
     showMainMenu();
@@ -2944,6 +2948,16 @@ function showMainMenu() {
   music.setContext("menu");
 }
 
+// Expert is not "level 4 but more" — it is a different search that gives up
+// seeing your hand, which is worth saying out loud rather than leaving players
+// to guess why it feels unlike the others.
+function updateAiDepthNote() {
+  if (!elements.aiDepthNote) {
+    return;
+  }
+  elements.aiDepthNote.hidden = Number(elements.aiDepthSelect.value) < EXPERT_LEVEL;
+}
+
 function showAiPanel() {
   elements.mainMenu.hidden = true;
   elements.aiPanel.hidden = false;
@@ -2962,6 +2976,7 @@ function showAiPanel() {
   if (savedAi?.ai?.depth) {
     elements.aiDepthSelect.value = String(savedAi.ai.depth);
   }
+  updateAiDepthNote();
   // The AI menu is now the only way back into a solo game, so make the button
   // read as the primary action whenever there is something to continue.
   const canContinue = isResumableSave(savedAi?.state);
