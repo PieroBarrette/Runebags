@@ -319,14 +319,40 @@ export function getPlayerStatsByGuestId(guestId) {
   });
 }
 
+export function getPlayerPublicById(playerRowId) {
+  if (!playerRowId) {
+    return null;
+  }
+  return guard(null, (database) =>
+    publicPlayer(database.prepare(`${PLAYER_WITH_HANDLE} WHERE p.id = ?`).get(Number(playerRowId))));
+}
+
 // Rating first — the old "most wins" order rewarded whoever played most, which
 // a rematch loop could farm. Only rated players appear.
-export function getLeaderboard(limit = 20) {
+//
+// Paged, because a ladder people are meant to climb has to be walkable past the
+// top twenty. The tie-break is by id so the ordering is total: without it, two
+// players on the same rating and game count could swap places between pages and
+// appear twice, or not at all.
+export function getLeaderboard(limit = 20, offset = 0) {
   return guard([], (database) =>
     database
-      .prepare(`${PLAYER_WITH_HANDLE} WHERE p.ranked_games > 0 ORDER BY p.rating DESC, p.ranked_games DESC LIMIT ?`)
-      .all(Math.min(Math.max(Number(limit) || 20, 1), 50))
+      .prepare(`
+        ${PLAYER_WITH_HANDLE}
+        WHERE p.ranked_games > 0
+        ORDER BY p.rating DESC, p.ranked_games DESC, p.id ASC
+        LIMIT ? OFFSET ?
+      `)
+      .all(
+        Math.min(Math.max(Number(limit) || 20, 1), 50),
+        Math.max(Number(offset) || 0, 0),
+      )
       .map(publicPlayer));
+}
+
+export function countRankedPlayers() {
+  return guard(0, (database) =>
+    database.prepare("SELECT COUNT(*) AS n FROM players WHERE ranked_games > 0").get()?.n || 0);
 }
 
 // Prefix search over claimed handles only — a guest's free-text display name is
@@ -364,6 +390,13 @@ export function getPlayerRank(playerRowId) {
     return null;
   }
   return guard(null, (database) => {
+    // Someone who has never played a ranked game is not on the ladder and has
+    // no rank. Counting who outrates them returned 1st place for a brand new
+    // account on an empty ladder, which read as a trophy for signing up.
+    const self = database.prepare("SELECT ranked_games FROM players WHERE id = ?").get(Number(playerRowId));
+    if (!self || self.ranked_games <= 0) {
+      return null;
+    }
     const row = database
       .prepare(`
         SELECT COUNT(*) + 1 AS rank FROM players

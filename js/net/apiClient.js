@@ -97,6 +97,21 @@ export async function fetchLeaderboard(limit = 10) {
   return data?.players || [];
 }
 
+// The paged form, for the ranking screen: carries the total and the viewer's
+// own rank so the page can say "you are 34th of 210" and jump there.
+export async function fetchLeaderboardPage(limit = 25, offset = 0) {
+  const data = await getJson(
+    `/api/leaderboard?limit=${encodeURIComponent(limit)}&offset=${encodeURIComponent(offset)}`,
+    { auth: true },
+  );
+  return {
+    players: data?.players || [],
+    offset: data?.offset ?? offset,
+    total: data?.total ?? 0,
+    yourRank: data?.yourRank ?? null,
+  };
+}
+
 export async function fetchMyServerStats() {
   const data = await getJson("/api/me/stats", { auth: true });
   return data?.stats || null;
@@ -170,12 +185,18 @@ export async function verifyLogin(token, identity = {}) {
   return null;
 }
 
+// Returns the user with their ladder standing folded in, so the account chip
+// can show a handle and a rating from a single call. Callers that only want the
+// handle keep working — the user's own fields stay at the top level.
 export async function fetchAccount() {
   if (!getSessionToken()) {
     return null;
   }
   const data = await getJson("/api/auth/me");
-  return data?.user || null;
+  if (!data?.user) {
+    return null;
+  }
+  return { ...data.user, player: data.player || null, rank: data.rank || null };
 }
 
 export function claimHandle(handle) {

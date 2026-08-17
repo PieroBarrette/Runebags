@@ -40,6 +40,7 @@ import {
   claimHandle,
   fetchAccount,
   fetchLeaderboard,
+  fetchLeaderboardPage,
   fetchMyGames,
   fetchMyServerStats,
   fetchOngoingRooms,
@@ -173,6 +174,48 @@ const elements = {
   onlineMyStats: document.getElementById("online-my-stats"),
   accountSignedOut: document.getElementById("account-signed-out"),
   accountSignedIn: document.getElementById("account-signed-in"),
+  accountChipHost: document.getElementById("account-chip-host"),
+  accountChip: document.getElementById("account-chip"),
+  accountChipAvatar: document.getElementById("account-chip-avatar"),
+  accountChipName: document.getElementById("account-chip-name"),
+  accountChipRating: document.getElementById("account-chip-rating"),
+  accountChipBadge: document.getElementById("account-chip-badge"),
+  accountMenu: document.getElementById("account-menu"),
+  accountMenuProfile: document.getElementById("account-menu-profile"),
+  accountMenuRanking: document.getElementById("account-menu-ranking"),
+  accountMenuChallenges: document.getElementById("account-menu-challenges"),
+  accountMenuBadge: document.getElementById("account-menu-badge"),
+  accountMenuStats: document.getElementById("account-menu-stats"),
+  accountMenuSignOut: document.getElementById("account-menu-signout"),
+  signinOverlay: document.getElementById("signin-overlay"),
+  signinForm: document.getElementById("signin-form"),
+  signinEmail: document.getElementById("signin-email"),
+  signinSubmit: document.getElementById("signin-submit"),
+  signinStatus: document.getElementById("signin-status"),
+  signinResend: document.getElementById("signin-resend"),
+  signinClose: document.getElementById("signin-close"),
+  menuRankingBtn: document.getElementById("menu-ranking-btn"),
+  rankingPanel: document.getElementById("ranking-panel"),
+  rankingSummary: document.getElementById("ranking-summary"),
+  rankingMineBtn: document.getElementById("ranking-mine-btn"),
+  rankingEmpty: document.getElementById("ranking-empty"),
+  rankingList: document.getElementById("ranking-list"),
+  rankingPrevBtn: document.getElementById("ranking-prev-btn"),
+  rankingNextBtn: document.getElementById("ranking-next-btn"),
+  rankingBackBtn: document.getElementById("ranking-back-btn"),
+  challengesPanel: document.getElementById("challenges-panel"),
+  challengesOnlineList: document.getElementById("challenges-online-list"),
+  challengesOnlineEmpty: document.getElementById("challenges-online-empty"),
+  challengesIncomingList: document.getElementById("challenges-incoming-list"),
+  challengesIncomingEmpty: document.getElementById("challenges-incoming-empty"),
+  challengesOutgoingList: document.getElementById("challenges-outgoing-list"),
+  challengesOutgoingEmpty: document.getElementById("challenges-outgoing-empty"),
+  challengesBackBtn: document.getElementById("challenges-back-btn"),
+  p1Rating: document.getElementById("p1-rating"),
+  p2Rating: document.getElementById("p2-rating"),
+  endgameRating: document.getElementById("endgame-rating"),
+  endgameGuestNudge: document.getElementById("endgame-guest-nudge"),
+  endgameSignInBtn: document.getElementById("endgame-signin-btn"),
   accountEmail: document.getElementById("account-email"),
   accountSendBtn: document.getElementById("account-send-btn"),
   accountSent: document.getElementById("account-sent"),
@@ -354,6 +397,17 @@ let deferredInstallPrompt = null;
 let activeRoomCode = null;
 let waitingRoomState = createWaitingRoomState();
 let onlinePresenceCount = 0;
+// Set by the server's rating_update when a ranked game ends; cleared whenever a
+// new game starts so last game's result never decorates this one.
+let lastRatingUpdate = null;
+// These four are declared up here with the rest of the module state, not beside
+// the functions that use them: boot reaches refreshAccount long before the
+// bottom of this file has evaluated, and a `let` down there is still in its
+// temporal dead zone when it does.
+let currentAccount = null;
+let pendingChallengeCount = 0;
+let playersOnline = [];
+let rankingOffset = 0;
 let rematchStatus = { youRequested: false, opponentRequested: false };
 const aiConfig = createAiConfig();
 const online = createOnlineController();
@@ -450,6 +504,7 @@ function wireOnlineEvents() {
         queuePosition: 0,
         playerNames: snapshot.playerNames || waitingRoomState.playerNames,
         playerAvatars: snapshot.playerAvatars || waitingRoomState.playerAvatars,
+    playerRatings: snapshot.playerRatings || waitingRoomState.playerRatings,
         yourName: snapshot.youName || waitingRoomState.yourName,
         opponentName: snapshot.opponentName || waitingRoomState.opponentName,
         youReady: snapshot.youReady,
@@ -565,7 +620,18 @@ function wireOnlineEvents() {
     },
     presence: (info) => {
       onlinePresenceCount = Math.max(0, Number(info?.count) || 0);
+      playersOnline = Array.isArray(info?.players) ? info.players : [];
       updatePresenceUI();
+      if (elements.challengesPanel && !elements.challengesPanel.hidden) {
+        renderOnlineNowList();
+      }
+    },
+    ratingUpdate: (info) => {
+      // Stash it for the endgame overlay, and refresh the chip so the new
+      // rating is visible the moment the player leaves the board.
+      lastRatingUpdate = info;
+      updateEndgameRating();
+      refreshAccount();
     },
     challenge: (info) => {
       // Arrives while connected; an absent player gets a push instead.
@@ -1911,6 +1977,8 @@ function renderEndgameOverlay() {
       elements.endgameRematchStatus.hidden = true;
       elements.endgameRematchStatus.textContent = "";
     }
+    // A new game is under way: last game's rating line must not linger.
+    lastRatingUpdate = null;
     elements.endgameOverlay.hidden = true;
     return;
   }
@@ -1945,6 +2013,7 @@ function renderEndgameOverlay() {
     : tp("stats.gamesPlayed", stats.totals.gamesPlayed);
 
   updateEndgameRematchUI();
+  updateEndgameRating();
 
   elements.endgameOverlay.hidden = endgameOverlayDismissed;
   if (!endgameOverlayDismissed) {
@@ -2403,6 +2472,215 @@ async function renderChallenges() {
     elements.onlineChallengesList.appendChild(card);
   });
   elements.onlineChallenges.hidden = false;
+}
+
+// The ladder line on the result screen: either what the game moved, or — for a
+// guest who just played online — what it would have moved had they been signed
+// in. Both are hidden outside an online game.
+function updateEndgameRating() {
+  if (!elements.endgameRating || !elements.endgameGuestNudge) {
+    return;
+  }
+
+  if (lastRatingUpdate) {
+    const { before, after, delta } = lastRatingUpdate;
+    elements.endgameRating.hidden = false;
+    elements.endgameRating.textContent = `${t("endgame.ratingChange", { before, after })}  ${
+      delta >= 0 ? t("endgame.ratingUp", { delta }) : t("endgame.ratingDown", { delta })
+    }`;
+    elements.endgameRating.classList.toggle("is-up", delta > 0);
+    elements.endgameRating.classList.toggle("is-down", delta < 0);
+    elements.endgameGuestNudge.hidden = true;
+    return;
+  }
+
+  elements.endgameRating.hidden = true;
+  // Only nag after a real online game, and only someone who could act on it.
+  elements.endgameGuestNudge.hidden = Boolean(currentAccount) || !online.isOnlineActive();
+}
+
+/* ------------------------------------------------------- world ranking */
+
+const RANKING_PAGE_SIZE = 25;
+let rankingTotal = 0;
+
+async function renderRanking(offset = 0) {
+  if (!elements.rankingList) {
+    return;
+  }
+
+  const page = await fetchLeaderboardPage(RANKING_PAGE_SIZE, Math.max(0, offset));
+  rankingOffset = page.offset;
+  rankingTotal = page.total;
+
+  elements.rankingList.innerHTML = "";
+  elements.rankingEmpty.hidden = page.players.length > 0;
+
+  page.players.forEach((player, index) => {
+    // Rank is derived from the page position rather than fetched per row: the
+    // list is already in rating order, so the arithmetic is exact and free.
+    const row = buildPlayerRow(player, rankingOffset + index + 1);
+    if (currentAccount?.handle && player.handle === currentAccount.handle) {
+      row.classList.add("is-you");
+    }
+    appendChallengeButton(row, player);
+    elements.rankingList.appendChild(row);
+  });
+
+  elements.rankingSummary.textContent = page.yourRank
+    ? t("ranking.summaryWithRank", { total: rankingTotal, rank: page.yourRank })
+    : t("ranking.summary", { total: rankingTotal });
+
+  elements.rankingMineBtn.hidden = !page.yourRank;
+  elements.rankingPrevBtn.disabled = rankingOffset <= 0;
+  elements.rankingNextBtn.disabled = rankingOffset + RANKING_PAGE_SIZE >= rankingTotal;
+}
+
+// Challenging from the ladder is the whole point of being able to see it.
+function appendChallengeButton(row, player) {
+  if (!player.handle || !currentAccount?.handle || player.handle === currentAccount.handle) {
+    return;
+  }
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "menu-btn secondary challenge-inline-btn";
+  button.textContent = t("challenge.send");
+  button.addEventListener("click", (event) => {
+    // The row itself opens a profile; a button inside it must not do both.
+    event.stopPropagation();
+    challengePlayer(player.handle, button);
+  });
+  row.appendChild(button);
+}
+
+async function challengePlayer(handle, button) {
+  if (button) {
+    button.disabled = true;
+  }
+  const result = await sendChallenge(handle, true);
+  if (button) {
+    button.disabled = false;
+  }
+
+  if (result?.ok) {
+    showToast(t("challenge.sentTo", { player: handle }));
+    refreshChallengeBadge();
+    return;
+  }
+  showToast(result?.status === 409 ? t("challenge.alreadyPending") : t("challenge.failed"));
+}
+
+/* ---------------------------------------------------- challenges screen */
+
+// playersOnline is filled by the presence broadcast; see the module state above.
+function renderOnlineNowList() {
+  if (!elements.challengesOnlineList) {
+    return;
+  }
+
+  const others = playersOnline.filter((p) => p.handle !== currentAccount?.handle);
+  elements.challengesOnlineList.innerHTML = "";
+  elements.challengesOnlineEmpty.hidden = others.length > 0;
+
+  others.forEach((player) => {
+    const row = buildPlayerRow({ ...player, name: player.handle }, null);
+    appendChallengeButton(row, player);
+    elements.challengesOnlineList.appendChild(row);
+  });
+}
+
+async function renderChallengesPanel() {
+  renderOnlineNowList();
+  if (!elements.challengesIncomingList) {
+    return;
+  }
+
+  const challenges = await fetchChallenges();
+  const incoming = challenges.filter((c) => !c.outgoing && c.status !== "declined");
+  const outgoing = challenges.filter((c) => c.outgoing && c.status !== "declined");
+
+  fillChallengeList(elements.challengesIncomingList, elements.challengesIncomingEmpty, incoming);
+  fillChallengeList(elements.challengesOutgoingList, elements.challengesOutgoingEmpty, outgoing);
+
+  pendingChallengeCount = incoming.filter((c) => c.status === "pending").length;
+  renderChallengeBadge();
+}
+
+function fillChallengeList(list, empty, challenges) {
+  list.innerHTML = "";
+  empty.hidden = challenges.length > 0;
+
+  challenges.forEach((challenge) => {
+    const item = document.createElement("li");
+    item.className = "challenge-row";
+
+    const who = document.createElement("span");
+    who.className = "challenge-row-name";
+    who.textContent = challenge.opponent?.handle || "?";
+    item.appendChild(who);
+
+    const kind = document.createElement("span");
+    kind.className = "challenge-row-meta";
+    kind.textContent = [
+      challenge.ranked ? t("challenge.ranked") : t("challenge.casual"),
+      formatChallengeExpiry(challenge.expiresAt),
+    ].filter(Boolean).join(" · ");
+    item.appendChild(kind);
+
+    const actions = document.createElement("span");
+    actions.className = "challenge-actions";
+
+    if (challenge.status === "accepted" && challenge.roomCode) {
+      actions.appendChild(challengeButton("primary", t("challenge.join"), () =>
+        resumeOnlineRoom(challenge.roomCode)));
+    } else if (challenge.outgoing) {
+      actions.appendChild(challengeButton("secondary", t("challenge.cancel"), async () => {
+        await declineChallenge(challenge.id);
+        renderChallengesPanel();
+      }));
+    } else {
+      actions.appendChild(challengeButton("primary", t("challenge.accept"), async (button) => {
+        button.disabled = true;
+        const result = await acceptChallenge(challenge.id);
+        if (result?.ok && result.data?.roomCode) {
+          resumeOnlineRoom(result.data.roomCode);
+          return;
+        }
+        button.disabled = false;
+        showToast(t("challenge.failed"));
+        renderChallengesPanel();
+      }));
+      actions.appendChild(challengeButton("secondary", t("challenge.decline"), async () => {
+        await declineChallenge(challenge.id);
+        renderChallengesPanel();
+      }));
+    }
+
+    item.appendChild(actions);
+    list.appendChild(item);
+  });
+}
+
+function challengeButton(variant, label, onClick) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = `menu-btn ${variant}`;
+  button.textContent = label;
+  button.addEventListener("click", () => onClick(button));
+  return button;
+}
+
+// A challenge dies after 48 hours, so say how long is left rather than printing
+// a timestamp nobody can subtract in their head.
+function formatChallengeExpiry(expiresAt) {
+  const remaining = Number(expiresAt) - Date.now();
+  if (!Number.isFinite(remaining) || remaining <= 0) {
+    return t("challenge.expired");
+  }
+  const hours = Math.floor(remaining / 3600000);
+  return hours >= 1
+    ? t("challenge.expiresHours", { hours })
+    : t("challenge.expiresMinutes", { minutes: Math.max(1, Math.round(remaining / 60000)) });
 }
 
 // Your own finished games — same rows a public profile shows.
@@ -2935,16 +3213,47 @@ function initializeEntryMode() {
   showMainMenu();
 }
 
+// Every screen in the shell, in one place.
+//
+// Each show* function used to hide the other seven by hand, so adding a screen
+// meant editing eight functions and any one of them missed left two panels
+// stacked on top of each other. It has happened. Now there is one list, and
+// showScreen hides everything not named.
+// A function declaration, not a const object: boot calls showScreen before this
+// point in the file is reached, and a const would still be in its temporal dead
+// zone. Function declarations hoist; consts do not.
+function screenElements() {
+  return {
+    menu: elements.mainMenu,
+    ai: elements.aiPanel,
+    settings: elements.settingsPanel,
+    stats: elements.statsPanel,
+    replay: elements.replayPanel,
+    profile: elements.profilePanel,
+    online: elements.onlinePanel,
+    rules: elements.rulesPanel,
+    ranking: elements.rankingPanel,
+    challenges: elements.challengesPanel,
+    game: elements.gameScreen,
+  };
+}
+
+function showScreen(name) {
+  for (const [key, element] of Object.entries(screenElements())) {
+    if (element) {
+      element.hidden = key !== name;
+    }
+  }
+  // The chip would sit on top of the in-game top bar, and during a game the
+  // player panels already carry the rating.
+  if (elements.accountChipHost) {
+    elements.accountChipHost.hidden = name === "game";
+  }
+  setAccountMenuOpen(false);
+}
+
 function showMainMenu() {
-  elements.mainMenu.hidden = false;
-  elements.aiPanel.hidden = true;
-  elements.settingsPanel.hidden = true;
-  elements.statsPanel.hidden = true;
-  elements.replayPanel.hidden = true;
-  elements.profilePanel.hidden = true;
-  elements.onlinePanel.hidden = true;
-  elements.rulesPanel.hidden = true;
-  elements.gameScreen.hidden = true;
+  showScreen("menu");
   music.setContext("menu");
 }
 
@@ -2959,15 +3268,7 @@ function updateAiDepthNote() {
 }
 
 function showAiPanel() {
-  elements.mainMenu.hidden = true;
-  elements.aiPanel.hidden = false;
-  elements.settingsPanel.hidden = true;
-  elements.statsPanel.hidden = true;
-  elements.replayPanel.hidden = true;
-  elements.profilePanel.hidden = true;
-  elements.onlinePanel.hidden = true;
-  elements.rulesPanel.hidden = true;
-  elements.gameScreen.hidden = true;
+  showScreen("ai");
 
   const savedAi = loadModeSave(MODE_AI);
   if (savedAi?.ai?.playerId) {
@@ -2985,15 +3286,7 @@ function showAiPanel() {
 }
 
 function showOnlinePanel() {
-  elements.mainMenu.hidden = true;
-  elements.aiPanel.hidden = true;
-  elements.settingsPanel.hidden = true;
-  elements.statsPanel.hidden = true;
-  elements.replayPanel.hidden = true;
-  elements.profilePanel.hidden = true;
-  elements.onlinePanel.hidden = false;
-  elements.rulesPanel.hidden = true;
-  elements.gameScreen.hidden = true;
+  showScreen("online");
   applyAccountIdentity();
   if (activeRoomCode && /^[A-Z2-9]{6}$/.test(activeRoomCode)) {
     elements.onlineJoinCode.value = activeRoomCode;
@@ -3018,39 +3311,15 @@ function showOnlineLobbyStep() {
 }
 
 function showRulesPanel() {
-  elements.mainMenu.hidden = true;
-  elements.aiPanel.hidden = true;
-  elements.settingsPanel.hidden = true;
-  elements.statsPanel.hidden = true;
-  elements.replayPanel.hidden = true;
-  elements.profilePanel.hidden = true;
-  elements.onlinePanel.hidden = true;
-  elements.rulesPanel.hidden = false;
-  elements.gameScreen.hidden = true;
+  showScreen("rules");
 }
 
 function showSettingsPanel() {
-  elements.mainMenu.hidden = true;
-  elements.aiPanel.hidden = true;
-  elements.settingsPanel.hidden = false;
-  elements.statsPanel.hidden = true;
-  elements.replayPanel.hidden = true;
-  elements.profilePanel.hidden = true;
-  elements.onlinePanel.hidden = true;
-  elements.rulesPanel.hidden = true;
-  elements.gameScreen.hidden = true;
+  showScreen("settings");
 }
 
 function showStatsPanel() {
-  elements.mainMenu.hidden = true;
-  elements.aiPanel.hidden = true;
-  elements.settingsPanel.hidden = true;
-  elements.statsPanel.hidden = false;
-  elements.replayPanel.hidden = true;
-  elements.profilePanel.hidden = true;
-  elements.onlinePanel.hidden = true;
-  elements.rulesPanel.hidden = true;
-  elements.gameScreen.hidden = true;
+  showScreen("stats");
   renderStatsPanel();
   renderStatsServerRecord();
   renderStatsHistory();
@@ -3058,41 +3327,34 @@ function showStatsPanel() {
 }
 
 function showProfilePanel(handle) {
-  elements.mainMenu.hidden = true;
-  elements.aiPanel.hidden = true;
-  elements.settingsPanel.hidden = true;
-  elements.statsPanel.hidden = true;
-  elements.replayPanel.hidden = true;
-  elements.profilePanel.hidden = false;
-  elements.onlinePanel.hidden = true;
-  elements.rulesPanel.hidden = true;
-  elements.gameScreen.hidden = true;
+  showScreen("profile");
   renderProfile(handle);
 }
 
+function openProfile(handle) {
+  showProfilePanel(handle);
+}
+
+function showRankingPanel() {
+  showScreen("ranking");
+  renderRanking(0);
+}
+
+function showChallengesPanel() {
+  showScreen("challenges");
+  renderChallengesPanel();
+}
+
 function showReplayPanel(gameId) {
-  elements.mainMenu.hidden = true;
-  elements.aiPanel.hidden = true;
-  elements.settingsPanel.hidden = true;
-  elements.statsPanel.hidden = true;
-  elements.profilePanel.hidden = true;
-  elements.onlinePanel.hidden = true;
-  elements.rulesPanel.hidden = true;
-  elements.gameScreen.hidden = true;
-  // open() reveals the panel itself once the recording has loaded.
+  showScreen("replay");
+  // The panel hides itself again until the recording has loaded; open() is what
+  // reveals it.
+  elements.replayPanel.hidden = true;
   replay.open(gameId);
 }
 
 function enterGameScreen(mode, roomCode = null) {
-  elements.mainMenu.hidden = true;
-  elements.aiPanel.hidden = true;
-  elements.settingsPanel.hidden = true;
-  elements.statsPanel.hidden = true;
-  elements.replayPanel.hidden = true;
-  elements.profilePanel.hidden = true;
-  elements.onlinePanel.hidden = true;
-  elements.rulesPanel.hidden = true;
-  elements.gameScreen.hidden = false;
+  showScreen("game");
 
   if (mode === "online" && roomCode) {
     applyRoomQuery(roomCode);
@@ -3219,6 +3481,7 @@ function createWaitingRoomState() {
     queuePosition: 0,
     playerNames: null,
     playerAvatars: null,
+    playerRatings: null,
     yourName: "",
     opponentName: "",
     youReady: false,
@@ -3253,6 +3516,7 @@ function applyOnlineStateSnapshot(snapshot) {
     ...waitingRoomState,
     playerNames: snapshot.playerNames || waitingRoomState.playerNames,
     playerAvatars: snapshot.playerAvatars || waitingRoomState.playerAvatars,
+    playerRatings: snapshot.playerRatings || waitingRoomState.playerRatings,
     shopReadyYou: Boolean(snapshot.shopSync?.youReady),
     shopReadyOpponent: Boolean(snapshot.shopSync?.opponentReady),
   };
@@ -3563,6 +3827,23 @@ function updateInGameAvatars() {
     el.hidden = !avatar;
     if (avatar) {
       renderAvatarChip(el, avatar);
+    }
+  });
+  updateInGameRatings();
+}
+
+// Ratings beside the names, but only in a ranked game — the server sends null
+// for a friendly room, where showing them would imply something is at stake.
+function updateInGameRatings() {
+  const ratings = online.isOnlineActive() ? waitingRoomState.playerRatings : null;
+  [[1, elements.p1Rating], [2, elements.p2Rating]].forEach(([playerId, el]) => {
+    if (!el) {
+      return;
+    }
+    const rating = ratings?.[playerId];
+    el.hidden = !Number.isFinite(rating);
+    if (Number.isFinite(rating)) {
+      el.textContent = t("lb.rating", { rating });
     }
   });
 }
@@ -3900,9 +4181,12 @@ function initializeLanguage() {
   applyTranslations();
 }
 
-let currentAccount = null;
-
 function renderAccount() {
+  // The chip is redrawn from here rather than from each caller: signing in and
+  // claiming a handle both set currentAccount directly, and both used to leave
+  // the chip still reading "Sign in" afterwards.
+  renderAccountChip();
+
   if (!elements.accountSignedOut || !elements.accountSignedIn) {
     return;
   }
@@ -3925,6 +4209,145 @@ async function refreshAccount() {
   currentAccount = await fetchAccount();
   renderAccount();
   applyAccountIdentity();
+  refreshChallengeBadge();
+}
+
+/* ------------------------------------------------------- the account chip */
+
+// The chip is the only always-visible piece of account UI, so it carries the
+// two things a ladder player wants at a glance — who they are and where they
+// stand — plus a badge for anything waiting on them.
+function renderAccountChip() {
+  if (!elements.accountChip) {
+    return;
+  }
+
+  const handle = currentAccount?.handle || null;
+  const rating = currentAccount?.player?.rating ?? null;
+  const rankedGames = currentAccount?.player?.rankedGames ?? 0;
+
+  if (!currentAccount) {
+    elements.accountChipName.textContent = t("account.signIn");
+    elements.accountChipRating.hidden = true;
+    elements.accountChipAvatar.textContent = "ᚱ";
+    return;
+  }
+
+  elements.accountChipName.textContent = handle || t("account.guestChip");
+  // An unrated account has a rating on paper but it means nothing yet, so show
+  // the rank only once there is a real one behind it.
+  if (rating !== null && rankedGames > 0) {
+    elements.accountChipRating.hidden = false;
+    elements.accountChipRating.textContent = currentAccount.rank
+      ? t("account.chipRanked", { rating, rank: currentAccount.rank })
+      : t("account.chipRating", { rating });
+  } else {
+    elements.accountChipRating.hidden = false;
+    elements.accountChipRating.textContent = t("account.chipUnranked");
+  }
+  elements.accountChipAvatar.textContent = (handle || "?").slice(0, 1).toUpperCase();
+}
+
+function setAccountMenuOpen(open) {
+  if (!elements.accountMenu) {
+    return;
+  }
+  elements.accountMenu.hidden = !open;
+  elements.accountChip.setAttribute("aria-expanded", open ? "true" : "false");
+}
+
+// Signed out, the chip is a sign-in button and nothing else — a menu of things
+// that all require an account would just be a list of dead ends.
+function onAccountChipClick() {
+  if (!currentAccount) {
+    openSignIn();
+    return;
+  }
+  setAccountMenuOpen(elements.accountMenu.hidden);
+}
+
+async function refreshChallengeBadge() {
+  pendingChallengeCount = 0;
+  if (currentAccount) {
+    const challenges = await fetchChallenges();
+    // Only the ones actually waiting on this player: an outgoing challenge is
+    // waiting on somebody else and should not sit there nagging.
+    pendingChallengeCount = challenges.filter((c) => c.status === "pending" && !c.outgoing).length;
+  }
+  renderChallengeBadge();
+}
+
+function renderChallengeBadge() {
+  const show = pendingChallengeCount > 0;
+  for (const badge of [elements.accountChipBadge, elements.accountMenuBadge]) {
+    if (!badge) {
+      continue;
+    }
+    badge.hidden = !show;
+    badge.textContent = String(pendingChallengeCount);
+  }
+}
+
+/* ------------------------------------------------------------- sign-in UI */
+
+const SIGNIN_EMAIL_KEY = "runebags-signin-email-v1";
+
+function openSignIn() {
+  if (!elements.signinOverlay) {
+    return;
+  }
+  setAccountMenuOpen(false);
+  elements.signinStatus.hidden = true;
+  elements.signinResend.hidden = true;
+  // Returning players should not have to remember which address they used.
+  try {
+    elements.signinEmail.value = localStorage.getItem(SIGNIN_EMAIL_KEY) || "";
+  } catch {
+    /* private mode: just start empty */
+  }
+  elements.signinOverlay.hidden = false;
+  elements.signinEmail.focus();
+}
+
+function closeSignIn() {
+  if (elements.signinOverlay) {
+    elements.signinOverlay.hidden = true;
+  }
+}
+
+function setSignInStatus(message, kind) {
+  elements.signinStatus.hidden = false;
+  elements.signinStatus.textContent = message;
+  elements.signinStatus.classList.toggle("is-error", kind === "error");
+  elements.signinStatus.classList.toggle("is-sent", kind === "sent");
+}
+
+async function submitSignIn() {
+  const email = elements.signinEmail.value.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    setSignInStatus(t("account.badEmail"), "error");
+    return;
+  }
+
+  elements.signinSubmit.disabled = true;
+  setSignInStatus(t("account.sending"), null);
+  const result = await requestLoginLink(email, getLang());
+  elements.signinSubmit.disabled = false;
+
+  if (!result?.ok) {
+    setSignInStatus(t("account.sendFailed"), "error");
+    return;
+  }
+
+  try {
+    localStorage.setItem(SIGNIN_EMAIL_KEY, email);
+  } catch {
+    /* private mode: the address just will not be remembered */
+  }
+  // The server answers identically for known and unknown addresses, so this
+  // wording must not imply an account exists either.
+  setSignInStatus(t("account.linkSent", { email }), "sent");
+  elements.signinResend.hidden = false;
 }
 
 // A claimed handle IS the player's online identity — it is what the leaderboard
@@ -3973,9 +4396,9 @@ async function consumeLoginLinkFromUrl() {
     return;
   }
 
-  currentAccount = user;
-  renderAccount();
-  applyAccountIdentity();
+  // Same reason as the handle claim: verifyLogin returns the user without a
+  // rating or rank, so fetch the full picture the chip needs.
+  await refreshAccount();
   showToast(user.handle ? t("account.welcomeBack") : t("account.pickHandle"));
   if (!user.handle) {
     showSettingsPanel();
@@ -4015,11 +4438,11 @@ function bindAccountEvents() {
     elements.accountHandleBtn.disabled = false;
 
     if (result?.ok && result.data?.user) {
-      currentAccount = result.data.user;
       elements.accountHandleHint.hidden = true;
-      renderAccount();
-      applyAccountIdentity();
-      showToast(t("account.handleClaimed", { handle: currentAccount.handle }));
+      // Refetch rather than assigning the returned user: that payload has no
+      // rating or rank on it, and the chip would lose them.
+      await refreshAccount();
+      showToast(t("account.handleClaimed", { handle: result.data.user.handle }));
       return;
     }
 
@@ -4029,12 +4452,101 @@ function bindAccountEvents() {
     elements.accountHandleHint.hidden = false;
   });
 
-  elements.accountSignOutBtn.addEventListener("click", async () => {
-    await signOut();
-    currentAccount = null;
-    renderAccount();
-    applyAccountIdentity();
-    showToast(t("account.signedOut"));
+  elements.accountSignOutBtn.addEventListener("click", handleSignOut);
+  bindAccountChipEvents();
+}
+
+async function handleSignOut() {
+  await signOut();
+  currentAccount = null;
+  setAccountMenuOpen(false);
+  renderAccount();
+  applyAccountIdentity();
+  refreshChallengeBadge();
+  showToast(t("account.signedOut"));
+}
+
+function bindAccountChipEvents() {
+  elements.accountChip?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    onAccountChipClick();
+  });
+
+  // Any click elsewhere closes the menu; without this it survives navigating to
+  // another screen and hangs over it.
+  document.addEventListener("click", (event) => {
+    if (!elements.accountMenu || elements.accountMenu.hidden) {
+      return;
+    }
+    if (!elements.accountChipHost.contains(event.target)) {
+      setAccountMenuOpen(false);
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") {
+      return;
+    }
+    setAccountMenuOpen(false);
+    if (elements.signinOverlay && !elements.signinOverlay.hidden) {
+      closeSignIn();
+    }
+  });
+
+  elements.accountMenuProfile?.addEventListener("click", () => {
+    setAccountMenuOpen(false);
+    if (currentAccount?.handle) {
+      openProfile(currentAccount.handle);
+    } else {
+      showSettingsPanel();
+      elements.accountHandle?.focus();
+    }
+  });
+
+  elements.accountMenuRanking?.addEventListener("click", () => {
+    setAccountMenuOpen(false);
+    showRankingPanel();
+  });
+
+  elements.accountMenuChallenges?.addEventListener("click", () => {
+    setAccountMenuOpen(false);
+    showChallengesPanel();
+  });
+
+  elements.accountMenuStats?.addEventListener("click", () => {
+    setAccountMenuOpen(false);
+    showStatsPanel();
+  });
+
+  elements.accountMenuSignOut?.addEventListener("click", () => {
+    setAccountMenuOpen(false);
+    handleSignOut();
+  });
+
+  elements.signinForm?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    submitSignIn();
+  });
+  elements.signinResend?.addEventListener("click", submitSignIn);
+  elements.signinClose?.addEventListener("click", closeSignIn);
+  elements.endgameSignInBtn?.addEventListener("click", openSignIn);
+
+  elements.rankingBackBtn?.addEventListener("click", showMainMenu);
+  elements.challengesBackBtn?.addEventListener("click", showMainMenu);
+  elements.menuRankingBtn?.addEventListener("click", showRankingPanel);
+
+  elements.rankingPrevBtn?.addEventListener("click", () =>
+    renderRanking(Math.max(0, rankingOffset - RANKING_PAGE_SIZE)));
+  elements.rankingNextBtn?.addEventListener("click", () =>
+    renderRanking(rankingOffset + RANKING_PAGE_SIZE));
+
+  // Land on the page holding the viewer rather than making them walk there.
+  elements.rankingMineBtn?.addEventListener("click", async () => {
+    const page = await fetchLeaderboardPage(1, 0);
+    if (!page.yourRank) {
+      return;
+    }
+    renderRanking(Math.floor((page.yourRank - 1) / RANKING_PAGE_SIZE) * RANKING_PAGE_SIZE);
   });
 }
 

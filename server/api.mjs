@@ -16,9 +16,11 @@ import {
   getGameForReplay,
   getUserByHandle,
   hasPendingChallengeBetween,
+  countRankedPlayers,
   getGamesForPlayer,
   getLeaderboard,
   getPlayerIdByGuestId,
+  getPlayerPublicById,
   getPlayerRank,
   getPlayerStatsByGuestId,
   getProfileByHandle,
@@ -71,7 +73,18 @@ export async function handleApiRequest(req, res, context) {
 
   if (req.method === "GET" && route === "/api/auth/me") {
     const user = getUserFromSession(readSessionToken(req));
-    sendJson(res, 200, { user: user ? publicUser(user) : null });
+    if (!user) {
+      sendJson(res, 200, { user: null, player: null, rank: null });
+      return;
+    }
+    // The account chip shows a handle and a rating side by side, so send both
+    // from one call rather than making every screen chase the rating separately.
+    const player = getPlayerPublicById(user.player_id);
+    sendJson(res, 200, {
+      user: publicUser(user),
+      player,
+      rank: player && player.rankedGames > 0 ? getPlayerRank(user.player_id) : null,
+    });
     return;
   }
 
@@ -186,7 +199,17 @@ export async function handleApiRequest(req, res, context) {
   }
 
   if (req.method === "GET" && route === "/api/leaderboard") {
-    sendJson(res, 200, { players: getLeaderboard(url.searchParams.get("limit")) });
+    const offset = Math.max(Number(url.searchParams.get("offset")) || 0, 0);
+    // total lets the client page without guessing where the ladder ends, and
+    // yourRank lets it jump straight to the viewer instead of scrolling.
+    const guestId = readGuestId(req, url);
+    const viewerId = guestId ? getPlayerIdByGuestId(guestId) : null;
+    sendJson(res, 200, {
+      players: getLeaderboard(url.searchParams.get("limit"), offset),
+      offset,
+      total: countRankedPlayers(),
+      yourRank: viewerId ? getPlayerRank(viewerId) : null,
+    });
     return;
   }
 

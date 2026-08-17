@@ -11,6 +11,7 @@ import {
   closeDb,
   finishGame,
   getPlayerIdByGuestId,
+  getPlayerPublicById,
   getRatingSnapshot,
   insertGame,
   insertGameAction,
@@ -372,7 +373,10 @@ function handleMessage(ws, message) {
 
   switch (message.type) {
     case "identify":
-      // Sent on connect so the lobby is reachable before joining anything.
+      // Sent on connect so the lobby is reachable before joining anything, and
+      // again after signing in — which is the moment this socket becomes a named
+      // player everyone else can see and challenge.
+      broadcastPresence();
       return;
     case "create_room":
       return onCreateRoom(ws, message);
@@ -1050,6 +1054,8 @@ function onLeaveRoom(ws) {
   }
 
   wsToSession.delete(ws);
+  // Leaving a room puts you back on the "open to challenge" list.
+  broadcastPresence();
   const room = rooms.get(session.roomCode);
   if (!room) {
     return;
@@ -1202,6 +1208,7 @@ function broadcastState(room) {
       playerId,
       playerNames: getRoomPlayerNames(room),
       playerAvatars: getRoomPlayerAvatars(room),
+      playerRatings: getRoomPlayerRatings(room),
       shopSync: getShopSyncPayload(room, playerId),
       clock: clockPayload(room),
     });
@@ -1258,11 +1265,50 @@ function connectedCount() {
   return count;
 }
 
+// Who is actually around, not just how many.
+//
+// A count tells a player the lobby is not empty; a list tells them who to
+// challenge, which is what matters when the population is small enough that
+// waiting in the quick queue can mean waiting alone. Signed-in players only —
+// a challenge is addressed to a handle, so a guest has no address to send one
+// to — and only those not already sitting in a room.
+//
+// Entirely in memory: this is presence, it is worthless a second after the
+// socket closes, and it has no business in the database.
+function listPlayersOnline() {
+  const seen = new Set();
+  const players = [];
+
+  for (const client of wss.clients) {
+    if (client.readyState !== 1 || !client.guestId || wsToSession.has(client)) {
+      continue;
+    }
+    const playerId = getPlayerIdByGuestId(client.guestId);
+    if (!playerId || seen.has(playerId)) {
+      continue; // Same account on two devices is one presence.
+    }
+    const player = getPlayerPublicById(playerId);
+    if (!player?.handle) {
+      continue;
+    }
+    seen.add(playerId);
+    players.push({
+      handle: player.handle,
+      rating: player.rating,
+      rankedGames: player.rankedGames,
+      avatar: player.avatar,
+    });
+  }
+
+  return players.sort((a, b) => b.rating - a.rating).slice(0, 30);
+}
+
 function broadcastPresence() {
   const count = connectedCount();
+  const players = listPlayersOnline();
   for (const client of wss.clients) {
     if (client.readyState === 1) {
-      send(client, { type: "presence", count });
+      send(client, { type: "presence", count, players });
     }
   }
 }
@@ -1284,6 +1330,8 @@ function attachSession(ws, roomCode, playerId, token) {
   room.players[playerId].lastSeen = Date.now();
 
   wsToSession.set(ws, { roomCode, playerId, token });
+  // Sitting in a room takes you off the "open to challenge" list.
+  broadcastPresence();
 }
 
 function createPlayerRecord(token, name, avatar = null, guestId = null) {
@@ -1422,6 +1470,23 @@ function applyRatingsIfRanked(room, seatPlayerIds, winner) {
     p1After,
     p2After,
   });
+
+  // Tell both players what the game cost or earned them. The numbers were
+  // already being written to the games row and then never shown to anybody,
+  // which is the single least rewarding way to run a ladder.
+  const before = { 1: p1.rating, 2: p2.rating };
+  const after = { 1: p1After, 2: p2After };
+  forEachPlayerConnection(room, (ws, seat) => {
+    const opponent = seat === 1 ? 2 : 1;
+    send(ws, {
+      type: "rating_update",
+      before: before[seat],
+      after: after[seat],
+      delta: after[seat] - before[seat],
+      opponentBefore: before[opponent],
+      opponentAfter: after[opponent],
+    });
+  });
 }
 
 function normalizeAvatar(value) {
@@ -1493,6 +1558,23 @@ function getRoomPlayerNames(room) {
     1: room.players[1]?.name || "Player 1",
     2: room.players[2]?.name || "Player 2",
   };
+}
+
+// Ratings for the two seats, so a ranked game can show what each player is
+// worth beside their name. Null for a guest, who has no rating to show, and
+// null throughout a friendly room, where nothing is at stake.
+function getRoomPlayerRatings(room) {
+  if (!room.ranked) {
+    return null;
+  }
+  const ratingFor = (seat) => {
+    const playerId = getPlayerIdByGuestId(room.players[seat]?.guestId);
+    if (!playerId || !isAccountPlayer(playerId)) {
+      return null;
+    }
+    return getRatingSnapshot(playerId)?.rating ?? null;
+  };
+  return { 1: ratingFor(1), 2: ratingFor(2) };
 }
 
 function getShopSyncPayload(room, playerId) {

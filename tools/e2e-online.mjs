@@ -164,6 +164,12 @@ async function signIn(email, handle, guestId) {
 
   const me = await api("/api/auth/me", { session });
   check(`${handle}: session resolves to the account`, me.body?.user?.handle === handle, `handle ${me.body?.user?.handle}`);
+  // The account chip reads a handle and a rating from this one call.
+  check(
+    `${handle}: /auth/me carries the ladder standing`,
+    me.body?.player !== undefined && me.body?.rank !== undefined && typeof me.body?.player?.rating === "number",
+    `rating ${me.body?.player?.rating}, rank ${me.body?.rank}`,
+  );
 
   return { email, handle, guestId, session };
 }
@@ -206,6 +212,8 @@ class Client {
         if (message.playerId) this.playerId = message.playerId;
       }
       if (message.type === "queue_matched") this.playerId = message.playerId;
+      if (message.type === "presence") this.presence = message;
+      if (message.type === "rating_update") this.ratingUpdate = message;
       this.messages.push(message);
       this.waiters = this.waiters.filter((waiter) => !waiter(message));
     });
@@ -379,6 +387,14 @@ async function main() {
     check("unknown address answers like a known one", enumeration.status === 200, `status ${enumeration.status}`);
   }
 
+  if (accountA) {
+    section("A brand new account is not ranked");
+    const fresh = await api("/api/auth/me", { session: accountA.session });
+    check("a player with no ranked games has no rank", fresh.body?.rank === null, `rank ${fresh.body?.rank}`);
+    const freshBoard = await api("/api/leaderboard", { guestId: guestA });
+    check("the leaderboard does not invent a rank for them either", freshBoard.body?.yourRank === null, `yourRank ${freshBoard.body?.yourRank}`);
+  }
+
   section("Ratings before the game");
   const ratingBefore = {};
   if (accountA) {
@@ -409,7 +425,13 @@ async function main() {
   await clientB.waitFor((m) => m.type === "state_snapshot");
 
   section("Clock on a ranked game");
-  const firstClock = clientA.messages.filter((m) => m.type === "state_snapshot").pop()?.clock;
+  const firstSnapshot = clientA.messages.filter((m) => m.type === "state_snapshot").pop();
+  check(
+    "ranked game carries both players' ratings for the in-game display",
+    Number.isFinite(firstSnapshot?.playerRatings?.[1]) && Number.isFinite(firstSnapshot?.playerRatings?.[2]),
+    JSON.stringify(firstSnapshot?.playerRatings),
+  );
+  const firstClock = firstSnapshot?.clock;
   check("clock present on a quick-play game", Boolean(firstClock), JSON.stringify(firstClock));
   check("clock starts at the full budget", firstClock?.budget === 600000, `budget ${firstClock?.budget}`);
   check(
@@ -429,7 +451,13 @@ async function main() {
     check("game played to completion", false, outcome.error);
   } else {
     check("game played to completion", true, `${outcome.actions} actions in ${Math.round((Date.now() - started) / 1000)}s`);
-    check("a winner was decided", Boolean(outcome.state.gameWinner), `winner ${outcome.state.gameWinner}`);
+    // A draw is a real result here — the point pool can run out level — so the
+    // check is that the game was decided, not that somebody won.
+    check(
+      "the game reached a settled result",
+      outcome.state.phase === "game-over" && (Boolean(outcome.state.gameWinner) || outcome.state.pointPoolRemaining <= 0 || outcome.state.isDraw),
+      outcome.state.gameWinner ? `winner ${outcome.state.gameWinner}` : "draw",
+    );
 
     const running = outcome.clockSamples.filter((s) => s.running);
     check("clock ran during the round", running.length > 0, `${running.length} samples with a side on move`);
@@ -445,13 +473,17 @@ async function main() {
     section("Elo applied");
     // onGameOver runs after the final broadcast; give it a moment to land.
     await sleep(500);
+    // Two equally rated players drawing legitimately move nothing, so what is
+    // checked is that the ladder responded correctly to the result that
+    // happened, not that a number changed.
+    const wasDraw = !outcome.error && !outcome.state.gameWinner;
     for (const account of [accountA, accountB]) {
       const profile = await api(`/api/profile/${account.handle}`);
       const after = profile.body?.player?.rating ?? null;
       const games = profile.body?.player?.rankedGames ?? 0;
       check(
-        `${account.handle}: rating moved`,
-        after !== null && after !== ratingBefore[account.handle],
+        wasDraw ? `${account.handle}: rating held on a draw` : `${account.handle}: rating moved`,
+        after !== null && (wasDraw ? after === ratingBefore[account.handle] : after !== ratingBefore[account.handle]),
         `${ratingBefore[account.handle]} -> ${after}`,
       );
       check(`${account.handle}: ranked game counted`, games >= 1, `${games} ranked`);
@@ -461,6 +493,34 @@ async function main() {
     const leaderboard = await api("/api/leaderboard");
     const listed = (leaderboard.body?.players || []).map((p) => p.handle);
     check("both accounts on the leaderboard", listed.includes("AliceE2E") && listed.includes("BobE2E"), listed.join(", "));
+
+    section("Ranking screen data");
+    const paged = await api("/api/leaderboard?limit=1&offset=0", { guestId: guestA });
+    check("leaderboard reports a total", typeof paged.body?.total === "number" && paged.body.total >= 2, `total ${paged.body?.total}`);
+    check("leaderboard honours the page size", (paged.body?.players || []).length === 1, `${paged.body?.players?.length} rows`);
+    check("leaderboard reports the caller's own rank", Number.isInteger(paged.body?.yourRank), `rank ${paged.body?.yourRank}`);
+
+    const secondPage = await api("/api/leaderboard?limit=1&offset=1", { guestId: guestA });
+    check("the second page is a different player", (secondPage.body?.players?.[0]?.handle || null) !== (paged.body?.players?.[0]?.handle || null),
+      `${paged.body?.players?.[0]?.handle} then ${secondPage.body?.players?.[0]?.handle}`);
+    check("offset is echoed back", secondPage.body?.offset === 1, `offset ${secondPage.body?.offset}`);
+
+    section("Rating change reaches both players");
+    check("both players were told their new rating", Boolean(clientA.ratingUpdate && clientB.ratingUpdate));
+    for (const [label, client] of [["A", clientA], ["B", clientB]]) {
+      const update = client.ratingUpdate;
+      check(
+        `${label} received a rating_update`,
+        update && Number.isFinite(update.before) && Number.isFinite(update.after) && update.delta === update.after - update.before,
+        update ? `${update.before} -> ${update.after} (${update.delta})` : "none",
+      );
+    }
+    check(
+      "the two rating changes are equal and opposite",
+      clientA.ratingUpdate && clientB.ratingUpdate
+        && clientA.ratingUpdate.delta === -clientB.ratingUpdate.delta,
+      `${clientA.ratingUpdate?.delta} vs ${clientB.ratingUpdate?.delta}`,
+    );
   }
 
   if (accountA) {
@@ -476,6 +536,31 @@ async function main() {
       session: accountA.session,
     });
     check("challenge created", created.status === 200 && created.body?.ok, `status ${created.status}`);
+
+    // Presence: an idle signed-in client should be visible to others as
+    // someone worth challenging.
+    // Wait for a presence broadcast that happens AFTER identify: the one sent
+    // on connect arrives before this socket has claimed an identity, so it
+    // legitimately does not list anybody yet.
+    const beforeIdentify = lobbyB.messages.length;
+    lobbyB.send({ type: "identify", guestId: guestB });
+    let presence = null;
+    try {
+      presence = await lobbyB.waitFor(
+        (m) => m.type === "presence" && Array.isArray(m.players),
+        5000,
+        beforeIdentify,
+      );
+    } catch {
+      presence = null;
+    }
+    check("presence carries a player list, not just a count", Array.isArray(presence?.players),
+      `${presence?.players?.length ?? "none"} listed, count ${presence?.count}`);
+    check(
+      "an idle signed-in player is listed as challengeable",
+      (presence?.players || []).some((p) => p.handle === accountB.handle && typeof p.rating === "number"),
+      (presence?.players || []).map((p) => `${p.handle}:${p.rating}`).join(", ") || "empty",
+    );
 
     let delivered = null;
     try {

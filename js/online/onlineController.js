@@ -34,6 +34,7 @@ export function createOnlineController() {
     status: () => {},
     rematch: () => {},
     presence: () => {},
+    ratingUpdate: () => {},
     challenge: () => {},
     wake: () => {},
   };
@@ -365,7 +366,21 @@ export function createOnlineController() {
     }
 
     if (msg.type === "presence") {
-      listeners.presence({ count: Number(msg.count) || 0 });
+      listeners.presence({
+        count: Number(msg.count) || 0,
+        players: Array.isArray(msg.players) ? msg.players : [],
+      });
+      return;
+    }
+
+    // Sent to both seats when a ranked game ends, so the result screen can show
+    // what it cost or earned.
+    if (msg.type === "rating_update") {
+      listeners.ratingUpdate({
+        before: Number(msg.before),
+        after: Number(msg.after),
+        delta: Number(msg.delta),
+      });
       return;
     }
 
@@ -454,6 +469,7 @@ export function createOnlineController() {
         roomCode: msg.roomCode,
         playerNames: msg.playerNames || null,
         playerAvatars: msg.playerAvatars || null,
+        playerRatings: msg.playerRatings || null,
         shopSync: msg.shopSync || null,
         chat: Array.isArray(msg.chat) ? msg.chat : [],
       });

@@ -120,6 +120,51 @@
     })();
   </script>
   <main class="app-shell">
+    <!-- Account control, reachable from every screen. Direct child of <main> on
+         purpose: anything nested inside a screen section inherits that
+         section's hidden attribute and silently never appears. -->
+    <div id="account-chip-host" class="account-chip-host">
+      <button id="account-chip" class="account-chip" type="button" aria-haspopup="true" aria-expanded="false">
+        <span id="account-chip-avatar" class="account-chip-avatar" aria-hidden="true">&#5809;</span>
+        <span class="account-chip-text">
+          <span id="account-chip-name" class="account-chip-name" data-i18n="account.signIn">Sign in</span>
+          <span id="account-chip-rating" class="account-chip-rating" hidden></span>
+        </span>
+        <span id="account-chip-badge" class="account-chip-badge" hidden>0</span>
+      </button>
+
+      <div id="account-menu" class="account-menu" hidden>
+        <button id="account-menu-profile" class="account-menu-item" type="button" data-i18n="account.menuProfile">My profile</button>
+        <button id="account-menu-ranking" class="account-menu-item" type="button" data-i18n="account.menuRanking">World ranking</button>
+        <button id="account-menu-challenges" class="account-menu-item" type="button">
+          <span data-i18n="account.menuChallenges">Challenges</span>
+          <span id="account-menu-badge" class="account-menu-badge" hidden>0</span>
+        </button>
+        <button id="account-menu-stats" class="account-menu-item" type="button" data-i18n="nav.stats">Stats</button>
+        <button id="account-menu-signout" class="account-menu-item danger" type="button" data-i18n="account.signOut">Sign out</button>
+      </div>
+    </div>
+
+    <!-- Sign-in, as a modal rather than a buried settings row. -->
+    <section id="signin-overlay" class="modal-prompt-screen" hidden>
+      <div class="modal-prompt-card signin-card">
+        <h2 class="signin-title" data-i18n="account.signInTitle">Sign in to RuneBags</h2>
+        <p class="signin-why" data-i18n="account.signInWhy">Keep your rating, challenge other players, and find your games again on any device. No password — we email you a one-time link.</p>
+
+        <form id="signin-form" class="signin-form">
+          <input id="signin-email" type="email" autocomplete="email" required placeholder="you@example.com" data-i18n-attr="aria-label:account.emailLabel">
+          <button id="signin-submit" class="menu-btn primary" type="submit" data-i18n="account.send">Email me a link</button>
+        </form>
+
+        <p id="signin-status" class="signin-status" hidden></p>
+        <button id="signin-resend" class="menu-btn secondary" type="button" hidden data-i18n="account.resend">Send it again</button>
+
+        <div class="menu-actions compact modal-prompt-actions">
+          <button id="signin-close" class="menu-btn secondary" type="button" data-i18n="common.close">Close</button>
+        </div>
+      </div>
+    </section>
+
     <section id="main-menu" class="home-screen">
       <div class="home-hero">
         <img class="menu-logo" src="./assets/RuneBags_Logo.svg" alt="RuneBags logo">
@@ -131,6 +176,7 @@
         </div>
         <div class="home-cta home-cta-secondary">
           <button id="menu-rules-btn" class="menu-btn secondary" type="button" data-i18n="nav.rules">Rules</button>
+          <button id="menu-ranking-btn" class="menu-btn secondary" type="button" data-i18n="ranking.title">World ranking</button>
           <button id="menu-stats-btn" class="menu-btn secondary" type="button" data-i18n="nav.stats">Stats</button>
           <button id="menu-settings-btn" class="menu-btn secondary" type="button" data-i18n="nav.settings">Settings</button>
           <button id="home-install" class="menu-btn secondary" type="button" data-i18n="home.install" hidden>Install app</button>
@@ -310,6 +356,52 @@
       <div id="profile-history" class="stats-history"></div>
       <div class="menu-actions compact">
         <button id="profile-back-btn" class="menu-btn secondary" type="button" data-i18n="nav.back">Back</button>
+      </div>
+    </section>
+
+    <!-- World ranking, promoted out of the lobby: a ladder nobody can browse
+         is not a ladder. -->
+    <section id="ranking-panel" class="panel menu-panel" hidden>
+      <h2 data-i18n="ranking.title">World ranking</h2>
+      <p id="ranking-summary" class="stats-line"></p>
+      <div class="menu-actions compact">
+        <button id="ranking-mine-btn" class="menu-btn secondary" type="button" hidden data-i18n="ranking.jumpToMe">Jump to my rank</button>
+      </div>
+      <p id="ranking-empty" class="stats-line stats-empty" hidden data-i18n="ranking.empty">No ranked games have been played yet.</p>
+      <ol id="ranking-list" class="online-leaderboard-list"></ol>
+      <div class="menu-actions compact">
+        <button id="ranking-prev-btn" class="menu-btn secondary" type="button" data-i18n="ranking.prev">Previous</button>
+        <button id="ranking-next-btn" class="menu-btn secondary" type="button" data-i18n="ranking.next">Next</button>
+      </div>
+      <div class="menu-actions compact">
+        <button id="ranking-back-btn" class="menu-btn secondary" type="button" data-i18n="nav.back">Back</button>
+      </div>
+    </section>
+
+    <!-- Challenges inbox. -->
+    <section id="challenges-panel" class="panel menu-panel" hidden>
+      <h2 data-i18n="challengesScreen.title">Challenges</h2>
+
+      <section class="challenges-section">
+        <h3 class="stats-mode-title" data-i18n="challengesScreen.online">Online now</h3>
+        <p id="challenges-online-empty" class="stats-line stats-empty" hidden data-i18n="challengesScreen.onlineEmpty">Nobody else is in the lobby right now.</p>
+        <ol id="challenges-online-list" class="online-leaderboard-list"></ol>
+      </section>
+
+      <section class="challenges-section">
+        <h3 class="stats-mode-title" data-i18n="challengesScreen.incoming">Waiting for your answer</h3>
+        <p id="challenges-incoming-empty" class="stats-line stats-empty" hidden data-i18n="challengesScreen.incomingEmpty">No challenges waiting.</p>
+        <ul id="challenges-incoming-list" class="challenge-list"></ul>
+      </section>
+
+      <section class="challenges-section">
+        <h3 class="stats-mode-title" data-i18n="challengesScreen.outgoing">Sent</h3>
+        <p id="challenges-outgoing-empty" class="stats-line stats-empty" hidden data-i18n="challengesScreen.outgoingEmpty">You have not challenged anyone.</p>
+        <ul id="challenges-outgoing-list" class="challenge-list"></ul>
+      </section>
+
+      <div class="menu-actions compact">
+        <button id="challenges-back-btn" class="menu-btn secondary" type="button" data-i18n="nav.back">Back</button>
       </div>
     </section>
 
@@ -522,6 +614,7 @@
       <section class="game-layout">
         <aside class="panel player-panel" id="player-1-panel">
           <h2 class="player-title"><span id="p1-avatar" class="online-avatar-chip tiny" hidden aria-hidden="true"></span><span id="p1-name">Black</span><span id="p1-online-dot" class="online-dot" hidden aria-label="Player online status" data-i18n-attr="aria-label:online.playerStatusAria"></span></h2>
+          <p id="p1-rating" class="player-rating" hidden></p>
           <p class="bag-meta"><span id="p1-points">Points:</span></p>
           <p class="bag-meta"><span id="p1-bag">Bag: 0</span></p>
           <p id="p1-clock" class="player-clock" hidden></p>
@@ -565,6 +658,7 @@
 
         <aside class="panel player-panel" id="player-2-panel">
           <h2 class="player-title"><span id="p2-avatar" class="online-avatar-chip tiny" hidden aria-hidden="true"></span><span id="p2-name">White</span><span id="p2-online-dot" class="online-dot" hidden aria-label="Player online status" data-i18n-attr="aria-label:online.playerStatusAria"></span></h2>
+          <p id="p2-rating" class="player-rating" hidden></p>
           <p class="bag-meta"><span id="p2-points">Points:</span></p>
           <p class="bag-meta"><span id="p2-bag">Bag: 0</span></p>
           <p id="p2-clock" class="player-clock" hidden></p>
@@ -606,6 +700,13 @@
             </div>
           </div>
           <p id="endgame-stats" class="endgame-stats"></p>
+          <!-- What the game actually cost or earned on the ladder. -->
+          <p id="endgame-rating" class="endgame-rating" hidden></p>
+          <!-- Shown to guests after an online game, where the rating would be. -->
+          <div id="endgame-guest-nudge" class="endgame-guest-nudge" hidden>
+            <span data-i18n="endgame.guestNudge">This game did not count toward the ladder. Sign in to earn a rating.</span>
+            <button id="endgame-signin-btn" class="menu-btn" type="button" data-i18n="endgame.signIn">Sign in</button>
+          </div>
           <p id="endgame-rematch-status" class="endgame-rematch-status" hidden></p>
           <div class="menu-actions compact endgame-actions">
             <button id="endgame-rematch-btn" class="menu-btn primary" type="button" data-i18n="endgame.playAgain">Play again</button>
