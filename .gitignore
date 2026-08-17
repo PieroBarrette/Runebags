@@ -1,5 +1,6 @@
 __pycache__/
 .claude/
+node_modules/
 
 # Never commit credentials. The DATA_SECRET, VAPID keys and API keys belong in
 # Render's environment settings, not in the repository.

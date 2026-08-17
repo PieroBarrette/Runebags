@@ -8,6 +8,9 @@
 // Run it from the browser console:
 //   const b = await import("/js/ai/benchmark.js");
 //   await b.runMatches({ depth: 2 }, { depth: 2, legacyEval: true }, 40);
+//
+// Or, far faster, headless and across every core:
+//   node tools/bench.mjs --games 100
 import { createInitialState, enterShopPhase, restoreState, startRoundFromShop } from "../core/gameState.js";
 import { runAiShopForSide, runAiStep } from "./aiController.js";
 import { setEvaluationMode } from "./minimax.js";
@@ -39,7 +42,9 @@ function playGame(configA, configB, seed) {
     setEvaluationMode(config.legacyEval);
 
     const before = `${state.turnNumber}:${state.phase}:${Boolean(state.pendingAction)}`;
-    runAiStep(state, { enabled: true, playerId: actor, depth: config.depth ?? 2 });
+    // Spread the whole config so engine-specific knobs (timeBudgetMs,
+    // determinizations, ...) reach the search instead of being dropped.
+    runAiStep(state, { depth: 2, ...config, enabled: true, playerId: actor });
 
     if (state.phase === "round-end") {
       // Nobody drives phase transitions in a headless game, so do it here.
@@ -55,6 +60,30 @@ function playGame(configA, configB, seed) {
   return state;
 }
 
+// Games are played in pairs: the same seed twice, with the colours swapped, so
+// both configurations face the identical bags and shop offers from both sides.
+// Whatever luck a seed carries then cancels out inside its own pair instead of
+// showing up as noise in the total, which is what lets a hundred games say
+// something a hundred unpaired games could not.
+//
+// Both sides are deterministic, so game `index` is always the same game — that
+// is what makes it safe to split a run across workers and merge the tallies.
+export function playMatch(configA, configB, index) {
+  const swap = index % 2 === 1;
+  const seed = 1000 + Math.floor(index / 2);
+  const final = playGame(swap ? configB : configA, swap ? configA : configB, seed);
+
+  if (final.phase !== "game-over") {
+    return "unfinished";
+  }
+  if (!final.gameWinner) {
+    return "draw";
+  }
+  // A had Black (player 1) on the unswapped half of the pair.
+  const aIsBlack = !swap;
+  return (final.gameWinner === 1) === aIsBlack ? "a" : "b";
+}
+
 // A full game costs roughly 15-30 seconds of search, so a twenty-game run takes
 // minutes. Pass onProgress to watch it rather than staring at a black box, and
 // prefer running it in a worker — on the main thread it locks the page for the
@@ -62,39 +91,51 @@ function playGame(configA, configB, seed) {
 export function runMatches(configA, configB, games = 20, onProgress = null) {
   const tally = { aWins: 0, bWins: 0, draws: 0, unfinished: 0 };
   const startedAt = Date.now();
+  const bucket = { a: "aWins", b: "bWins", draw: "draws", unfinished: "unfinished" };
 
   for (let i = 0; i < games; i += 1) {
-    // Swap seats every other game so neither configuration keeps the side that
-    // moves first.
-    const swap = i % 2 === 1;
-    const final = playGame(swap ? configB : configA, swap ? configA : configB, 1000 + i);
-
-    if (final.phase !== "game-over") {
-      tally.unfinished += 1;
-      continue;
-    }
-    if (!final.gameWinner) {
-      tally.draws += 1;
-      continue;
-    }
-    const aIsBlack = !swap;
-    const aWon = (final.gameWinner === 1) === aIsBlack;
-    if (aWon) {
-      tally.aWins += 1;
-    } else {
-      tally.bWins += 1;
-    }
+    tally[bucket[playMatch(configA, configB, i)]] += 1;
 
     if (onProgress) {
       onProgress({ played: i + 1, games, ...tally });
     }
   }
 
+  return summarize(tally, games, Math.round((Date.now() - startedAt) / 100) / 10);
+}
+
+// Win rate alone cannot tell "the new evaluation is better" from "the new
+// evaluation got lucky", so report the two-sided exact binomial p as well and
+// let the number decide.
+export function summarize(tally, games, seconds) {
   const decided = tally.aWins + tally.bWins;
   return {
     ...tally,
     games,
-    aWinRate: decided > 0 ? Math.round((tally.aWins / decided) * 100) : null,
-    seconds: Math.round((Date.now() - startedAt) / 100) / 10,
+    aWinRate: decided > 0 ? Math.round((tally.aWins / decided) * 1000) / 10 : null,
+    pValue: decided > 0 ? Math.round(twoSidedBinomialP(tally.aWins, decided) * 1000) / 1000 : null,
+    seconds,
   };
+}
+
+// Probability of a split at least this lopsided if the two configurations were
+// actually equal. Exact rather than normal-approximated, because these runs are
+// small enough for the approximation to mislead.
+function twoSidedBinomialP(wins, trials) {
+  const logFactorial = (n) => {
+    let sum = 0;
+    for (let i = 2; i <= n; i += 1) {
+      sum += Math.log(i);
+    }
+    return sum;
+  };
+
+  const tail = Math.min(wins, trials - wins);
+  let cumulative = 0;
+  for (let k = 0; k <= tail; k += 1) {
+    cumulative += Math.exp(
+      logFactorial(trials) - logFactorial(k) - logFactorial(trials - k) - trials * Math.LN2,
+    );
+  }
+  return Math.min(1, 2 * cumulative);
 }
