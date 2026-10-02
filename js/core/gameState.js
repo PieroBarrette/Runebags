@@ -1272,7 +1272,8 @@ function applyRuneEffect(state, rune, move, playerId) {
   const effectRune = copiedOnPlayRune || rune;
 
   if (rune.id === "dagaz" && copiedOnPlayRune) {
-    notes.push({ k: "log.dagazCopied", p: { rune: copiedOnPlayRune.name } });
+    // A board cell keeps only the rune's id, not its catalog fields.
+    notes.push({ k: "log.dagazCopied", p: { rune: getRuneById(copiedOnPlayRune.id)?.name || copiedOnPlayRune.id } });
   }
 
   if (effectRune.id === "fehu") {
