@@ -49,7 +49,12 @@ const RUNE_VALUE = {
   raido: 9, perth: 9, teiwaz: 8, gebo: 8, thurisa: 8, dagaz: 8, nauthiz: 8,
   ansuz: 7, fehu: 7, mannaz: 7, eihwaz: 7, sowelu: 7, kenaz: 7,
   algiz: 6, uruz: 6, ehwaz: 6, berkana: 6, hagalz: 6, isa: 6,
-  inguz: 4, jera: 4, neutral: -2, basic: 1,
+  inguz: 4, jera: 4, basic: 1,
+  // Has to outweigh the +3 every bag rune earns in bagDelta and the +5 every
+  // hand rune earns in handDelta. At -2, a neutral shuffled into its owner's bag
+  // netted +1, so a corrupted rune's neutral read as a bonus; at -5 it costs 2
+  // in the bag and 5 in hand.
+  neutral: -5,
 };
 
 // Runes whose presence on the board is worth something beyond occupying a cell.
