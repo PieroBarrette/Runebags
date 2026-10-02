@@ -219,7 +219,8 @@ function createWoodFeltProfile(context, destination, eventName) {
     return;
   }
 
-  // A rune is conjured onto the board (Thurisa / Mannaz / Dagaz): a soft sparkle.
+  // A rune is conjured onto the board or into a bag (Thurisa / Mannaz /
+  // Dagaz / a corrupted rune): a soft sparkle.
   if (eventName === "rune-summon") {
     createTone(context, destination, {
       type: "triangle",

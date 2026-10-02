@@ -13,13 +13,15 @@ const RUNE_WEIGHTS = {
   thurisa: 82,
   dagaz: 81,
   nauthiz: 80,
-  algiz: 78,
   ansuz: 76,
   mannaz: 74,
   eihwaz: 73,
   fehu: 75,
   kenaz: 71,
   sowelu: 72,
+  // Cursed AND corrupted: it costs a neutral when bought and another every time
+  // it is played, so it sits below the other mid-tier runes (was 78).
+  algiz: 70,
   uruz: 68,
   ehwaz: 66,
   berkana: 62,

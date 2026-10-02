@@ -25,10 +25,14 @@ const SHOP_REMOVE_LIMIT = 1;
 const NON_COMBINABLE_RUNES = new Set(["basic", "inguz", "jera", "neutral", "berkana", "dagaz", "hagalz", "isa", "kenaz", "laguz", "wunjo", "nauthiz", "eihwaz"]);
 const DAGAZ_ON_PLAY_COPYABLE = new Set(["raido", "sowelu", "teiwaz", "thurisa", "perth", "odal", "mannaz", "gebo", "ansuz", "fehu"]);
 const DAGAZ_PASSIVE_COPYABLE = new Set(["laguz", "berkana", "ehwaz", "hagalz", "isa", "uruz", "wunjo", "eihwaz"]);
+// Corrupted runes add 1 neutral rune to their owner's bag every time they are
+// played (cursed runes, by contrast, only do it once, when bought in the shop).
+const CORRUPTED_RUNES = new Set(["dagaz", "algiz"]);
 
 // Bumped whenever a rule change would make an older recording replay
 // differently. Replays stamped with an older version are flagged, not trusted.
-export const ENGINE_VERSION = 2;
+// 3: Algiz became corrupted as well as cursed.
+export const ENGINE_VERSION = 3;
 
 export function createInitialState(options = {}) {
   const black = createPlayer(BLACK, options);
@@ -1250,13 +1254,13 @@ function applyRuneEffect(state, rune, move, playerId) {
   let extraTurn = false;
   let pendingAction = null;
 
-  if (rune.id === "dagaz") {
+  if (CORRUPTED_RUNES.has(rune.id)) {
     if (state.neutralSupply > 0) {
       state.players[playerId].bag.push(createRuneInstance("neutral", 1, state));
       state.neutralSupply -= 1;
-      notes.push({ k: "log.dagazAdded", p: null });
+      notes.push({ k: "log.corruptionAdded", p: { rune: rune.name } });
     } else {
-      notes.push({ k: "log.dagazNoAdd", p: null });
+      notes.push({ k: "log.corruptionNoAdd", p: { rune: rune.name } });
     }
   }
 

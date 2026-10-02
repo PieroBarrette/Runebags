@@ -4826,7 +4826,7 @@ const SFX_EFFECT_BY_LOG_KEY = [
   },
   { sound: "rune-return", keys: ["log.ansuzReturned", "log.fehuRecovered", "log.etherealReturns"] },
   { sound: "rune-move", keys: ["log.teiwazMoved"] },
-  { sound: "rune-summon", keys: ["log.thurisaPlaced", "log.mannazAdded", "log.dagazAdded", "log.dagazCopied"] },
+  { sound: "rune-summon", keys: ["log.thurisaPlaced", "log.mannazAdded", "log.corruptionAdded", "log.dagazCopied"] },
 ];
 
 function pickEffectSound(newLogKeys) {

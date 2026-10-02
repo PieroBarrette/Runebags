@@ -47,8 +47,8 @@ function deepClone(value) {
 // search stops treating a bag of basics as equal to a bag of Raido and Teiwaz.
 const RUNE_VALUE = {
   raido: 9, perth: 9, teiwaz: 8, gebo: 8, thurisa: 8, dagaz: 8, nauthiz: 8,
-  algiz: 7, ansuz: 7, fehu: 7, mannaz: 7, eihwaz: 7, sowelu: 7, kenaz: 7,
-  uruz: 6, ehwaz: 6, berkana: 6, hagalz: 6, isa: 6,
+  ansuz: 7, fehu: 7, mannaz: 7, eihwaz: 7, sowelu: 7, kenaz: 7,
+  algiz: 6, uruz: 6, ehwaz: 6, berkana: 6, hagalz: 6, isa: 6,
   inguz: 4, jera: 4, neutral: -2, basic: 1,
 };
 

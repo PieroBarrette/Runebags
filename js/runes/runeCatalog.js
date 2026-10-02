@@ -75,7 +75,7 @@ const RUNE_CATALOG = [
     id: "algiz",
     name: "Algiz",
     type: "special",
-    description: "Inserted at the bottom of a column, pushing runes upward.",
+    description: "Inserted at the bottom of a column, pushing runes upward. Whenever played, add 1 neutral rune to owner bag.",
     icon: "./assets/runes/algiz.svg",
     columnRule: "any",
     supportsLevels: true,
