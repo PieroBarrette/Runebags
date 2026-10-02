@@ -33,7 +33,8 @@ const CORRUPTED_RUNES = new Set(["dagaz", "algiz"]);
 // differently. Replays stamped with an older version are flagged, not trusted.
 // 3: Algiz became corrupted as well as cursed, and a corrupted rune's neutral
 //    is shuffled into the bag instead of being the owner's next draw.
-export const ENGINE_VERSION = 3;
+// 4: Mannaz's neutrals are shuffled into the opponent's bag the same way.
+export const ENGINE_VERSION = 4;
 
 export function createInitialState(options = {}) {
   const black = createPlayer(BLACK, options);
@@ -1352,7 +1353,9 @@ function applyRuneEffect(state, rune, move, playerId) {
       if (state.neutralSupply <= 0) {
         break;
       }
-      state.players[getOpponent(playerId)].bag.push(createRuneInstance("neutral", 1, state));
+      // Shuffled in for the same reason as a corrupted rune's neutral: pushed,
+      // it would simply be the opponent's next draw.
+      addRuneToBagAndShuffle(state, getOpponent(playerId), "neutral", 1);
       state.neutralSupply -= 1;
       added += 1;
     }
