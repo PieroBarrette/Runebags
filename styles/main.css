@@ -1687,6 +1687,68 @@ body[data-theme="dark"] .qc-btn {
   flex-wrap: wrap;
 }
 
+.shop-section-title {
+  margin: 0.7rem 0 0.35rem;
+  color: var(--text-soft);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* One-time tips for a first game (js/ui/tips.js). They float over the top of
+   the screen rather than sit in the page, so the board never moves for one;
+   below the modals, above the pinned hand and the shop button. */
+.tip-card {
+  position: fixed;
+  top: calc(0.6rem + env(safe-area-inset-top));
+  left: 0;
+  right: 0;
+  z-index: 30;
+  width: min(560px, calc(100% - 1rem));
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid rgba(212, 175, 88, 0.6);
+  border-radius: 12px;
+  background-color: var(--bg-mid);
+  background-image: linear-gradient(rgba(212, 175, 88, 0.14), rgba(212, 175, 88, 0.14));
+  box-shadow: 0 14px 30px var(--shadow);
+  animation: tip-enter 260ms ease-out;
+}
+
+.tip-text {
+  flex: 1;
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.tip-ok {
+  flex: 0 0 auto;
+  border: 1px solid rgba(212, 175, 88, 0.7);
+  background: rgba(212, 175, 88, 0.2);
+  color: var(--text-main);
+  padding: 0.4rem 0.8rem;
+  border-radius: 9px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@keyframes tip-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tip-card {
+    animation: none;
+  }
+}
+
 .log-panel {
   margin-top: 1rem;
 }
@@ -2427,29 +2489,175 @@ body[data-theme="dark"] .modal-prompt-card {
   }
 }
 
-/* Phones: single column with the board first for prominence. */
+/* Phones: the opponent shrinks to a strip above the board, and the player's
+   own panel stays pinned to the bottom of the screen, in reach of the thumb,
+   so a rune can be picked and played without scrolling. Seat classes come
+   from updateSeats() in main.js. The layout is a flex column rather than a
+   grid here: a sticky grid item cannot leave its own grid cell, so it would
+   never pin. */
 @media (max-width: 560px) {
+  #game-screen .top-bar {
+    flex-wrap: nowrap;
+    gap: 0.5rem;
+  }
+
+  #game-screen .game-title span {
+    display: none;
+  }
+
+  #game-screen .game-title-logo {
+    width: 2rem;
+  }
+
+  #menu-btn,
+  #new-game-btn {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.9rem;
+  }
+
   .game-layout {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "board"
-      "p1"
-      "p2";
+    margin-top: 0.6rem;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.6rem;
   }
 
-  #player-1-panel {
-    grid-area: p1;
-  }
-
-  #player-2-panel {
-    grid-area: p2;
+  .player-panel.is-opponent {
+    order: 1;
   }
 
   .board-panel {
-    grid-area: board;
+    order: 2;
+    padding: 0.6rem;
+  }
+
+  .turn-pill {
+    margin-bottom: 0.5rem;
+  }
+
+  /* The pool's ten pips cost a line on a phone; its number says the same. */
+  #point-pool .point-rune-track {
+    display: none;
+  }
+
+  #point-pool .point-rune-count {
+    margin-left: 0;
+  }
+
+  .tip-text {
+    font-size: 0.88rem;
+  }
+
+  .player-panel.is-me {
+    order: 3;
   }
 
   .player-panel {
-    min-height: auto;
+    min-height: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.15rem 0.9rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .player-panel .player-title {
+    margin: 0;
+    font-size: 1rem;
+  }
+
+  .player-panel .bag-meta,
+  .player-panel .player-rating,
+  .player-panel .player-clock {
+    margin: 0;
+    font-size: 0.9rem;
+  }
+
+  .player-panel .hand {
+    flex: 1 0 100%;
+    margin-top: 0.45rem;
+  }
+
+  /* A hidden hand tells a strip nothing; one revealed by Uruz shows names. */
+  .player-panel.is-opponent .hand.hidden-hand {
+    display: none;
+  }
+
+  .player-panel.is-opponent .hand,
+  .player-panel.is-me .hand {
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+    gap: 0.4rem;
+  }
+
+  .player-panel.is-opponent .rune-card small {
+    display: none;
+  }
+
+  .player-panel.is-me {
+    position: sticky;
+    bottom: 0;
+    z-index: 6;
+    box-shadow: 0 -10px 24px var(--shadow);
+  }
+
+  .player-panel.is-me .rune-card {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 0.25rem;
+    padding: 0.4rem 0.3rem;
+    text-align: center;
+  }
+
+  .player-panel.is-me .rune-card small {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    font-size: 0.75rem;
+  }
+
+  /* The rune about to be played shows its whole text. */
+  .player-panel.is-me .rune-card.selected small {
+    -webkit-line-clamp: unset;
+  }
+
+  /* In the shop the hands are empty and the bag is long: the panel stops
+     floating, and the button that starts the round stays on screen. */
+  #game-screen[data-phase="shop"] .player-panel.is-me {
+    position: static;
+    box-shadow: none;
+  }
+
+  #game-screen[data-phase="shop"] .shop-toolbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    margin: 0;
+    justify-content: center;
+    padding: 0.6rem 1rem calc(0.6rem + env(safe-area-inset-bottom));
+    background: var(--panel);
+    border-top: 1px solid var(--panel-border);
+  }
+
+  #game-screen[data-phase="shop"] #phase-btn {
+    width: min(100%, 360px);
+    padding: 0.65rem 1rem;
+    font-weight: 600;
+  }
+
+  #game-screen[data-phase="shop"] .game-layout {
+    padding-bottom: 4rem;
+  }
+
+  .shop-bag {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .turn-log {
+    max-height: 8rem;
   }
 }

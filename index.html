@@ -281,6 +281,9 @@
         <label for="animation-toggle" data-i18n="settings.animations">Animations</label>
         <input id="animation-toggle" class="settings-checkbox" type="checkbox" checked>
 
+        <label for="tips-toggle" data-i18n="settings.tips">Tips for new players</label>
+        <input id="tips-toggle" class="settings-checkbox" type="checkbox" checked>
+
         <label for="sound-toggle" data-i18n="settings.sound">Sound Effects</label>
         <input id="sound-toggle" class="settings-checkbox" type="checkbox" checked>
 
@@ -621,6 +624,13 @@
         </div>
       </header>
 
+      <!-- Floats over the top of the screen, so a tip never pushes the board
+           down (on a phone, under the pinned hand). -->
+      <div id="tip-card" class="tip-card" role="status" aria-live="polite" hidden>
+        <p id="tip-text" class="tip-text"></p>
+        <button id="tip-ok-btn" class="tip-ok" type="button" data-i18n="tip.ok">Got it</button>
+      </div>
+
       <section class="game-layout">
         <aside class="panel player-panel" id="player-1-panel">
           <h2 class="player-title"><span id="p1-avatar" class="online-avatar-chip tiny" hidden aria-hidden="true"></span><span id="p1-name">Black</span><span id="p1-online-dot" class="online-dot" hidden aria-label="Player online status" data-i18n-attr="aria-label:online.playerStatusAria"></span></h2>
@@ -644,11 +654,13 @@
           <div id="shop-panel" class="shop-panel" hidden>
             <h3 id="shop-player-title">Shop - White</h3>
             <p id="shop-mode-label" class="bag-meta">Mode: none</p>
+            <p class="shop-section-title" data-i18n="shop.offerTitle">The offer — tap a rune to add it to your bag</p>
             <div id="shop-offer" class="shop-offer"></div>
             <div class="shop-actions-row">
               <button id="shop-remove-btn" type="button" data-i18n="shop.remove">Remove 1 Rune</button>
               <button id="shop-combine-btn" type="button" data-i18n="shop.combine">Combine 2 Runes</button>
             </div>
+            <p class="shop-section-title" data-i18n="shop.bagTitle">Your bag</p>
             <div id="shop-bag" class="shop-bag"></div>
           </div>
           <div id="qc-bubbles" class="qc-bubbles" aria-hidden="true"></div>

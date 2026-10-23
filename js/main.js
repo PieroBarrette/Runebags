@@ -41,6 +41,7 @@ import { createMusicEngine } from "./audio/musicEngine.js";
 import { getStats, recordGameResult, resetStreak } from "./persistence/statsStore.js";
 import { renderRuneFigure, renderRulesFigures } from "./ui/rulesFigures.js";
 import { qrDataUrl } from "./ui/qr.js";
+import { createTips } from "./ui/tips.js";
 import {
   claimHandle,
   fetchAccount,
@@ -249,6 +250,10 @@ const elements = {
   themeSelect: document.getElementById("theme-select"),
   languageSelect: document.getElementById("language-select"),
   animationToggle: document.getElementById("animation-toggle"),
+  tipsToggle: document.getElementById("tips-toggle"),
+  tipCard: document.getElementById("tip-card"),
+  tipText: document.getElementById("tip-text"),
+  tipOkBtn: document.getElementById("tip-ok-btn"),
   soundToggle: document.getElementById("sound-toggle"),
   soundVolume: document.getElementById("sound-volume"),
   musicToggle: document.getElementById("music-toggle"),
@@ -416,12 +421,26 @@ let playersOnline = [];
 let rankingOffset = 0;
 let rematchStatus = { youRequested: false, opponentRequested: false };
 const aiConfig = createAiConfig();
+// The saved game's AI settings, from the start. persistState() writes aiConfig
+// back into that save, and "Resume" persists before it reads, so after a
+// reload the defaults used to overwrite them: the level fell back to Medium
+// and a player on White was handed the AI's side.
+const savedAiSettings = loadModeSave(MODE_AI)?.ai;
+if (savedAiSettings?.playerId) {
+  setAiSettings(aiConfig, false, Number(savedAiSettings.playerId), Number(savedAiSettings.depth) || aiConfig.depth);
+}
 const online = createOnlineController();
 const sfx = createSfxEngine();
 const music = createMusicEngine({ getContext: () => sfx.getAudioContext() });
 // Console handle for diagnosing audio on real devices (state, volume, restart).
 window.__rbMusic = music;
 const replay = createReplayController({ elements, onClose: () => showStatsPanel() });
+const tips = createTips({
+  card: elements.tipCard,
+  text: elements.tipText,
+  okButton: elements.tipOkBtn,
+  translate: (key, params) => t(key, params),
+});
 let aiBusy = false;
 let aiTimer = null;
 let animationsEnabled = true;
@@ -460,6 +479,7 @@ bindEvents();
 initializeLanguage();
 initializeTheme();
 initializeAnimations();
+initializeTips();
 initializeSound();
 initializeMusic();
 initializePush();
@@ -664,6 +684,10 @@ function bindEvents() {
   bindButtonHoverEvents();
 
   elements.menuAiBtn.addEventListener("click", () => {
+    if (isFirstGameAgainstAi()) {
+      startDiscoveryGame();
+      return;
+    }
     showAiPanel();
   });
 
@@ -894,6 +918,10 @@ function bindEvents() {
     const enabled = Boolean(elements.animationToggle.checked);
     applyAnimationsSetting(enabled);
     saveAnimationsPreference(enabled);
+  });
+
+  elements.tipsToggle.addEventListener("change", () => {
+    tips.setEnabled(Boolean(elements.tipsToggle.checked));
   });
 
   elements.soundToggle.addEventListener("change", () => {
@@ -1253,6 +1281,7 @@ function bindEvents() {
     applyTranslations();
     renderHomeStats();
     refreshQuickChatBar();
+    tips.refreshText();
     if (!elements.onlinePanel.hidden) {
       updateOnlineRoomUI(activeRoomCode || "-");
       updateOnlineConnectionStatus();
@@ -1725,12 +1754,13 @@ function render() {
         handVisibility[waitingRoomState.playerId] = true;
       }
     } else {
-      const humanPlayerId = getHumanPlayerId();
+      // The player always sees their own hand. It used to blur during the AI's
+      // turn, a leftover from passing one device between two players.
       handVisibility = {
         1: false,
         2: false,
       };
-      handVisibility[humanPlayerId] = state.currentPlayer === humanPlayerId;
+      handVisibility[getHumanPlayerId()] = true;
     }
   }
 
@@ -1779,8 +1809,59 @@ function render() {
   updateTopStatus();
   updateTopButtons();
   updateOnlineConnectionStatus();
+  updateSeats();
+  updateTips();
 
   scheduleAiTurnIfNeeded();
+}
+
+// The local player's seat: in an online game the one the server gave them,
+// against the AI the side the AI does not hold.
+function getLocalPlayerId() {
+  return online.isOnlineActive() ? waitingRoomState.playerId : getHumanPlayerId();
+}
+
+// Marks which panel is the player's own: on a phone it sits at the bottom, in
+// reach of the thumb, with the opponent reduced to a strip above the board.
+// The phase lets the phone layout follow the shop as well.
+function updateSeats() {
+  const me = getLocalPlayerId() || 1;
+  [[1, elements.player1Panel], [2, elements.player2Panel]].forEach(([playerId, panel]) => {
+    panel.classList.toggle("is-me", playerId === me);
+    panel.classList.toggle("is-opponent", playerId !== me);
+  });
+  elements.gameScreen.dataset.phase = state.phase;
+}
+
+// Each tip fires the first time its situation comes up for the player, in
+// their own game (js/ui/tips.js decides whether it has been seen).
+function updateTips() {
+  const me = getLocalPlayerId();
+  if (!me || state.phase === "game-over") {
+    return;
+  }
+
+  const myHand = state.players[me]?.hand || [];
+  if (state.phase === "round" && state.currentPlayer === me && !state.pendingAction) {
+    tips.show("firstTurn", "tip.firstTurn");
+  }
+  if (state.phase === "round" && myHand.some((rune) => rune.id !== "basic" && rune.id !== "neutral")) {
+    tips.show("runePowers", "tip.runePowers");
+  }
+  if (state.pendingAction?.playerId === me) {
+    tips.show("choice", "tip.choice");
+  }
+  const neutralInSight = myHand.some((rune) => rune.id === "neutral")
+    || state.boardRunes.some((row) => row.some((cell) => cell?.neutral));
+  if (neutralInSight) {
+    tips.show("neutral", "tip.neutral");
+  }
+  if (state.phase === "round-end") {
+    tips.show("roundEnd", "tip.roundEnd", { goal: getMajorityThreshold(state) });
+  }
+  if (state.phase === "shop") {
+    tips.show("shop", "tip.shop");
+  }
 }
 
 function updateTopStatus() {
@@ -1895,19 +1976,19 @@ function renderShopPanel() {
   const data = state.shop.players[playerId];
   const highlights = getShopHighlights(state);
   const actions = getShopActionAvailability(state);
-  const playerReady = Boolean(data.ready);
 
   elements.shopPlayerTitle.textContent = online.isOnlineActive()
     ? t("shop.titleYour", { player: getDisplayPlayerName(playerId) })
     : t("shop.title", { player: getDisplayPlayerName(playerId) });
-  elements.shopModeLabel.textContent = t("shop.mode", {
-    mode: data.mode || t("shop.modeNone"),
+  // What is left to do, and what to tap next once a mode is armed: the old
+  // "Mode: none | Ready: no" line said nothing a new player could act on.
+  const counts = t("shop.counts", {
     added: data.addedCount,
     addLimit: data.addLimit,
     removed: data.removeCount,
     removeLimit: data.removeLimit,
-    ready: playerReady ? t("common.yes") : t("common.no"),
   });
+  elements.shopModeLabel.textContent = data.mode ? `${counts} — ${t(`shop.modeHint.${data.mode}`)}` : counts;
 
   renderRuneList(elements.shopOffer, data.offer, playerId, highlights.offerHighlightIds);
   renderRuneList(elements.shopBag, state.players[playerId].bag, playerId, highlights.bagHighlightIds);
@@ -3325,6 +3406,41 @@ function showAiPanel() {
   elements.aiContinueBtn.classList.toggle("primary", canContinue);
 }
 
+// Someone who has never played the AI goes straight into a game instead of a
+// panel of choices they cannot judge yet.
+function isFirstGameAgainstAi() {
+  return !tips.hasSeen("discovery")
+    && !isResumableSave(loadModeSave(MODE_AI)?.state)
+    && (getStats().ai?.gamesPlayed || 0) === 0;
+}
+
+// The discovery game: easy level, the player opens the first round, and the
+// first shop is skipped on both sides, so round one is played with the starter
+// bags only (basic runes, Inguz and Jera) and the shop arrives once the board
+// makes sense. It is an ordinary AI game in every other way.
+function startDiscoveryGame() {
+  persistState();
+  if (online.isOnlineActive()) {
+    online.leaveRoom();
+  }
+  tips.markSeen("discovery");
+
+  state = restoreState(createInitialState(getLocalGameOptions()), getLocalGameOptions());
+  // White opens a round when the pool is even, as it is at the start, so the
+  // AI takes Black and the player moves first.
+  setAiSettings(aiConfig, true, 1, 1);
+  currentLocalMode = MODE_AI;
+  state = startRoundFromShop(state).state;
+  elements.aiSideSelect.value = String(aiConfig.playerId);
+  elements.aiDepthSelect.value = String(aiConfig.depth);
+  setStatus(t("status.discoveryStarted"));
+  track("ai_start", aiConfig.depth);
+
+  persistState();
+  enterGameScreen("local");
+  render();
+}
+
 function showOnlinePanel() {
   showScreen("online");
   applyAccountIdentity();
@@ -4658,6 +4774,15 @@ function initializeTheme() {
   const theme = savedTheme === "light" ? "light" : "dark";
   applyTheme(theme);
   elements.themeSelect.value = theme;
+}
+
+// Someone who had already finished a game before tips existed knows the game:
+// tips start off for them (Settings can turn them back on).
+function initializeTips() {
+  if (tips.isFresh() && getStats().totals.gamesPlayed > 0) {
+    tips.setEnabled(false);
+  }
+  elements.tipsToggle.checked = tips.isEnabled();
 }
 
 function initializeAnimations() {
