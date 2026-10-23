@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -71,6 +71,41 @@ const MIME = {
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
   ".webp": "image/webp",
+  ".txt": "text/plain; charset=utf-8",
+  ".xml": "application/xml; charset=utf-8",
+};
+
+// Files at the root that are public. Everything else at the root (the server,
+// package.json, the print files) is not, whatever path reaches it.
+const PUBLIC_FILES = new Set([
+  "index.html",
+  "manifest.webmanifest",
+  "service-worker.js",
+  "robots.txt",
+  "sitemap.xml",
+]);
+
+// Pages that live at an address of their own, outside the app.
+const PAGE_ROUTES = new Map([
+  ["/confidentialite/", "pages/confidentialite.html"],
+  ["/privacy/", "pages/privacy.html"],
+  ["/conditions/", "pages/conditions.html"],
+  ["/terms/", "pages/terms.html"],
+  ["/admin/", "pages/admin.html"],
+]);
+const NOT_FOUND_PAGE = "pages/404.html";
+
+// File names carry no version, so code and pages are revalidated on every load
+// (an unchanged file costs a 304). Images change rarely and may sit an hour.
+const IMAGE_EXTENSIONS = new Set([".svg", ".png", ".jpg", ".jpeg", ".webp"]);
+
+const SECURITY_HEADERS = {
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "X-Frame-Options": "SAMEORIGIN",
+  "Cross-Origin-Opener-Policy": "same-origin",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+  "Strict-Transport-Security": "max-age=15552000",
 };
 
 /** @type {Map<string, any>} */
@@ -192,7 +227,19 @@ process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);
 
 async function handleHttp(req, res) {
-  const reqPath = decodeURIComponent((req.url || "/").split("?")[0]);
+  for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
+    res.setHeader(name, value);
+  }
+
+  let reqPath;
+  try {
+    reqPath = decodeURIComponent((req.url || "/").split("?")[0]);
+  } catch {
+    // A malformed escape such as "/%E0%A4%A" throws here, and an exception in
+    // this handler used to take the whole server down with it.
+    await sendNotFound(req, res);
+    return;
+  }
 
   if (reqPath === "/healthz") {
     res.writeHead(200, { "Content-Type": "text/plain" });
@@ -205,47 +252,136 @@ async function handleHttp(req, res) {
     return;
   }
 
-  let target = reqPath === "/" ? "/index.html" : reqPath;
-  if (!isAllowedPublicPath(target)) {
-    res.writeHead(403);
-    res.end("Forbidden");
+  if (req.method !== "GET" && req.method !== "HEAD") {
+    res.writeHead(405, { Allow: "GET, HEAD" });
+    res.end();
     return;
   }
 
-  target = target.replace(/^\/+/, "");
-  const filePath = path.normalize(path.join(PUBLIC_ROOT, target));
-  if (!filePath.startsWith(PUBLIC_ROOT)) {
-    res.writeHead(403);
-    res.end("Forbidden");
+  // "/privacy" answers the way a directory would: with its closing slash.
+  if (PAGE_ROUTES.has(`${reqPath}/`)) {
+    const queryAt = (req.url || "").indexOf("?");
+    res.writeHead(301, { Location: `${reqPath}/${queryAt >= 0 ? req.url.slice(queryAt) : ""}` });
+    res.end();
     return;
   }
 
-  try {
-    const stat = await fs.stat(filePath);
-    if (!stat.isFile()) {
-      throw new Error("Not a file");
-    }
-
-    const ext = path.extname(filePath).toLowerCase();
-    const mime = MIME[ext] || "application/octet-stream";
-    const body = await fs.readFile(filePath);
-
-    res.writeHead(200, { "Content-Type": mime });
-    res.end(body);
-  } catch {
-    res.writeHead(404);
-    res.end("Not found");
+  const relative = resolvePublicFile(reqPath);
+  if (!relative || !(await serveFile(req, res, relative, 200))) {
+    await sendNotFound(req, res);
   }
 }
 
-function isAllowedPublicPath(target) {
-  return target === "/index.html"
-    || target === "/"
-    || target === "/manifest.webmanifest"
-    || target === "/service-worker.js"
-    || target.startsWith("/js/")
-    || target.startsWith("/styles/")
-    || target.startsWith("/assets/");
+// The file under the repository root that a request path names, or null. The
+// check runs on the normalized path: "/js/../package.json" starts with "/js/"
+// but resolves outside it, and used to be served.
+function resolvePublicFile(reqPath) {
+  if (reqPath === "/") {
+    return "index.html";
+  }
+  if (PAGE_ROUTES.has(reqPath)) {
+    return PAGE_ROUTES.get(reqPath);
+  }
+
+  const filePath = path.normalize(path.join(PUBLIC_ROOT, reqPath));
+  const relative = path.relative(PUBLIC_ROOT, filePath).split(path.sep).join("/");
+  return isAllowedPublicPath(relative) ? relative : null;
+}
+
+function isAllowedPublicPath(relative) {
+  return PUBLIC_FILES.has(relative)
+    || relative.startsWith("js/")
+    || relative.startsWith("styles/")
+    || relative.startsWith("assets/");
+}
+
+// Sends a file under the repository root; false when there is no such file.
+async function serveFile(req, res, relative, status) {
+  const filePath = path.join(PUBLIC_ROOT, relative);
+  let stat;
+  try {
+    stat = await fs.stat(filePath);
+  } catch {
+    return false;
+  }
+  if (!stat.isFile()) {
+    return false;
+  }
+
+  const ext = path.extname(filePath).toLowerCase();
+  const headers = {
+    "Content-Type": MIME[ext] || "application/octet-stream",
+    "Cache-Control": IMAGE_EXTENSIONS.has(ext) ? "public, max-age=3600" : "no-cache",
+  };
+
+  let body;
+  try {
+    body = await fs.readFile(filePath);
+  } catch {
+    return false;
+  }
+  // A page's policy goes out with its 304 too: the browser keeps the headers
+  // of the copy it revalidates, so a policy changed by a server update would
+  // otherwise never reach a page whose file did not change.
+  if (ext === ".html") {
+    headers["Content-Security-Policy"] = contentSecurityPolicy(body.toString("utf8"), req.headers.host);
+  }
+
+  if (status === 200) {
+    headers.ETag = `W/"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
+    const known = String(req.headers["if-none-match"] || "").split(",").map((tag) => tag.trim());
+    if (known.includes(headers.ETag)) {
+      res.writeHead(304, headers);
+      res.end();
+      return true;
+    }
+  }
+
+  res.writeHead(status, headers);
+  res.end(body);
+  return true;
+}
+
+// Unknown addresses get a real 404: a page leading back home for a browser,
+// a line of text for anything else.
+async function sendNotFound(req, res) {
+  const wantsPage = String(req.headers.accept || "").includes("text/html");
+  if (wantsPage && (await serveFile(req, res, NOT_FOUND_PAGE, 404))) {
+    return;
+  }
+  res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-cache" });
+  res.end("Not found");
+}
+
+// Built from the page being served: each inline <script> is allowed by its own
+// hash, so editing one can never leave it blocked by a stale list. Google Fonts
+// is the only other origin a page loads from.
+function contentSecurityPolicy(html, host) {
+  const hashes = [];
+  for (const match of html.matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)) {
+    // The browser hashes the script as parsed, and HTML parsing turns CRLF
+    // into LF: a Windows checkout would otherwise block every inline script.
+    const source = match[1].replace(/\r\n?/g, "\n");
+    hashes.push(`'sha256-${createHash("sha256").update(source, "utf8").digest("base64")}'`);
+  }
+  // The socket lives on whichever host served the page (runebags.ca, the
+  // onrender.com address, a local preview).
+  const sockets = /^[a-z0-9.:-]+$/i.test(host || "") ? ` wss://${host} ws://${host}` : "";
+
+  return [
+    "default-src 'self'",
+    `script-src 'self' ${hashes.join(" ")}`.trim(),
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data:",
+    `connect-src 'self'${sockets}`,
+    "worker-src 'self'",
+    "manifest-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'self'",
+  ].join("; ");
 }
 
 // An accepted challenge needs a room before either player has a socket in it,

@@ -2105,8 +2105,14 @@ function getUniqueWinningCells(lines) {
   return [...cellsByKey.values()];
 }
 
+// The points that win the game outright: a majority of what the pool still
+// holds, which shrinks as drawn rounds take points away.
+export function getMajorityThreshold(state) {
+  return Math.floor((POINT_POOL_TOTAL - (state.tieRemovedPoints || 0)) / 2) + 1;
+}
+
 function evaluateMajorityWinner(state) {
-  const majorityThreshold = Math.floor((POINT_POOL_TOTAL - state.tieRemovedPoints) / 2) + 1;
+  const majorityThreshold = getMajorityThreshold(state);
 
   if (state.players[BLACK].points >= majorityThreshold) {
     state.gameWinner = BLACK;

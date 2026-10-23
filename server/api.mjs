@@ -29,6 +29,7 @@ import {
   upsertPlayer,
 } from "./db.mjs";
 import { getVapidPublicKey } from "./push.mjs";
+import { isMetricsAdmin, readMetrics, recordMetrics } from "./metrics.mjs";
 import {
   claimHandle,
   getUserFromSession,
@@ -324,6 +325,26 @@ export async function handleApiRequest(req, res, context) {
     }
     deletePushSubscription(body.endpoint);
     sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  /* --------------------------------------------------------------- metrics */
+
+  if (req.method === "POST" && route === "/api/metrics") {
+    const body = await readJsonBody(req);
+    recordMetrics(body?.events, { address: readClientIp(req), userAgent: req.headers["user-agent"] });
+    res.writeHead(204, { "Cache-Control": "no-store" });
+    res.end();
+    return;
+  }
+
+  if (req.method === "GET" && route === "/api/admin/metrics") {
+    const user = getUserFromSession(readSessionToken(req));
+    if (!isMetricsAdmin(user)) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+    sendJson(res, 200, readMetrics(url.searchParams.get("days")));
     return;
   }
 

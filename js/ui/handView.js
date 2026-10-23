@@ -1,4 +1,4 @@
-import { t, runeDescription } from "../i18n.js";
+import { t, runeDescription, runeName } from "../i18n.js";
 
 export function renderHands(state, elements, handVisibility, forcedVisible) {
   renderPlayerHand(state, 1, elements, handVisibility[1], forcedVisible[1]);
@@ -60,14 +60,14 @@ function renderPlayerHand(state, playerId, elements, isVisible, isForcedVisible)
     if (rune.icon) {
       const symbol = document.createElement("img");
       symbol.src = rune.icon;
-      symbol.alt = rune.name;
+      symbol.alt = runeName(rune);
       symbol.className = "rune-chip-symbol";
       icon.appendChild(symbol);
     }
 
     const textWrap = document.createElement("div");
     const title = document.createElement("strong");
-    title.textContent = rune.name;
+    title.textContent = runeName(rune);
 
     const subtitle = document.createElement("small");
     const shouldShowLevelPrefix = RUNES_WITH_LEVEL_PREFIX.has(rune.id) && (rune.maxLevel || 1) >= 2;

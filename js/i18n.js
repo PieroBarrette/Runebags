@@ -11,6 +11,15 @@ const translations = {
     "home.install": "Install app",
     "home.runesTitle": "24 runes, each with a unique power",
     "home.footerGithub": "View on GitHub",
+    "home.footerCredit": "A game created by Piero Barrette",
+    "home.footerNav": "Site links",
+    "home.footerOtherLang": "Français",
+    "home.footerOtherLangCode": "fr",
+    "home.footerPrivacy": "Privacy",
+    "home.footerPrivacyHref": "/privacy/",
+    "home.footerTerms": "Terms of use",
+    "home.footerTermsHref": "/terms/",
+    "home.footerHexaequo": "Hexaequo, by the same creator",
     "home.runeGalleryAria": "Rune gallery",
     "pillar.tactics.title": "Pure tactics",
     "pillar.tactics.desc": "Connect four of your runes in a line to take the point from the shared supply.",
@@ -273,6 +282,10 @@ const translations = {
     "status.forced": "{player}: forced to play adjacent columns ({cols}).",
     "status.chooseRune": "{player}: choose a rune, then click a column.",
     "game.points": "Points",
+    "game.pointsLabel": "Points:",
+    "game.pointsOf": "{n}/{goal}",
+    "game.pointsGoal": "{n} of the {goal} points that win the game",
+    "game.pointsPool": "{n} points left in the shared pool",
     "game.bag": "Bag: {n}",
     "game.neutralSupply": "Neutral Supply: {n}",
     "game.discardedThisRound": "Discarded this round: {n}",
@@ -383,6 +396,7 @@ const translations = {
     "online.youReadyWaiting": "You are ready. Waiting for opponent to be ready.",
     "online.opponentJoinedSetReady": "Opponent joined. Set Ready when you are ready to start.",
     "online.serverConnected": "Server: connected",
+    "online.serverConnecting": "Connecting to the server…",
     "online.serverDisconnected": "Server: disconnected",
     "online.shareSent": "Share sent.",
     "online.linkCopied": "Link copied. Paste it in your messaging app to send.",
@@ -556,6 +570,15 @@ const translations = {
     "home.install": "Installer l'app",
     "home.runesTitle": "24 runes, chacune avec un pouvoir unique",
     "home.footerGithub": "Voir sur GitHub",
+    "home.footerCredit": "Un jeu créé par Piero Barrette",
+    "home.footerNav": "Liens du site",
+    "home.footerOtherLang": "English",
+    "home.footerOtherLangCode": "en",
+    "home.footerPrivacy": "Confidentialité",
+    "home.footerPrivacyHref": "/confidentialite/",
+    "home.footerTerms": "Conditions d'utilisation",
+    "home.footerTermsHref": "/conditions/",
+    "home.footerHexaequo": "Hexaequo, du même créateur",
     "pillar.tactics.title": "Tactique pure",
     "pillar.tactics.desc": "Alignez quatre de vos runes pour prendre un point de la réserve commune.",
     "pillar.hands.title": "Mains cachées",
@@ -818,6 +841,10 @@ const translations = {
     "status.forced": "{player} : doit jouer dans les colonnes adjacentes ({cols}).",
     "status.chooseRune": "{player} : choisissez une rune, puis cliquez sur une colonne.",
     "game.points": "Points",
+    "game.pointsLabel": "Points :",
+    "game.pointsOf": "{n}/{goal}",
+    "game.pointsGoal": "{n} des {goal} points qui donnent la victoire",
+    "game.pointsPool": "{n} points encore dans la réserve commune",
     "game.bag": "Sac : {n}",
     "game.neutralSupply": "Réserve neutre : {n}",
     "game.discardedThisRound": "Défaussé cette manche : {n}",
@@ -844,7 +871,9 @@ const translations = {
     "game.levelPrefix": "N",
     "game.ethereal": "Éthérée",
     "rune.shopEffect": "Quand prise en boutique, ajoute une rune neutre au sac du propriétaire.",
+    "rune.basic.name": "Rune de base",
     "rune.basic.desc": "Aucun effet spécial.",
+    "rune.neutral.name": "Rune neutre",
     "rune.neutral.desc": "Bloque les deux joueurs et ne peut pas créer de ligne gagnante seule.",
     "rune.inguz.desc": "Ne peut être jouée que dans la colonne centrale.",
     "rune.jera.desc": "Ne peut être jouée que dans la colonne la plus à gauche ou la plus à droite.",
@@ -954,6 +983,7 @@ const translations = {
     "online.youReadyWaiting": "Vous êtes prêt. En attente que l'adversaire le soit.",
     "online.opponentJoinedSetReady": "L'adversaire a rejoint. Cliquez sur Prêt quand vous l'êtes.",
     "online.serverConnected": "Serveur : connecté",
+    "online.serverConnecting": "Connexion au serveur…",
     "online.serverDisconnected": "Serveur : déconnecté",
     "online.shareSent": "Partage envoyé.",
     "online.linkCopied": "Lien copié. Collez-le dans votre messagerie pour l'envoyer.",
@@ -1184,6 +1214,17 @@ export function runeDescription(rune) {
   const key = `rune.${rune.id}.desc`;
   const localized = t(key);
   return localized === key ? (rune.description || "") : localized;
+}
+
+// Rune names are proper nouns and read the same in every language, except the
+// two plain pieces ("Basic", "Neutral"), which a language may name its own way.
+export function runeName(rune) {
+  if (!rune) {
+    return "";
+  }
+  const key = `rune.${rune.id}.name`;
+  const localized = t(key);
+  return localized === key ? (rune.name || "") : localized;
 }
 
 export function applyTranslations(root = document) {

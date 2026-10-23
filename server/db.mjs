@@ -159,6 +159,17 @@ const MIGRATIONS = [
   CREATE INDEX idx_challenges_to ON challenges(to_user_id, status);
   CREATE INDEX idx_challenges_from ON challenges(from_user_id, status);
   `,
+  `
+  -- Anonymous audience counts: one row per day, event and dimension (a level,
+  -- a result, a referring site). No column can tell two visitors apart.
+  CREATE TABLE metrics_daily (
+    day TEXT NOT NULL,
+    event TEXT NOT NULL,
+    dim TEXT NOT NULL DEFAULT '',
+    count INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (day, event, dim)
+  ) WITHOUT ROWID;
+  `,
 ];
 
 export function openDb(dataDir) {
@@ -1005,4 +1016,25 @@ export function declineChallenge(id, userId) {
       .run({ now: Date.now(), id: Number(id), u: Number(userId) });
     return info.changes > 0;
   });
+}
+
+/* ----------------------------------------------------------------- metrics */
+
+export function incrementMetric(day, event, dim) {
+  return guard(false, (database) => {
+    database
+      .prepare(`
+        INSERT INTO metrics_daily (day, event, dim, count) VALUES (@day, @event, @dim, 1)
+        ON CONFLICT(day, event, dim) DO UPDATE SET count = count + 1
+      `)
+      .run({ day, event, dim });
+    return true;
+  });
+}
+
+export function getMetricsSince(day) {
+  return guard([], (database) =>
+    database
+      .prepare("SELECT day, event, dim, count FROM metrics_daily WHERE day >= ? ORDER BY day DESC, event, count DESC")
+      .all(day));
 }

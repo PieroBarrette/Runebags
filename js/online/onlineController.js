@@ -347,6 +347,21 @@ export function createOnlineController() {
     return session.started;
   }
 
+  // For the lobby, which connects as soon as it opens; false once every retry
+  // has failed.
+  async function ensureConnected() {
+    try {
+      await connect();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function isConnecting() {
+    return Boolean(connectPromise);
+  }
+
   function getSession() {
     return { ...session };
   }
@@ -513,6 +528,8 @@ export function createOnlineController() {
     sendQuickChat,
     sendRematch,
     isOnlineActive,
+    ensureConnected,
+    isConnecting,
     getSession,
     setDisplayName,
     setAvatar,

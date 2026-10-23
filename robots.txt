@@ -1,0 +1,6 @@
+# RuneBags — https://runebags.ca
+User-agent: *
+Allow: /
+Disallow: /api/
+
+Sitemap: https://runebags.ca/sitemap.xml

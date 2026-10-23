@@ -1,0 +1,251 @@
+/* Pages outside the app (privacy, terms, not found, audience counts): the
+   game's palette and type in a reading column. Dark unless the player chose
+   the light theme in the game, which an inline script copies onto <html>. */
+:root {
+  --bg-deep: #10141a;
+  --bg-mid: #1f2833;
+  --panel: rgba(24, 31, 40, 0.9);
+  --panel-border: rgba(220, 230, 241, 0.18);
+  --text-main: #eef3fa;
+  --text-soft: #bdc8d7;
+  --gold: #d4af58;
+  --link: #e8c97a;
+  --cta: #43608f;
+  --cta-text: #f4f8fd;
+  color-scheme: dark;
+}
+
+html[data-theme="light"] {
+  --bg-deep: #e5ebf2;
+  --bg-mid: #cfd8e4;
+  --panel: rgba(247, 250, 255, 0.92);
+  --panel-border: rgba(35, 50, 72, 0.22);
+  --text-main: #162132;
+  --text-soft: #46566c;
+  --gold: #7d5f17;
+  --link: #6e4f0e;
+  --cta: #21364f;
+  --cta-text: #f4f7fb;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--text-main);
+  font-family: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  line-height: 1.6;
+  background: linear-gradient(160deg, var(--bg-deep), var(--bg-mid));
+  background-attachment: fixed;
+}
+
+a {
+  color: var(--link);
+  text-underline-offset: 0.18em;
+}
+
+a:hover {
+  color: var(--text-main);
+}
+
+a:focus-visible,
+button:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.page-header,
+.page,
+.page-footer {
+  width: min(760px, 100% - 2rem);
+  margin-inline: auto;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.2rem 0 0.4rem;
+}
+
+.page-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--text-main);
+  text-decoration: none;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.page-brand img {
+  width: 2.4rem;
+  height: 2.4rem;
+}
+
+.page {
+  margin-block: 1rem 2rem;
+  padding: clamp(1.1rem, 4vw, 2.2rem);
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 18px;
+}
+
+h1,
+h2 {
+  font-family: "Cinzel", Georgia, serif;
+  line-height: 1.25;
+}
+
+h1 {
+  margin: 0 0 0.3rem;
+  font-size: clamp(1.5rem, 1.2rem + 1.4vw, 2.1rem);
+  letter-spacing: 0.04em;
+}
+
+h2 {
+  margin: 2rem 0 0.5rem;
+  font-size: 1.15rem;
+  letter-spacing: 0.03em;
+  color: var(--gold);
+}
+
+.page-lede {
+  font-size: 1.05rem;
+}
+
+.page-updated {
+  margin: 0 0 1.5rem;
+  color: var(--text-soft);
+  font-size: 0.9rem;
+}
+
+.page ul {
+  padding-left: 1.2rem;
+}
+
+.page li + li {
+  margin-top: 0.35rem;
+}
+
+.page-footer {
+  padding: 0 0 2rem;
+  color: var(--text-soft);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.page-footer nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem 1.1rem;
+}
+
+.page-footer p {
+  margin: 0.6rem 0 0;
+}
+
+.page-cta {
+  display: inline-block;
+  margin-top: 0.6rem;
+  padding: 0.7rem 1.4rem;
+  border-radius: 12px;
+  background: var(--cta);
+  color: var(--cta-text);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.page-cta:hover {
+  color: var(--cta-text);
+  filter: brightness(1.1);
+}
+
+.page-notfound {
+  text-align: center;
+}
+
+.page-notfound section + section {
+  margin-top: 2rem;
+  padding-top: 1.6rem;
+  border-top: 1px solid var(--panel-border);
+}
+
+/* Audience counts */
+.metrics-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.metrics-controls select {
+  font: inherit;
+  padding: 0.35rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--panel-border);
+  background: var(--bg-mid);
+  color: var(--text-main);
+}
+
+.metrics-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.6rem;
+}
+
+.metrics-tile {
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+}
+
+.metrics-tile strong {
+  display: block;
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.metrics-tile span {
+  color: var(--text-soft);
+  font-size: 0.85rem;
+}
+
+.metrics-table-wrap {
+  overflow-x: auto;
+}
+
+.metrics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.metrics-table th,
+.metrics-table td {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--panel-border);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.metrics-table th:first-child,
+.metrics-table td:first-child {
+  text-align: left;
+}
+
+.metrics-message {
+  color: var(--text-soft);
+}

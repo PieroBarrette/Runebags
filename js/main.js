@@ -1,7 +1,11 @@
+// First on purpose: it notes whether this browser holds any RuneBags data
+// before the modules below start storing theirs.
+import { track, trackVisit } from "./net/metrics.js";
 import {
   createInitialState,
   enterShopPhase,
   getForcedVisiblePlayers,
+  getMajorityThreshold,
   getPendingActionPrompt,
   getPendingBoardTargets,
   getPlayerName,
@@ -36,6 +40,7 @@ import { createSfxEngine } from "./audio/sfxEngine.js";
 import { createMusicEngine } from "./audio/musicEngine.js";
 import { getStats, recordGameResult, resetStreak } from "./persistence/statsStore.js";
 import { renderRuneFigure, renderRulesFigures } from "./ui/rulesFigures.js";
+import { qrDataUrl } from "./ui/qr.js";
 import {
   claimHandle,
   fetchAccount,
@@ -56,7 +61,7 @@ import {
 } from "./net/apiClient.js";
 import { createReplayController } from "./replay/replayController.js";
 import { disablePush, enablePush, getPushState, isPushSupported, needsInstallForPush } from "./push/pushClient.js";
-import { t, tp, getLang, setLang, applyTranslations, runeDescription } from "./i18n.js";
+import { t, tp, getLang, setLang, applyTranslations, runeDescription, runeName } from "./i18n.js";
 
 const THEME_STORAGE_KEY = "runebags-theme-v1";
 const ANIMATION_STORAGE_KEY = "runebags-animations-v1";
@@ -135,6 +140,7 @@ const elements = {
   menuRulesBtn: document.getElementById("menu-rules-btn"),
   menuSettingsBtn: document.getElementById("menu-settings-btn"),
   homeRuneGallery: document.getElementById("home-rune-gallery"),
+  footerLangBtn: document.getElementById("footer-lang-btn"),
   homeStats: document.getElementById("home-stats"),
   homeInstallBtn: document.getElementById("home-install"),
   runeDetailOverlay: document.getElementById("rune-detail-overlay"),
@@ -468,6 +474,7 @@ dismissSplash();
 refreshAccount();
 consumeLoginLinkFromUrl();
 initializeEntryMode();
+trackVisit(getLang());
 
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) {
@@ -725,6 +732,7 @@ function bindEvents() {
     }
     handVisibility = { 1: aiSide !== 1, 2: aiSide !== 2 };
     setStatus(t("status.aiStarted", { player: getDisplayPlayerName(aiConfig.playerId), depth: aiConfig.depth }));
+    track("ai_start", aiDepth);
 
     persistState();
     enterGameScreen("local");
@@ -954,6 +962,7 @@ function bindEvents() {
     if (!link) {
       return;
     }
+    track("share", "invite");
 
     const sharePayload = {
       title: "RuneBags Online Match",
@@ -1198,6 +1207,7 @@ function bindEvents() {
   });
 
   elements.endgameShareBtn.addEventListener("click", () => {
+    track("share", "result");
     const text = buildShareText();
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(() => {
@@ -1248,6 +1258,13 @@ function bindEvents() {
       updateOnlineConnectionStatus();
     }
     render();
+  });
+
+  // The other language in one tap from the home page, through the same path
+  // as the Settings select.
+  elements.footerLangBtn.addEventListener("click", () => {
+    elements.languageSelect.value = getLang() === "fr" ? "en" : "fr";
+    elements.languageSelect.dispatchEvent(new Event("change"));
   });
 
   elements.homeRuneGallery.addEventListener("click", (event) => {
@@ -1425,6 +1442,9 @@ function bindEvents() {
     if (aiConfig.enabled && state.phase === "shop") {
       state.shop.currentPlayer = getHumanPlayerId();
     }
+    if (aiConfig.enabled) {
+      track("ai_start", aiConfig.depth);
+    }
     handVisibility = { 1: false, 2: true };
     clearModeSave(MODE_AI);
     persistState();
@@ -1589,7 +1609,7 @@ function showBoardRuneInfoForCell(cell, fromTouch) {
 
   const levelLabel = runeMeta.supportsLevels && rune.level >= 2 ? ` ${t("game.levelPrefix")}${rune.level}` : "";
   const etherealLabel = rune.ethereal ? ` (${t("game.ethereal")})` : "";
-  elements.boardRuneInfoTitle.textContent = `${runeMeta.name}${levelLabel}${etherealLabel}`;
+  elements.boardRuneInfoTitle.textContent = `${runeName(runeMeta)}${levelLabel}${etherealLabel}`;
   elements.boardRuneInfoDescription.textContent = runeDescription(runeMeta);
 
   const panelRect = elements.boardPanel.getBoundingClientRect();
@@ -1656,6 +1676,7 @@ function render() {
   const audioSnapshot = snapshotAudioState(state, boardSnapshot);
   playSoundTransitions(previousAudioSnapshot, audioSnapshot);
   playHapticTransitions(previousAudioSnapshot, audioSnapshot);
+  trackGameProgress(previousAudioSnapshot, audioSnapshot);
   previousAudioSnapshot = audioSnapshot;
 
   // Fuller ambient layer during play; ease back to the calm menu profile
@@ -1984,7 +2005,13 @@ function renderEndgameOverlay() {
   }
 
   if (!gameResultRecorded) {
-    recordGameResult(getHumanOutcome(), currentStatsMode());
+    const outcome = getHumanOutcome();
+    recordGameResult(outcome, currentStatsMode());
+    if (online.isOnlineActive()) {
+      track("online_end");
+    } else {
+      track("ai_end", outcome);
+    }
     gameResultRecorded = true;
     renderHomeStats();
   }
@@ -2886,14 +2913,14 @@ function renderRuneList(container, runes, playerId, highlightIds, options = {}) 
     if (rune.icon) {
       const symbol = document.createElement("img");
       symbol.src = rune.icon;
-      symbol.alt = rune.name;
+      symbol.alt = runeName(rune);
       symbol.className = "rune-chip-symbol";
       icon.appendChild(symbol);
     }
 
     const textWrap = document.createElement("div");
     const title = document.createElement("strong");
-    title.textContent = rune.name;
+    title.textContent = runeName(rune);
 
     const subtitle = document.createElement("small");
     const shouldShowLevelPrefix = RUNES_WITH_LEVEL_PREFIX.has(rune.id) && (rune.maxLevel || 1) >= 2;
@@ -2932,12 +2959,12 @@ function getRuneDisplayOwner(playerId, rune) {
 }
 
 function updateMeta() {
-  const pointsLabel = t("game.points");
-  renderPointRunes(elements.p1Points, pointsLabel, state.players[1].points);
-  renderPointRunes(elements.p2Points, pointsLabel, state.players[2].points);
+  const goal = getMajorityThreshold(state);
+  renderPointRunes(elements.p1Points, state.players[1].points, goal);
+  renderPointRunes(elements.p2Points, state.players[2].points, goal);
   elements.p1Bag.textContent = t("game.bag", { n: state.players[1].bag.length });
   elements.p2Bag.textContent = t("game.bag", { n: state.players[2].bag.length });
-  renderPointRunes(elements.pointPool, pointsLabel, state.pointPoolRemaining);
+  renderPointRunes(elements.pointPool, state.pointPoolRemaining);
   elements.neutralSupply.textContent = t("game.neutralSupply", { n: state.neutralSupply });
   const visibleAway = state.roundAwayRunes.map((entry, awayIndex) => ({ ...entry, awayIndex }));
   const shouldShowAway = state.phase !== "shop" && visibleAway.length > 0;
@@ -2951,12 +2978,15 @@ function updateMeta() {
   }
 }
 
-function renderPointRunes(target, label, count) {
+// A player's score is shown against the points that win the game, so the goal
+// is in sight from the first round instead of a bare label until the first
+// point. The shared pool (no goal) shows what it still holds.
+function renderPointRunes(target, count, goal = null) {
   target.innerHTML = "";
 
   const labelEl = document.createElement("span");
   labelEl.className = "point-rune-label";
-  labelEl.textContent = `${label}:`;
+  labelEl.textContent = t("game.pointsLabel");
 
   const trackEl = document.createElement("span");
   trackEl.className = "point-rune-track";
@@ -2969,12 +2999,22 @@ function renderPointRunes(target, label, count) {
     trackEl.appendChild(runeEl);
   }
 
+  const description = goal
+    ? t("game.pointsGoal", { n: safeCount, goal })
+    : t("game.pointsPool", { n: safeCount });
+  const countEl = document.createElement("span");
+  countEl.className = "point-rune-count";
+  countEl.setAttribute("aria-hidden", "true");
+  countEl.title = description;
+  countEl.textContent = goal ? t("game.pointsOf", { n: safeCount, goal }) : String(safeCount);
+
   const srText = document.createElement("span");
   srText.className = "sr-only";
-  srText.textContent = `${label}: ${safeCount}`;
+  srText.textContent = description;
 
   target.appendChild(labelEl);
   target.appendChild(trackEl);
+  target.appendChild(countEl);
   target.appendChild(srText);
 }
 
@@ -3018,14 +3058,14 @@ function renderRoundAwayRunes(entries) {
     if (rune.icon) {
       const symbol = document.createElement("img");
       symbol.src = rune.icon;
-      symbol.alt = rune.name;
+      symbol.alt = runeName(rune);
       symbol.className = "rune-chip-symbol";
       icon.appendChild(symbol);
     }
 
     const textWrap = document.createElement("div");
     const title = document.createElement("strong");
-    title.textContent = `${rune.name} ${t("game.levelPrefix")}${entry.level}`;
+    title.textContent = `${runeName(rune)} ${t("game.levelPrefix")}${entry.level}`;
     const subtitle = document.createElement("small");
     const ownerLabel = entry.owner === 1 ? t("side.black") : entry.owner === 2 ? t("side.white") : t("common.neutral");
     subtitle.textContent = t("endgame.discarded", { source: entry.source, owner: ownerLabel });
@@ -3297,10 +3337,15 @@ function showOnlinePanel() {
   // previous room locks the panel and quick play or another code is out of
   // reach. Getting back into that room is a card in the list below.
   showOnlineLobbyStep();
+  // Connect as the lobby opens rather than on the first button: a visitor
+  // should see a live server and who is online, not a red "disconnected",
+  // and a sleeping server starts waking while they choose a name.
+  online.ensureConnected().then(updateOnlineConnectionStatus);
   updateOnlineConnectionStatus();
   refreshLobbySocial();
   renderOnlineOngoing();
   renderChallenges();
+  track("online_open");
 }
 
 function showOnlineLobbyStep() {
@@ -3312,6 +3357,7 @@ function showOnlineLobbyStep() {
 
 function showRulesPanel() {
   showScreen("rules");
+  track("rules_open");
 }
 
 function showSettingsPanel() {
@@ -3850,12 +3896,16 @@ function updateInGameRatings() {
 
 function updateOnlineConnectionStatus() {
   const serverConnected = isOnlineServerConnected();
+  const connecting = !serverConnected && online.isConnecting();
 
   if (elements.onlineServerDot) {
     elements.onlineServerDot.classList.toggle("connected", serverConnected);
+    elements.onlineServerDot.classList.toggle("connecting", connecting);
   }
   if (elements.onlineServerText) {
-    elements.onlineServerText.textContent = serverConnected ? t("online.serverConnected") : t("online.serverDisconnected");
+    elements.onlineServerText.textContent = serverConnected
+      ? t("online.serverConnected")
+      : t(connecting ? "online.serverConnecting" : "online.serverDisconnected");
   }
 
   updatePresenceUI();
@@ -3971,6 +4021,11 @@ function formatLogEntry(entry) {
       params[key] = getDisplayPlayerName(params[key]);
     }
   });
+  // The engine logs the catalog name; the plain pieces have one per language.
+  if (typeof params.rune === "string") {
+    const rune = RUNE_CATALOG.find((candidate) => candidate.name === params.rune);
+    params.rune = rune ? runeName(rune) : params.rune;
+  }
   if (params.reasonKey) {
     params.reason = t(params.reasonKey);
   }
@@ -3991,8 +4046,7 @@ function buildRoomLink(roomCode) {
 }
 
 function buildRoomQrUrl(link) {
-  const base = "https://api.qrserver.com/v1/create-qr-code/";
-  return `${base}?size=240x240&margin=0&data=${encodeURIComponent(link)}`;
+  return qrDataUrl(link);
 }
 
 function applyRoomQuery(roomCode) {
@@ -4848,6 +4902,26 @@ function isLocalPlayerLogEntry(logText) {
   }
   const localSide = waitingRoomState.playerId === 2 ? "White" : "Black";
   return logText.startsWith(`${localSide} `);
+}
+
+// Milestones for the anonymous audience counts: an online game reaching its
+// first round, and the first round of a game against the AI being finished —
+// the point where a new player has understood enough to get through one.
+function trackGameProgress(previousSnapshot, currentSnapshot) {
+  if (!previousSnapshot || state.roundNumber !== 1) {
+    return;
+  }
+  if (online.isOnlineActive()) {
+    if (previousSnapshot.phase !== "round" && currentSnapshot.phase === "round") {
+      track("online_game", waitingRoomState.playerRatings ? "ranked" : "friendly");
+    }
+    return;
+  }
+  const finishedRound = previousSnapshot.phase === "round"
+    && (currentSnapshot.phase === "round-end" || currentSnapshot.phase === "game-over");
+  if (aiConfig.enabled && finishedRound) {
+    track("ai_round1", aiConfig.depth);
+  }
 }
 
 function playSoundTransitions(previousSnapshot, currentSnapshot) {
