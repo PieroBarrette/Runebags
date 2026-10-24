@@ -4585,8 +4585,10 @@ function getLocalGameOptions() {
 }
 
 // The home page's plate, a game a few moves in: Black has just completed a
-// diagonal with Raido. B and W are plain runes, N a neutral one, R and A
-// Raido for Black and Algiz for White; the top row is the top of the board.
+// diagonal with Raido. B and W are plain runes, N a neutral one, R Raido for
+// Black and E Berkana for White: the R and the B of the logo, the one at the
+// top of the line and the other beside it. (Not Algiz, which only ever enters
+// a column from the bottom.) The top row is the top of the board.
 // The tables live inside the function: boot calls it before a module-level
 // const below this point would be initialised.
 function renderHomeBoard() {
@@ -4598,7 +4600,7 @@ function renderHomeBoard() {
     ".......",
     "...R...",
     "..BWB..",
-    ".BWBA..",
+    ".BWBE..",
     "BWBWWN.",
   ];
   const pieces = {
@@ -4606,7 +4608,7 @@ function renderHomeBoard() {
     W: { owner: "p2" },
     N: { owner: "neutral" },
     R: { owner: "p1", rune: "raido" },
-    A: { owner: "p2", rune: "algiz" },
+    E: { owner: "p2", rune: "berkana" },
   };
   const winningLine = new Set(["5:0", "4:1", "3:2", "2:3"]);
   elements.homeBoard.replaceChildren(...layout.flatMap((line, row) => [...line].map((mark, col) => {
