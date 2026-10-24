@@ -24,6 +24,7 @@ const EVENTS = new Map([
   ["ai_start", LEVEL],
   ["ai_round1", LEVEL],
   ["ai_end", oneOf("win", "loss", "draw")],
+  ["review_open", NONE],
   ["online_open", NONE],
   ["online_game", oneOf("ranked", "friendly")],
   ["online_end", NONE],

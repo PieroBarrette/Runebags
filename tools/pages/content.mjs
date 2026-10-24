@@ -41,7 +41,7 @@ export const SITE = {
   <li>Line up four of your runes — across, down or diagonally — to win the round and take a point from the shared pool of {pool} points.</li>
   <li>Between rounds, visit the shop: add runes to your bag, remove one, or combine two identical runes into a stronger one.</li>
 </ol>
-<p>The first player to hold the majority of the points still in the pool wins the game.</p>
+<p>The first player to hold the majority of the points still in play wins the game: {goal} of {pool} at the start. A drawn round takes a point out of play, and the majority can drop with it — {goalAfterDraw} of {poolAfterDraw} after one draw.</p>
 {winFigure}
 
 <h2>What makes it different</h2>
@@ -101,12 +101,12 @@ export const SITE = {
   <li><strong>Buying every curse.</strong> A few neutral runes in your bag mean whole turns where your hand can do very little.</li>
   <li><strong>Forgetting Perth.</strong> After your opponent's Perth, your next rune must go in a column next to the Perth's.</li>
   <li><strong>Counting on removing a Laguz.</strong> Nothing moves or removes it, so a line that leans on it is there to stay.</li>
-  <li><strong>Losing track of the score.</strong> You need the majority of the points still in play ({goal} at the start), and every drawn round lowers it.</li>
+  <li><strong>Losing track of the score.</strong> You need the majority of the points still in play: {goal} of {pool} at the start, but a drawn round takes a point out of play, and then {goalAfterDraw} of {poolAfterDraw} are enough. The line beside the pool always shows the current majority.</li>
 </ul>
 
 <h2>The computer's five levels</h2>
 <p>Every level plays the same way: none sees your hand or the runes you will draw, and each one weighs the hands you might be holding instead. What changes is how often it misses its best move: often at Easy, never at Expert. In our tests, over a hundred games per level, each level beat the one below it about two games out of three.</p>
-<p>Start at Easy, then move up a level once you win most of your games.</p>`,
+<p>Start at Easy, then move up a level once you win most of your games. After each game, Review the game shows your accuracy and the move where it turned.</p>`,
       },
 
       runes: {
@@ -142,6 +142,7 @@ export const SITE = {
           ["How do I play with a friend?", "Choose Play online, then Play with a friend. You get a room code, a link and a QR code to send. Games in a room are friendly: they don't change anyone's rating."],
           ["How do ranked games work?", "Quick play pairs you with a player of a similar rating, and challenges can be ranked too; both players need an account. Everyone starts at an Elo rating of {startRating}, and each player has ten minutes on the clock."],
           ["How strong is the computer?", "There are five levels, from Easy to Expert. None of them sees your hand or the runes you will draw. In our tests, each level beat the one below it about two games out of three."],
+          ["Can I take back a move, or review my game?", "Against the computer, yes. Undo (or Ctrl+Z) takes back your last move for as long as the round is on. Once the game is over, Review the game gives your accuracy, sorts each of your moves from excellent to blunder and shows the turning point. Each move is judged as the Expert level would judge it, without seeing your opponent's hand."],
           ["Can I play on my phone?", "Yes, in the browser of any phone, tablet or computer. You can also install RuneBags on your home screen: the home page offers it when your browser allows it."],
           ["Can I play at the table?", "Yes. The free <a href=\"{printUrl}\">print-and-play kit</a> has the board, a quick reference and labels for the tokens."],
           ["How long does a game last?", "A round takes a few minutes. A game is played over several rounds, until one player holds the majority of the points still in play."],
@@ -225,7 +226,7 @@ export const SITE = {
   <li>Alignez quatre de vos runes — en ligne, en colonne ou en diagonale — pour gagner la manche et prendre un point dans la réserve commune de {pool} points.</li>
   <li>Entre les manches, passez à la boutique : ajoutez des runes à votre sac, retirez-en une, ou combinez deux runes identiques en une plus forte.</li>
 </ol>
-<p>Le premier joueur à détenir la majorité des points encore en jeu gagne la partie.</p>
+<p>Le premier joueur à détenir la majorité des points encore en jeu gagne la partie : {goal} sur {pool} au départ. Une manche nulle retire un point du jeu, et la majorité peut baisser avec lui — {goalAfterDraw} sur {poolAfterDraw} après une manche nulle.</p>
 {winFigure}
 
 <h2>Ce qui le rend unique</h2>
@@ -285,12 +286,12 @@ export const SITE = {
   <li><strong>Acheter toutes les malédictions.</strong> Quelques runes neutres dans votre sac, et ce sont des tours entiers où votre main ne peut presque rien.</li>
   <li><strong>Oublier Perth.</strong> Après le Perth de votre adversaire, votre prochaine rune doit aller dans une colonne voisine de celle du Perth.</li>
   <li><strong>Compter retirer une Laguz.</strong> Rien ne la déplace ni ne la retire : une ligne qui s'appuie dessus est là pour rester.</li>
-  <li><strong>Perdre le score de vue.</strong> Il faut la majorité des points encore en jeu ({goal} au départ), et chaque manche nulle abaisse ce total.</li>
+  <li><strong>Perdre le score de vue.</strong> Il faut la majorité des points encore en jeu : {goal} sur {pool} au départ, mais une manche nulle retire un point du jeu, et {goalAfterDraw} sur {poolAfterDraw} suffisent alors. La ligne à côté de la réserve indique toujours la majorité du moment.</li>
 </ul>
 
 <h2>Les cinq niveaux de l'ordinateur</h2>
 <p>Tous les niveaux jouent de la même façon : aucun ne voit votre main ni les runes que vous allez piger, et chacun évalue plutôt les mains que vous pourriez tenir. Ce qui change, c'est la fréquence à laquelle il rate son meilleur coup : souvent au niveau Facile, jamais au niveau Expert. Dans nos tests, sur cent parties par niveau, chaque niveau a battu le précédent environ deux fois sur trois.</p>
-<p>Commencez au niveau Facile, puis montez d'un niveau quand vous gagnez la plupart de vos parties.</p>`,
+<p>Commencez au niveau Facile, puis montez d'un niveau quand vous gagnez la plupart de vos parties. Après chaque partie, « Analyser la partie » montre votre précision et le coup où tout a basculé.</p>`,
       },
 
       runes: {
@@ -326,6 +327,7 @@ export const SITE = {
           ["Comment jouer avec un ami ?", "Choisissez « Jouer en ligne », puis « Jouer avec un ami ». Vous obtenez un code de salle, un lien et un code QR à envoyer. Les parties en salle sont amicales : elles ne changent la cote de personne."],
           ["Comment fonctionnent les parties classées ?", "La partie rapide vous associe à un joueur de cote voisine, et les défis peuvent aussi être classés ; les deux joueurs doivent avoir un compte. Tout le monde commence avec une cote Elo de {startRating}, et chaque joueur a dix minutes à l'horloge."],
           ["L'ordinateur est-il fort ?", "Il y a cinq niveaux, de Facile à Expert. Aucun ne voit votre main ni les runes que vous allez piger. Dans nos tests, chaque niveau a battu le précédent environ deux fois sur trois."],
+          ["Peut-on annuler un coup ou analyser sa partie ?", "Contre l'ordinateur, oui. Annuler (ou Ctrl+Z) reprend votre dernier coup tant que la manche dure. À la fin de la partie, « Analyser la partie » donne votre précision, classe chacun de vos coups d'excellent à gaffe et montre le tournant. Chaque coup est jugé comme le jugerait le niveau Expert, sans voir la main de l'adversaire."],
           ["Peut-on jouer sur téléphone ?", "Oui, dans le navigateur d'un téléphone, d'une tablette ou d'un ordinateur. Vous pouvez aussi installer RuneBags sur votre écran d'accueil : la page d'accueil le propose quand votre navigateur le permet."],
           ["Peut-on jouer sur table ?", "Oui. La <a href=\"{printUrl}\">trousse gratuite à imprimer</a> contient le plateau, un aide-mémoire et des étiquettes pour les jetons."],
           ["Combien de temps dure une partie ?", "Une manche dure quelques minutes. Une partie se joue en plusieurs manches, jusqu'à ce qu'un joueur détienne la majorité des points encore en jeu."],

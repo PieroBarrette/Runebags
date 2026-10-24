@@ -20,7 +20,14 @@
 // level for level, and at a hundred times the thinking time. Both engines are
 // here, `chooseRoundMovePimc` (used) and `chooseRoundMoveMcts` (kept so the
 // comparison can be re-run), with the numbers recorded at each one.
-import { getLegalMovesForPlayer, getPendingChoices, playTurn, resolvePendingBoardChoice, selectRune } from "../core/gameState.js";
+import {
+  getLegalMovesForPlayer,
+  getMajorityThreshold,
+  getPendingChoices,
+  playTurn,
+  resolvePendingBoardChoice,
+  selectRune,
+} from "../core/gameState.js";
 import { rngFor } from "../core/rng.js";
 import { shuffle } from "../runes/bagEngine.js";
 import {
@@ -66,7 +73,6 @@ export const SEARCH_DEFAULTS = {
   barrenIterationLimit: 512,
 };
 
-const POINT_POOL_TOTAL = 10;
 // Keeps ordinary positions inside the responsive part of tanh instead of
 // saturating everything to ±1.
 const POSITION_SCALE = 900;
@@ -80,10 +86,6 @@ function clamp(value, low, high) {
 
 function opponentOf(playerId) {
   return playerId === 1 ? 2 : 1;
-}
-
-function majorityThreshold(state) {
-  return Math.floor((POINT_POOL_TOTAL - (state.tieRemovedPoints || 0)) / 2) + 1;
 }
 
 // Sample one world consistent with what the AI is entitled to know.
@@ -159,7 +161,7 @@ function leafValue(state, aiPlayerId) {
   if (state.phase === "round-end") {
     // Points are already awarded by the time the phase flips, so the race is
     // readable straight off the state.
-    const need = majorityThreshold(state);
+    const need = getMajorityThreshold(state);
     const lead = (state.players[aiPlayerId].points - state.players[opponentId].points) / need;
     const round = state.winner === aiPlayerId ? 1 : state.winner === opponentId ? -1 : 0;
     return clamp(ROUND_RESULT_VALUE * round + 0.3 * lead, -0.95, 0.95);

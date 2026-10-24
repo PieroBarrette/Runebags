@@ -10,6 +10,7 @@ const FUNNEL = [
   ["ai_start", "Parties contre l'IA commencées"],
   ["ai_round1", "Première manche terminée"],
   ["ai_end", "Parties contre l'IA terminées"],
+  ["review_open", "Analyses de partie ouvertes"],
   ["rules_open", "Règles ouvertes"],
   ["online_open", "Jeu en ligne ouvert"],
   ["online_game", "Parties en ligne commencées"],
@@ -22,6 +23,7 @@ const SHARE_OF = {
   ai_start: "visit",
   ai_round1: "ai_start",
   ai_end: "ai_start",
+  review_open: "ai_end",
   online_game: "online_open",
 };
 const DAILY_COLUMNS = ["visit", "first_visit", "ai_start", "ai_round1", "ai_end", "online_game", "share"];

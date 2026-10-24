@@ -592,7 +592,7 @@
       </nav>
       <div class="rules-content">
         <h3 data-i18n="rules.s1h">1. Goal</h3>
-        <p data-i18n="rules.s1p1">Win the majority of a shared 10-point supply by forming winning lines of 4 or more runes.</p>
+        <p data-i18n="rules.s1p1">Win the majority of the points still in play by forming winning lines of 4 or more runes. A game starts with 10 points in play, so 6 win it; each drawn round takes one point out of play, and the majority shrinks with it: 5 of 9, 5 of 8, 4 of 7…</p>
         <div class="rules-figure" data-figure="win-line"></div>
 
         <h3 data-i18n="rules.s2h">2. Round Flow</h3>
@@ -613,11 +613,11 @@
         <p data-i18n="rules.s4p5">If a player has no legally playable rune, they must pass.</p>
         <p data-i18n="rules.s4p6">If both players cannot play, the round is a draw.</p>
         <p data-i18n="rules.s4p7">If both players form a winning line from the resolution of the same action, the round is a draw.</p>
-        <p data-i18n="rules.s4p8">If a round is a draw, 1 point is removed from the supply instead of being awarded.</p>
+        <p data-i18n="rules.s4p8">If a round is a draw, 1 point is removed from the supply instead of being awarded: it leaves play, which can lower the majority needed to win.</p>
         <p data-i18n="rules.s4p9">The round phase ends as soon as a player forms a winning line of at least 4 runes. That player takes 1 point from the supply.</p>
 
         <h3 data-i18n="rules.s5h">5. End of Game</h3>
-        <p data-i18n="rules.s5p1">A player wins the game by obtaining the majority of the points still available. If the supply reaches 0, the highest score wins. If scores are tied, fewer runes in bag wins.</p>
+        <p data-i18n="rules.s5p1">A player wins the game as soon as they hold the majority of the points still in play: more than half of the points not removed by drawn rounds. If the supply reaches 0, the highest score wins. If scores are tied, fewer runes in bag wins.</p>
 
         <h3 data-i18n="rules.s6h">6. Neutral Runes</h3>
         <p data-i18n="rules.s6p1">Neutral runes are gray blockers. They belong to neither Black nor White.</p>
@@ -668,6 +668,8 @@
         </h1>
         <div class="status-wrap">
           <p id="game-status" class="sr-only" aria-live="polite">Loading match...</p>
+          <!-- Against the AI only: takes back the player's last move of the round. -->
+          <button id="undo-btn" type="button" title="Take back your last move (Ctrl+Z)" aria-label="Take back your last move" data-i18n-attr="title:topbar.undoTitle;aria-label:topbar.undoAria" hidden><span aria-hidden="true">&#8630;</span><span class="undo-label" data-i18n="topbar.undo">Undo</span></button>
           <button id="menu-btn" type="button" data-i18n="topbar.menu">Main Menu</button>
           <button id="new-game-btn" type="button" data-i18n="topbar.newGame">New Game</button>
         </div>
@@ -693,7 +695,7 @@
         <section id="board-panel" class="board-panel panel">
           <div id="online-disconnect-banner" class="online-disconnect-banner" role="status" hidden></div>
           <div id="turn-pill" class="turn-pill">Turn: White</div>
-          <p class="bag-meta"><span id="point-pool">Points:</span> | <span id="neutral-supply">Neutral Supply: 0</span></p>
+          <p class="bag-meta"><span id="point-pool">Pool:</span> · <span id="win-goal" class="win-goal">Majority: 6</span> | <span id="neutral-supply">Neutral Supply: 0</span></p>
           <p class="bag-meta" id="round-discards" hidden>Discarded this round: none</p>
           <div id="round-away-list" class="round-away-list" aria-live="polite" hidden></div>
           <div class="shop-toolbar">
@@ -779,11 +781,54 @@
             <button id="endgame-signin-btn" class="menu-btn" type="button" data-i18n="endgame.signIn">Sign in</button>
           </div>
           <p id="endgame-rematch-status" class="endgame-rematch-status" hidden></p>
+          <!-- What comes next first: the next level after a win against the AI,
+               the same game again, and the review of the one just played. -->
           <div class="menu-actions compact endgame-actions">
+            <button id="endgame-next-level-btn" class="menu-btn primary" type="button" hidden>Next level</button>
             <button id="endgame-rematch-btn" class="menu-btn primary" type="button" data-i18n="endgame.playAgain">Play again</button>
+            <button id="endgame-review-btn" class="menu-btn review-btn" type="button" data-i18n="endgame.review" hidden>Review the game</button>
+          </div>
+          <div class="menu-actions compact endgame-actions endgame-secondary">
             <button id="endgame-share-btn" class="menu-btn secondary" type="button" data-i18n="endgame.share">Share result</button>
             <button id="endgame-menu-btn" class="menu-btn secondary" type="button" data-i18n="endgame.mainMenu">Main menu</button>
             <button id="endgame-dismiss-btn" class="menu-btn secondary" type="button" data-i18n="endgame.viewBoard">View board</button>
+          </div>
+        </article>
+      </section>
+
+      <!-- The post-game review against the AI (js/review/reviewController.js). -->
+      <section id="review-overlay" class="endgame-overlay review-overlay" hidden>
+        <article class="endgame-card review-card" role="dialog" aria-modal="true" aria-labelledby="review-title">
+          <p class="endgame-eyebrow" data-i18n="review.eyebrow">Game review</p>
+          <h2 id="review-title" class="endgame-title" data-i18n="review.title">How you played</h2>
+          <div id="review-progress" class="review-progress" role="status" aria-live="polite">
+            <p id="review-progress-text" class="review-progress-text">Reviewing your moves…</p>
+            <div class="review-progress-bar"><span id="review-progress-fill" class="review-progress-fill"></span></div>
+          </div>
+          <div id="review-body" class="review-body" hidden>
+            <p class="review-accuracy">
+              <span id="review-accuracy" class="review-accuracy-value">–</span>
+              <span class="review-accuracy-label" data-i18n="review.accuracyLabel">accuracy</span>
+            </p>
+            <ul id="review-bands" class="review-bands"></ul>
+            <section class="review-focus" aria-labelledby="review-focus-title">
+              <h3 id="review-focus-title" class="review-focus-title"></h3>
+              <div id="review-board" class="board rules-mini-board review-board" aria-hidden="true"></div>
+              <p class="review-legend">
+                <span id="review-legend-played" class="review-legend-item played" data-i18n="review.legendPlayed">Your move</span>
+                <span id="review-legend-best" class="review-legend-item best" data-i18n="review.legendBest">Best move</span>
+              </p>
+              <p id="review-focus-played" class="review-focus-move"></p>
+              <p id="review-focus-best" class="review-focus-best" hidden></p>
+              <p id="review-focus-why" class="review-focus-why"></p>
+            </section>
+            <h3 class="review-moves-title" data-i18n="review.movesTitle">Your moves</h3>
+            <div id="review-moves" class="review-moves"></div>
+            <p id="review-note" class="review-note"></p>
+          </div>
+          <div class="menu-actions compact endgame-actions">
+            <button id="review-again-btn" class="menu-btn primary" type="button" data-i18n="endgame.playAgain">Play again</button>
+            <button id="review-back-btn" class="menu-btn secondary" type="button" data-i18n="nav.back">Back</button>
           </div>
         </article>
       </section>

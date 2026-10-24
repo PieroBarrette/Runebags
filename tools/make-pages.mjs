@@ -114,6 +114,8 @@ function facts(lang) {
   return {
     pool: POINT_POOL_TOTAL,
     goal: getMajorityThreshold({ tieRemovedPoints: 0 }),
+    poolAfterDraw: POINT_POOL_TOTAL - 1,
+    goalAfterDraw: getMajorityThreshold({ tieRemovedPoints: 1 }),
     neutrals: STARTING_NEUTRAL_SUPPLY,
     points: POINT_POOL_TOTAL,
     startRating: START_RATING,
@@ -657,14 +659,18 @@ Each player draws two runes from their own bag; the opponent never sees them.
 On a turn, a player drops one rune into a column, applies its power if it has
 one, and draws back up. A line of four wins the round and one point from a
 shared pool of ${vars.pool}; the first player to hold the majority of the points
-still in play wins the game. Between rounds, each player may add up to two
+still in play wins the game (${vars.goal} of ${vars.pool} at the start; a drawn
+round takes a point out of play, so ${vars.goalAfterDraw} of
+${vars.poolAfterDraw} after one draw). Between rounds, each player may add up to two
 runes from a shop offer, remove one, or combine two identical runes into a
 level-2 rune. ${vars.specialCount} runes have powers; some are cursed or
 corrupted, which slips neutral runes into their owner's bag.
 
 It can be played against the computer at five levels, online with a friend by
 room code, link or QR code, as rated games matched by Elo rating, or at the
-table with a free print-and-play kit. Created by Piero Barrette, in Quebec.
+table with a free print-and-play kit. Against the computer a move can be taken
+back, and each finished game reviewed move by move, with an accuracy score and
+the turning point. Created by Piero Barrette, in Quebec.
 
 ## Pages
 

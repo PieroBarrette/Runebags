@@ -180,7 +180,8 @@ h2 {
 }
 
 #new-game-btn,
-#menu-btn {
+#menu-btn,
+#undo-btn {
   border: 1px solid var(--panel-border);
   background: linear-gradient(180deg, #f7f9fc, #e5ebf2);
   color: var(--text-main);
@@ -191,8 +192,20 @@ h2 {
 }
 
 #new-game-btn:hover,
-#menu-btn:hover {
+#menu-btn:hover,
+#undo-btn:hover:not(:disabled) {
   border-color: var(--accent);
+}
+
+#undo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+#undo-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .menu-screen {
@@ -1422,6 +1435,7 @@ body[data-theme="dark"] .menu-panel input {
 body[data-theme="dark"] .menu-btn,
 body[data-theme="dark"] #new-game-btn,
 body[data-theme="dark"] #menu-btn,
+body[data-theme="dark"] #undo-btn,
 body[data-theme="dark"] .shop-toolbar button,
 body[data-theme="dark"] .shop-actions-row button,
 body[data-theme="dark"] #phase-btn {
@@ -1602,6 +1616,13 @@ body[data-theme="dark"] .qc-btn {
 .point-rune-count {
   margin-left: 0.45rem;
   font-variant-numeric: tabular-nums;
+}
+
+/* The majority beside the pool carries its explanation as a tooltip. */
+.win-goal {
+  cursor: help;
+  text-decoration: underline dotted;
+  text-underline-offset: 0.2em;
 }
 
 .point-rune-track:empty + .point-rune-count {
@@ -1931,8 +1952,9 @@ body[data-theme="dark"] .qc-btn {
   display: none;
 }
 
+/* Wide enough for the three actions that follow a game against the AI. */
 .endgame-card {
-  width: min(460px, 94vw);
+  width: min(520px, 94vw);
   text-align: center;
   padding: 1.7rem 1.5rem;
   border-radius: 18px;
@@ -2542,9 +2564,15 @@ body[data-theme="dark"] .modal-prompt-card {
   }
 
   #menu-btn,
-  #new-game-btn {
+  #new-game-btn,
+  #undo-btn {
     padding: 0.4rem 0.6rem;
     font-size: 0.9rem;
+  }
+
+  /* The arrow says it on a phone; the word would push the bar past the edge. */
+  #undo-btn .undo-label {
+    display: none;
   }
 
   .game-layout {
@@ -2691,5 +2719,394 @@ body[data-theme="dark"] .modal-prompt-card {
 
   .turn-log {
     max-height: 8rem;
+  }
+}
+
+/* End card: what comes next in the first row, the rest in a quieter one. */
+.endgame-card .endgame-actions {
+  justify-content: center;
+}
+
+.endgame-secondary {
+  margin-top: 0.55rem;
+}
+
+.endgame-secondary .menu-btn {
+  padding: 0.45rem 0.8rem;
+  font-size: 0.9rem;
+}
+
+.menu-btn.review-btn {
+  background: transparent;
+  border-color: var(--cta);
+  color: var(--cta);
+  font-weight: 600;
+}
+
+body[data-theme="dark"] .menu-btn.review-btn {
+  background: transparent;
+  border-color: var(--accent);
+  color: var(--text-main);
+}
+
+/* Post-game review (js/review/reviewController.js). The five bands keep the
+   colours chess players already read: green to red through yellow. */
+:root {
+  --band-excellent: #23864f;
+  --band-good: #3f7fae;
+  --band-inaccuracy: #b98a12;
+  --band-mistake: #cf6421;
+  --band-blunder: #c0392b;
+  --band-ink: #ffffff;
+}
+
+body[data-theme="dark"] {
+  --band-excellent: #5cc98a;
+  --band-good: #7db6dc;
+  --band-inaccuracy: #e6bf4f;
+  --band-mistake: #f0995a;
+  --band-blunder: #ef6f66;
+  --band-ink: #10141a;
+}
+
+.band-excellent { --band-color: var(--band-excellent); }
+.band-good { --band-color: var(--band-good); }
+.band-inaccuracy { --band-color: var(--band-inaccuracy); }
+.band-mistake { --band-color: var(--band-mistake); }
+.band-blunder { --band-color: var(--band-blunder); }
+
+/* The card can be taller than a phone: the overlay scrolls, and the auto
+   margin centres the card whenever it fits. */
+.review-overlay {
+  align-items: flex-start;
+  overflow-y: auto;
+}
+
+.review-card {
+  width: min(560px, 96vw);
+  margin: auto 0;
+}
+
+.review-progress {
+  margin: 1.1rem 0 1.3rem;
+}
+
+.review-progress-text {
+  margin: 0 0 0.6rem;
+  color: var(--text-soft);
+}
+
+.review-progress-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(127, 127, 127, 0.2);
+  overflow: hidden;
+}
+
+.review-progress-fill {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: var(--cta);
+  transition: width 200ms ease;
+}
+
+body[data-theme="dark"] .review-progress-fill {
+  background: var(--accent);
+}
+
+.review-accuracy {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0.3rem 0 0.8rem;
+}
+
+.review-accuracy-value {
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 2.6rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.review-accuracy-label {
+  color: var(--text-soft);
+}
+
+.review-bands {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.review-band {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  font-size: 0.8rem;
+}
+
+.review-band-count {
+  font-weight: 700;
+}
+
+/* ?!, ? and ?? on the band colour; the two good bands get a plain dot. */
+.review-mark {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.5em;
+  height: 1.5em;
+  padding: 0 0.25em;
+  border-radius: 999px;
+  background: var(--band-color);
+  color: var(--band-ink);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.band-inaccuracy .review-mark,
+.review-mark.band-inaccuracy {
+  color: #1d1a10;
+}
+
+.review-mark:empty {
+  width: 0.7em;
+  min-width: 0;
+  height: 0.7em;
+  padding: 0;
+}
+
+.review-focus {
+  margin: 0 0 1rem;
+  padding: 0.85rem 0.75rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  background: rgba(127, 127, 127, 0.06);
+}
+
+.review-focus-title {
+  margin: 0 0 0.6rem;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 1rem;
+}
+
+.board.review-board {
+  grid-template-columns: repeat(var(--columns), minmax(20px, 40px));
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.review-board .cell.review-played {
+  box-shadow: inset 0 0 0 3px var(--band-color, var(--band-mistake));
+}
+
+.review-board .cell.review-best {
+  box-shadow: inset 0 0 0 3px var(--band-excellent);
+}
+
+/* Where a rune would have landed, drawn like a piece, but see-through. */
+.review-ghost {
+  position: absolute;
+  inset: 15%;
+  border-radius: 50%;
+  opacity: 0.42;
+  outline: 2px dashed var(--text-soft);
+  outline-offset: 1px;
+}
+
+.review-ghost.owner-1 {
+  background: radial-gradient(circle at 30% 25%, #6f6f6f, #111111 60%);
+}
+
+.review-ghost.owner-2 {
+  background: radial-gradient(circle at 30% 25%, #ffffff, #e8e8e8 60%);
+  box-shadow: inset 0 0 0 1px rgba(76, 90, 107, 0.52);
+}
+
+.review-ghost.owner-3 {
+  background: radial-gradient(circle at 30% 25%, #cdcdcd, #7f7f7f 60%);
+  border: 2px dashed #5c6772;
+}
+
+.review-ghost-symbol {
+  position: absolute;
+  inset: 22%;
+  width: 56%;
+  height: 56%;
+  object-fit: contain;
+  filter: grayscale(1) brightness(0.24);
+}
+
+.review-ghost.owner-1 .review-ghost-symbol {
+  filter: invert(1) brightness(1.25);
+}
+
+.review-legend {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin: 0.45rem 0 0.35rem;
+  color: var(--text-soft);
+  font-size: 0.78rem;
+}
+
+.review-legend-item::before {
+  content: "";
+  display: inline-block;
+  width: 0.8em;
+  height: 0.8em;
+  margin-right: 0.35em;
+  border-radius: 3px;
+  vertical-align: -0.08em;
+  box-shadow: inset 0 0 0 2px var(--band-color, var(--band-mistake));
+}
+
+.review-legend-item.best::before {
+  box-shadow: inset 0 0 0 2px var(--band-excellent);
+}
+
+.review-focus-move {
+  margin: 0.35rem 0 0.15rem;
+  font-weight: 600;
+}
+
+.review-focus-move .review-mark {
+  margin-right: 0.15rem;
+  vertical-align: 0.1em;
+}
+
+.review-focus-best {
+  margin: 0 0 0.15rem;
+  font-weight: 600;
+}
+
+.review-focus-why {
+  margin: 0.25rem 0 0;
+  color: var(--text-soft);
+  font-size: 0.9rem;
+}
+
+.review-moves-title {
+  margin: 0 0 0.5rem;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 1rem;
+}
+
+.review-moves {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0 0 0.9rem;
+  text-align: left;
+}
+
+.review-round {
+  display: grid;
+  grid-template-columns: 5.2rem 1fr;
+  align-items: start;
+  gap: 0.5rem;
+}
+
+.review-round-label {
+  padding-top: 0.45rem;
+  color: var(--text-soft);
+  font-size: 0.8rem;
+}
+
+.review-round-moves {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.review-chip {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  padding: 0;
+  border: 2px solid var(--band-color);
+  border-radius: 8px;
+  background: var(--panel);
+  cursor: pointer;
+}
+
+.review-chip[aria-pressed="true"] {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.review-chip.forced {
+  border-style: dashed;
+  opacity: 0.7;
+}
+
+.review-chip-rune {
+  width: 1.3rem;
+  height: 1.3rem;
+  object-fit: contain;
+  filter: grayscale(1) brightness(0.3);
+}
+
+body[data-theme="dark"] .review-chip-rune {
+  filter: invert(1) grayscale(1) brightness(1.4);
+}
+
+.review-chip-disc {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+}
+
+.review-chip-disc.p1 {
+  background: radial-gradient(circle at 30% 25%, #6f6f6f, #111111 60%);
+}
+
+.review-chip-disc.p2 {
+  background: radial-gradient(circle at 30% 25%, #ffffff, #e8e8e8 60%);
+  box-shadow: inset 0 0 0 1px rgba(76, 90, 107, 0.6);
+}
+
+.review-chip .review-mark {
+  position: absolute;
+  top: -0.5rem;
+  right: -0.5rem;
+  min-width: 1.4em;
+  height: 1.4em;
+  font-size: 0.62rem;
+}
+
+.review-note {
+  margin: 0 0 0.7rem;
+  color: var(--text-soft);
+  font-size: 0.78rem;
+}
+
+@media (max-width: 560px) {
+  .review-overlay {
+    padding: 0.6rem;
+  }
+
+  .review-card {
+    padding: 1.2rem 0.9rem;
+  }
+
+  .review-round {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+
+  .review-round-label {
+    padding-top: 0;
   }
 }

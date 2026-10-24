@@ -6,6 +6,7 @@ import {
   enterShopPhase,
   getForcedVisiblePlayers,
   getMajorityThreshold,
+  POINT_POOL_TOTAL,
   getPendingActionPrompt,
   getPendingBoardTargets,
   getPlayerName,
@@ -33,7 +34,7 @@ import { runAiTurn } from "./ai/aiRunner.js";
 import { renderBoard } from "./ui/boardView.js";
 import { renderHands } from "./ui/handView.js";
 import { renderLog } from "./ui/logView.js";
-import { clearModeSave, loadModeSave, saveModeSave } from "./persistence/localStore.js";
+import { clearModeSave, loadGameRecord, loadModeSave, saveGameRecord, saveModeSave } from "./persistence/localStore.js";
 import { createOnlineController, AVATAR_GLYPHS, AVATAR_COLORS, QUICK_CHAT_KEYS } from "./online/onlineController.js";
 import { getRuneById, RUNE_CATALOG, getAllowedColumns } from "./runes/runeCatalog.js";
 import { createSfxEngine } from "./audio/sfxEngine.js";
@@ -61,6 +62,7 @@ import {
   verifyLogin,
 } from "./net/apiClient.js";
 import { createReplayController } from "./replay/replayController.js";
+import { createReviewController } from "./review/reviewController.js";
 import { disablePush, enablePush, getPushState, isPushSupported, needsInstallForPush } from "./push/pushClient.js";
 import { t, tp, getLang, setLang, applyTranslations, runeDescription, runeName } from "./i18n.js";
 
@@ -324,6 +326,7 @@ const elements = {
   menuBtn: document.getElementById("menu-btn"),
   phaseBtn: document.getElementById("phase-btn"),
   newGameBtn: document.getElementById("new-game-btn"),
+  undoBtn: document.getElementById("undo-btn"),
   player1Panel: document.getElementById("player-1-panel"),
   player2Panel: document.getElementById("player-2-panel"),
   p1Name: document.getElementById("p1-name"),
@@ -339,6 +342,7 @@ const elements = {
   p1Points: document.getElementById("p1-points"),
   p2Points: document.getElementById("p2-points"),
   pointPool: document.getElementById("point-pool"),
+  winGoal: document.getElementById("win-goal"),
   neutralSupply: document.getElementById("neutral-supply"),
   roundDiscards: document.getElementById("round-discards"),
   roundAwayList: document.getElementById("round-away-list"),
@@ -377,6 +381,26 @@ const elements = {
   endgameShareBtn: document.getElementById("endgame-share-btn"),
   endgameMenuBtn: document.getElementById("endgame-menu-btn"),
   endgameDismissBtn: document.getElementById("endgame-dismiss-btn"),
+  endgameNextLevelBtn: document.getElementById("endgame-next-level-btn"),
+  endgameReviewBtn: document.getElementById("endgame-review-btn"),
+  reviewOverlay: document.getElementById("review-overlay"),
+  reviewProgress: document.getElementById("review-progress"),
+  reviewProgressText: document.getElementById("review-progress-text"),
+  reviewProgressFill: document.getElementById("review-progress-fill"),
+  reviewBody: document.getElementById("review-body"),
+  reviewAccuracy: document.getElementById("review-accuracy"),
+  reviewBands: document.getElementById("review-bands"),
+  reviewFocusTitle: document.getElementById("review-focus-title"),
+  reviewBoard: document.getElementById("review-board"),
+  reviewLegendPlayed: document.getElementById("review-legend-played"),
+  reviewLegendBest: document.getElementById("review-legend-best"),
+  reviewFocusPlayed: document.getElementById("review-focus-played"),
+  reviewFocusBest: document.getElementById("review-focus-best"),
+  reviewFocusWhy: document.getElementById("review-focus-why"),
+  reviewMoves: document.getElementById("review-moves"),
+  reviewNote: document.getElementById("review-note"),
+  reviewAgainBtn: document.getElementById("review-again-btn"),
+  reviewBackBtn: document.getElementById("review-back-btn"),
   shopInstruction: document.getElementById("shop-instruction"),
   shopRemoveBtn: document.getElementById("shop-remove-btn"),
   shopCombineBtn: document.getElementById("shop-combine-btn"),
@@ -435,6 +459,14 @@ const music = createMusicEngine({ getContext: () => sfx.getAudioContext() });
 // Console handle for diagnosing audio on real devices (state, volume, restart).
 window.__rbMusic = music;
 const replay = createReplayController({ elements, onClose: () => showStatsPanel() });
+const review = createReviewController({
+  elements,
+  onPlayAgain: () => elements.endgameRematchBtn.click(),
+  onClose: () => {
+    endgameOverlayDismissed = false;
+    render();
+  },
+});
 const tips = createTips({
   card: elements.tipCard,
   text: elements.tipText,
@@ -443,11 +475,24 @@ const tips = createTips({
 });
 let aiBusy = false;
 let aiTimer = null;
+// Bumped whenever the AI's pending turn is called off (undo, leaving the game):
+// an answer that comes back for an older generation is to a position that no
+// longer exists, and is dropped.
+let aiGeneration = 0;
+// The game against the AI as the review reads it: the position before each of
+// the player's placements (see recordPlayerMove). Picked up at boot, because
+// the save is rewritten — with the record's id — before a game is resumed.
+let aiRecord = loadAiRecordFor(loadModeSave(MODE_AI)?.gameId);
+// What undo restores: full copies of the same positions, current round only.
+let undoStack = [];
 let animationsEnabled = true;
 let soundEnabled = true;
 let sfxVolume = DEFAULT_SFX_VOLUME;
 let previousBoardSnapshot = null;
 let previousRenderRound = null;
+// Points taken out of play by drawn rounds at the last render, so a draw that
+// lowers the majority can be announced as it happens.
+let previousTieRemoved = null;
 // When each effect ghost first appeared, so a board rebuild can resume its
 // fade instead of restarting it. Keyed by "row:col".
 const ghostStartedAt = new Map();
@@ -485,6 +530,7 @@ initializeMusic();
 initializePush();
 bindAccountEvents();
 replay.bind();
+review.bind();
 renderHomeRuneGallery();
 renderRulesFigures();
 renderHomeStats();
@@ -713,6 +759,7 @@ function bindEvents() {
     state = restoreState(savedAi.state, getLocalGameOptions());
     setAiSettings(aiConfig, true, aiSide, aiDepth);
     currentLocalMode = MODE_AI;
+    resumeAiRecord(savedAi.gameId);
     // The shop always belongs to the player; the AI shops its own side on its
     // own, so the board never hands the opponent's bag over by mistake.
     if (state.phase === "shop") {
@@ -749,6 +796,7 @@ function bindEvents() {
     state = restoreState(createInitialState(getLocalGameOptions()), getLocalGameOptions());
     setAiSettings(aiConfig, true, aiSide, aiDepth);
     currentLocalMode = MODE_AI;
+    startAiRecord();
     // The shop always belongs to the player; the AI shops its own side on its
     // own, so the board never hands the opponent's bag over by mistake.
     if (state.phase === "shop") {
@@ -1126,6 +1174,12 @@ function bindEvents() {
       return;
     }
 
+    // The position before one of the player's own placements against the AI,
+    // for the review and for undo. Answers to rune effects are not recorded:
+    // undoing the placement takes them back with it.
+    const before = !state.pendingAction && isRecordingAiGame() && state.currentPlayer === getHumanPlayerId()
+      ? structuredClone(state)
+      : null;
     const result = state.pendingAction
       ? resolvePendingBoardChoice(state, { row, col: column, column })
       : playTurn(state, column, { row, col: column });
@@ -1133,11 +1187,16 @@ function bindEvents() {
     state = result.state;
     if (result.error) {
       setStatus(formatEngineError(result));
+    } else if (before) {
+      const runeInstanceId = before.players[before.currentPlayer].selectedRuneInstanceId;
+      recordPlayerMove(before, { runeInstanceId, column, row, col: column });
     }
     persistState();
     render();
     scheduleAiTurnIfNeeded();
   });
+
+  elements.undoBtn.addEventListener("click", undoLastMove);
 
   elements.roundAwayList.addEventListener("click", (event) => {
     const runeCard = event.target.closest(".away-rune");
@@ -1224,6 +1283,29 @@ function bindEvents() {
     elements.newGameBtn.click();
   });
 
+  elements.endgameNextLevelBtn.addEventListener("click", () => {
+    const nextLevel = Math.min(EXPERT_LEVEL, aiConfig.depth + 1);
+    setAiSettings(aiConfig, true, aiConfig.playerId, nextLevel);
+    elements.aiDepthSelect.value = String(nextLevel);
+    updateAiDepthNote();
+    endgameOverlayDismissed = false;
+    elements.newGameBtn.click();
+  });
+
+  elements.endgameReviewBtn.addEventListener("click", () => {
+    // Counted once per game: going back to the card and in again is one review.
+    if (!aiRecord.reviewTracked) {
+      aiRecord.reviewTracked = true;
+      track("review_open");
+    }
+    elements.endgameOverlay.hidden = true;
+    review.open({
+      key: aiRecord.gameId + ":" + aiRecord.positions.length,
+      positions: aiRecord.positions,
+      undos: aiRecord.undos,
+    });
+  });
+
   elements.endgameMenuBtn.addEventListener("click", () => {
     endgameOverlayDismissed = false;
     elements.menuBtn.click();
@@ -1282,6 +1364,7 @@ function bindEvents() {
     renderHomeStats();
     refreshQuickChatBar();
     tips.refreshText();
+    review.refreshText();
     if (!elements.onlinePanel.hidden) {
       updateOnlineRoomUI(activeRoomCode || "-");
       updateOnlineConnectionStatus();
@@ -1314,6 +1397,8 @@ function bindEvents() {
     if (event.key === "Escape") {
       if (!elements.runeDetailOverlay.hidden) {
         closeRuneDetail();
+      } else if (review.isOpen()) {
+        review.close();
       } else if (!elements.endgameOverlay.hidden) {
         endgameOverlayDismissed = true;
         render();
@@ -1353,6 +1438,13 @@ function bindEvents() {
       return;
     }
     if (elements.gameScreen.hidden || getActiveOverlay()) {
+      return;
+    }
+    if ((event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "z") {
+      if (canUndo()) {
+        event.preventDefault();
+        undoLastMove();
+      }
       return;
     }
     if (state.phase !== "round" || state.pendingAction) {
@@ -1468,6 +1560,7 @@ function bindEvents() {
     }
 
     state = createInitialState(getLocalGameOptions());
+    startAiRecord();
     if (aiConfig.enabled && state.phase === "shop") {
       state.shop.currentPlayer = getHumanPlayerId();
     }
@@ -1696,6 +1789,7 @@ function render() {
     previousPendingActionSnapshot = snapshotPendingAction(state.pendingAction);
     previousAudioSnapshot = snapshotAudioState(state, previousBoardSnapshot);
     previousRenderRound = state.roundNumber;
+    previousTieRemoved = state.tieRemovedPoints || 0;
     return;
   }
 
@@ -1706,6 +1800,7 @@ function render() {
   playSoundTransitions(previousAudioSnapshot, audioSnapshot);
   playHapticTransitions(previousAudioSnapshot, audioSnapshot);
   trackGameProgress(previousAudioSnapshot, audioSnapshot);
+  announceMajorityChange();
   previousAudioSnapshot = audioSnapshot;
 
   // Fuller ambient layer during play; ease back to the calm menu profile
@@ -2123,10 +2218,11 @@ function renderEndgameOverlay() {
   updateEndgameRematchUI();
   updateEndgameRating();
 
-  elements.endgameOverlay.hidden = endgameOverlayDismissed;
+  // The review opens over the card's place and gives it back when closed.
+  elements.endgameOverlay.hidden = endgameOverlayDismissed || review.isOpen();
   if (!endgameOverlayDismissed) {
-    if (!endgameFocused) {
-      elements.endgameRematchBtn.focus();
+    if (!endgameFocused && !review.isOpen()) {
+      (elements.endgameNextLevelBtn.hidden ? elements.endgameRematchBtn : elements.endgameNextLevelBtn).focus();
       endgameFocused = true;
     }
   } else {
@@ -2145,8 +2241,14 @@ function updateEndgameRematchUI() {
       elements.endgameRematchStatus.hidden = true;
       elements.endgameRematchStatus.textContent = "";
     }
+    updateEndgameAiActions();
     return;
   }
+
+  elements.endgameNextLevelBtn.hidden = true;
+  elements.endgameReviewBtn.hidden = true;
+  elements.endgameRematchBtn.classList.add("primary");
+  elements.endgameRematchBtn.classList.remove("secondary");
 
   elements.endgameRematchBtn.textContent = rematchStatus.youRequested
     ? t("endgame.rematchPending")
@@ -2163,6 +2265,25 @@ function updateEndgameRematchUI() {
     elements.endgameRematchStatus.textContent = statusText;
     elements.endgameRematchStatus.hidden = !statusText;
   }
+}
+
+// Against the AI the card leads with what comes next: the next level after a
+// win, otherwise the same game again, and the review of the one just played.
+function updateEndgameAiActions() {
+  const aiGame = isRecordingAiGame();
+  const nextLevel = aiGame && getHumanOutcome() === "win" && aiConfig.depth < EXPERT_LEVEL ? aiConfig.depth + 1 : null;
+  elements.endgameNextLevelBtn.hidden = !nextLevel;
+  if (nextLevel) {
+    elements.endgameNextLevelBtn.textContent = t("endgame.nextLevel", { level: aiLevelName(nextLevel) });
+  }
+  // With the next level on offer, the same level again is the lesser choice.
+  elements.endgameRematchBtn.classList.toggle("primary", !nextLevel);
+  elements.endgameRematchBtn.classList.toggle("secondary", Boolean(nextLevel));
+  elements.endgameReviewBtn.hidden = !aiGame || aiRecord.positions.length === 0;
+}
+
+function aiLevelName(level) {
+  return t(["ai.easy", "ai.medium", "ai.hard", "ai.harder", "ai.expert"][level - 1] || "ai.medium");
 }
 
 // The side the local player sits on in an AI game (the AI takes the other).
@@ -3045,7 +3166,14 @@ function updateMeta() {
   renderPointRunes(elements.p2Points, state.players[2].points, goal);
   elements.p1Bag.textContent = t("game.bag", { n: state.players[1].bag.length });
   elements.p2Bag.textContent = t("game.bag", { n: state.players[2].bag.length });
-  renderPointRunes(elements.pointPool, state.pointPoolRemaining);
+  renderPointRunes(elements.pointPool, state.pointPoolRemaining, null, "game.poolLabel");
+  // The goal is the majority of the points still in play, which a drawn round
+  // lowers: say so beside the pool rather than leave "6" to be taken as fixed.
+  const removed = state.tieRemovedPoints || 0;
+  elements.winGoal.textContent = removed > 0
+    ? tp("game.majorityLowered", removed, { goal })
+    : t("game.majority", { goal });
+  elements.winGoal.title = t("game.majorityTitle", { goal, inPlay: POINT_POOL_TOTAL - removed });
   elements.neutralSupply.textContent = t("game.neutralSupply", { n: state.neutralSupply });
   const visibleAway = state.roundAwayRunes.map((entry, awayIndex) => ({ ...entry, awayIndex }));
   const shouldShowAway = state.phase !== "shop" && visibleAway.length > 0;
@@ -3062,12 +3190,12 @@ function updateMeta() {
 // A player's score is shown against the points that win the game, so the goal
 // is in sight from the first round instead of a bare label until the first
 // point. The shared pool (no goal) shows what it still holds.
-function renderPointRunes(target, count, goal = null) {
+function renderPointRunes(target, count, goal = null, labelKey = "game.pointsLabel") {
   target.innerHTML = "";
 
   const labelEl = document.createElement("span");
   labelEl.className = "point-rune-label";
-  labelEl.textContent = t("game.pointsLabel");
+  labelEl.textContent = t(labelKey);
 
   const trackEl = document.createElement("span");
   trackEl.className = "point-rune-track";
@@ -3275,10 +3403,14 @@ function scheduleAiTurnIfNeeded() {
   }
 
   aiBusy = true;
+  const generation = aiGeneration;
   aiTimer = window.setTimeout(async () => {
     // Off the main thread when the browser allows it, so a long search no
     // longer freezes the board.
     const result = await runAiTurn(state, { ...aiConfig });
+    if (generation !== aiGeneration) {
+      return;
+    }
     state = result.state;
     aiBusy = false;
     aiTimer = null;
@@ -3300,6 +3432,92 @@ function cancelAiTimer() {
     aiTimer = null;
   }
   aiBusy = false;
+  aiGeneration += 1;
+}
+
+function isRecordingAiGame() {
+  return aiConfig.enabled && currentLocalMode === MODE_AI && !online.isOnlineActive();
+}
+
+function createAiRecord(gameId = null) {
+  return { gameId, positions: [], undos: 0 };
+}
+
+// A fresh record for a new game against the AI. Its id goes into the save, so
+// a game resumed after a reload finds its own moves and nobody else's.
+function startAiRecord() {
+  aiRecord = createAiRecord(Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8));
+  undoStack = [];
+  review.reset();
+  saveGameRecord(aiRecord);
+}
+
+function loadAiRecordFor(gameId) {
+  const stored = loadGameRecord();
+  if (gameId && stored?.gameId === gameId && Array.isArray(stored.positions)) {
+    return { ...createAiRecord(gameId), ...stored };
+  }
+  // The record was lost (storage full, say): the review covers the moves from
+  // here on.
+  return createAiRecord(gameId || null);
+}
+
+function resumeAiRecord(gameId) {
+  aiRecord = loadAiRecordFor(gameId);
+  undoStack = [];
+  review.reset();
+  if (!aiRecord.gameId) {
+    // A save from before games were recorded.
+    startAiRecord();
+  }
+}
+
+function recordPlayerMove(before, move) {
+  undoStack = undoStack.filter((entry) => entry.state.roundNumber === before.roundNumber);
+  undoStack.push({ state: before, recorded: aiRecord.positions.length });
+  aiRecord.positions.push({ state: reviewSnapshot(before), playerId: before.currentPlayer, move });
+  saveGameRecord(aiRecord);
+}
+
+// What the review needs of a position, without what it never reads: the turn
+// log and the two shop supplies, four fifths of a saved state between them.
+function reviewSnapshot(position) {
+  const copy = structuredClone({ ...position, log: [] });
+  for (const playerId of [1, 2]) {
+    copy.players[playerId].shopSupply = [];
+  }
+  return copy;
+}
+
+// Undo takes back the player's last placement, with the AI's answer to it, for
+// as long as the round it was played in has not given way to the shop. Never
+// once the game is over: its result is already counted.
+function canUndo() {
+  if (!isRecordingAiGame() || (state.phase !== "round" && state.phase !== "round-end")) {
+    return false;
+  }
+  const last = undoStack[undoStack.length - 1];
+  return Boolean(last) && last.state.roundNumber === state.roundNumber;
+}
+
+function undoLastMove() {
+  if (!canUndo()) {
+    return;
+  }
+  const entry = undoStack.pop();
+  cancelAiTimer();
+  state = restoreState(entry.state, getLocalGameOptions());
+  aiRecord.positions.length = entry.recorded;
+  aiRecord.undos += 1;
+  saveGameRecord(aiRecord);
+  // Nothing was placed or destroyed: the board just goes back, without the
+  // drop animations and sounds a diff against the undone board would play.
+  previousBoardSnapshot = null;
+  previousAudioSnapshot = null;
+  previousPendingActionSnapshot = null;
+  persistState();
+  render();
+  showToast(t("status.moveUndone"));
 }
 
 function initializeEntryMode() {
@@ -3430,6 +3648,7 @@ function startDiscoveryGame() {
   // AI takes Black and the player moves first.
   setAiSettings(aiConfig, true, 1, 1);
   currentLocalMode = MODE_AI;
+  startAiRecord();
   state = startRoundFromShop(state).state;
   elements.aiSideSelect.value = String(aiConfig.playerId);
   elements.aiDepthSelect.value = String(aiConfig.depth);
@@ -4092,6 +4311,8 @@ function updateTopButtons() {
   const onlineGame = online.isOnlineActive();
   elements.newGameBtn.hidden = false;
   elements.newGameBtn.textContent = onlineGame ? t("topbar.leaveGame") : t("topbar.newGame");
+  elements.undoBtn.hidden = !isRecordingAiGame() || state.phase === "game-over";
+  elements.undoBtn.disabled = !canUndo();
 }
 
 function getValidatedOnlinePseudo() {
@@ -4207,6 +4428,7 @@ function persistState() {
         playerId: aiConfig.playerId,
         depth: aiConfig.depth,
       },
+      gameId: aiRecord.gameId,
       updatedAt: Date.now(),
     });
     return;
@@ -4338,6 +4560,7 @@ function closeRuneDetail() {
 function getActiveOverlay() {
   const overlays = [
     elements.runeDetailOverlay,
+    elements.reviewOverlay,
     elements.endgameOverlay,
   ];
   return overlays.find((el) => el && !el.hidden && el.getClientRects().length > 0) || null;
@@ -5038,6 +5261,16 @@ function isLocalPlayerLogEntry(logText) {
   return logText.startsWith(`${localSide} `);
 }
 
+// A drawn round takes a point out of play and the majority may drop with it:
+// both players are told at the moment it happens, not left to notice "5/5".
+function announceMajorityChange() {
+  const removed = state.tieRemovedPoints || 0;
+  if (previousTieRemoved !== null && removed > previousTieRemoved) {
+    showToast(t("game.drawRemovesPoint", { goal: getMajorityThreshold(state), inPlay: POINT_POOL_TOTAL - removed }));
+  }
+  previousTieRemoved = removed;
+}
+
 // Milestones for the anonymous audience counts: an online game reaching its
 // first round, and the first round of a game against the AI being finished —
 // the point where a new player has understood enough to get through one.
@@ -5053,7 +5286,8 @@ function trackGameProgress(previousSnapshot, currentSnapshot) {
   }
   const finishedRound = previousSnapshot.phase === "round"
     && (currentSnapshot.phase === "round-end" || currentSnapshot.phase === "game-over");
-  if (aiConfig.enabled && finishedRound) {
+  if (aiConfig.enabled && finishedRound && !aiRecord.round1Tracked) {
+    aiRecord.round1Tracked = true;
     track("ai_round1", aiConfig.depth);
   }
 }
