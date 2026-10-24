@@ -11,3 +11,7 @@ node_modules/
 server/rooms.json
 server/*.db
 server/*.db-*
+
+# Launch kit (screenshots, cover images, videos): kept locally, uploaded to
+# each platform by hand, too heavy for the repository.
+lancement/
