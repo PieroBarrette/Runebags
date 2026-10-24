@@ -37,6 +37,8 @@ export function createOnlineController() {
     ratingUpdate: () => {},
     challenge: () => {},
     wake: () => {},
+    seek: () => {},
+    seekMatched: () => {},
   };
 
   const session = {
@@ -51,6 +53,8 @@ export function createOnlineController() {
     displayName: loadOrCreateDisplayName(),
     avatar: loadOrCreateAvatar(),
     started: false,
+    // This player's open correspondence search, as the server last told it.
+    seek: { open: false, since: null },
   };
 
   let connectPromise = null;
@@ -287,6 +291,26 @@ export function createOnlineController() {
     }
   }
 
+  // A correspondence search lives on the server, not on this socket: it stays
+  // open when the app closes, and the game starts whenever someone answers.
+  async function openSeek(displayName = session.displayName) {
+    try {
+      await connect();
+      const normalizedName = normalizeDisplayName(displayName);
+      session.displayName = normalizedName;
+      saveDisplayName(normalizedName);
+      send({ type: "seek_open", guestId: session.guestId, displayName: normalizedName, avatar: session.avatar });
+      return true;
+    } catch {
+      listeners.error({ code: "client_connect_failed", message: "Failed to open a correspondence search." });
+      return false;
+    }
+  }
+
+  function cancelSeek() {
+    send({ type: "seek_cancel", guestId: session.guestId });
+  }
+
   function setDisplayName(displayName) {
     const normalizedName = normalizeDisplayName(displayName);
     session.displayName = normalizedName;
@@ -487,6 +511,11 @@ export function createOnlineController() {
         playerRatings: msg.playerRatings || null,
         shopSync: msg.shopSync || null,
         chat: Array.isArray(msg.chat) ? msg.chat : [],
+        // The ranked clock and the correspondence deadline: the server's, not
+        // part of the game state. The clock was dropped here, so it never
+        // showed until this was passed on.
+        clock: msg.clock || null,
+        deadline: msg.deadline || null,
       });
       return;
     }
@@ -507,6 +536,17 @@ export function createOnlineController() {
       return;
     }
 
+    if (msg.type === "seek_status") {
+      session.seek = { open: Boolean(msg.open), since: msg.since || null };
+      listeners.seek({ ...session.seek });
+      return;
+    }
+
+    if (msg.type === "seek_matched") {
+      listeners.seekMatched({ roomCode: msg.roomCode, playerId: msg.playerId, opponentName: msg.opponentName || "" });
+      return;
+    }
+
     if (msg.type === "queue_matched") {
       session.roomCode = msg.roomCode;
       session.playerId = msg.playerId;
@@ -523,6 +563,9 @@ export function createOnlineController() {
     leaveRoom,
     joinQueue,
     cancelQueue,
+    openSeek,
+    cancelSeek,
+    getSeek: () => ({ ...session.seek }),
     sendAction,
     sendChat,
     sendQuickChat,

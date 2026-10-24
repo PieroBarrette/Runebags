@@ -68,6 +68,10 @@ async function startServer() {
       VAPID_PUBLIC_KEY: "BKtfz-ZwH_bJ9RYdub0amVteLRQyRYy_aEOqji42INY737QRlFf6NuSvs5G_m4wwW7_hx7YHvayAqssHzBjMuSM",
       VAPID_PRIVATE_KEY: "JdrEQOmISKtQldi3Z5TIiwLE-55NQT6PoONdytXrDw0",
       VAPID_SUBJECT: "mailto:e2e@localhost",
+      // A correspondence day squeezed into seconds, so its deadlines can be
+      // seen to expire within the run.
+      CORRESPONDENCE_MOVE_MS: "6000",
+      CORRESPONDENCE_REMINDER_MS: "3000",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -292,9 +296,34 @@ function latestState(clients) {
   return clients.reduce((best, client) => (client.seq > (best?.seq ?? -1) ? client : best), null);
 }
 
+// Each player is sent only what they may see (server/stateView.mjs), so a
+// move is worked out from the mover's own snapshot, once it has caught up.
+async function freshStateOf(client, seq) {
+  if ((client.seq ?? -1) < seq) {
+    await client.waitFor((m) => m.type === "state_snapshot" && (m.seq ?? 0) >= seq);
+  }
+  return client.state;
+}
+
+// Once, at the first round: neither player's snapshot holds anything hidden.
+async function checkHiddenInformation(clients, seq) {
+  section("Hidden information stays hidden");
+  for (const client of clients) {
+    const view = await freshStateOf(client, seq);
+    const own = view.players[client.playerId];
+    const other = view.players[client.playerId === 1 ? 2 : 1];
+    check(`${client.name} sees its own hand`, own.hand.length > 0 && own.hand.every((rune) => !rune.hidden && rune.id !== "hidden"), own.hand.map((r) => r.id).join(","));
+    check(`${client.name} does not see the opponent's hand`, other.hand.length > 0 && other.hand.every((rune) => rune.hidden && rune.id === "hidden"), other.hand.map((r) => r.id).join(","));
+    check(`${client.name}'s hidden ids name no rune`, other.hand.every((rune) => /^hidden-[A-Za-z0-9_-]{12}$/.test(rune.instanceId)), other.hand.map((r) => r.instanceId).join(","));
+    check(`${client.name} does not see the opponent's bag`, other.bag.every((rune) => rune.hidden), `${other.bag.length} runes`);
+    check(`${client.name} is not sent the random stream`, view.rngState === 0, String(view.rngState));
+  }
+}
+
 async function playGame(clients, { maxActions = 4000 } = {}) {
   let actions = 0;
   const clockSamples = [];
+  let hiddenChecked = false;
 
   while (actions < maxActions) {
     const freshest = latestState(clients);
@@ -321,12 +350,17 @@ async function playGame(clients, { maxActions = 4000 } = {}) {
       continue;
     }
 
+    if (!hiddenChecked && any.phase === "round") {
+      hiddenChecked = true;
+      await checkHiddenInformation(clients, freshest.seq);
+    }
+
     if (any.pendingAction) {
       const chooser = any.pendingAction.playerId
         ?? any.pendingAction.turnContext?.playerId
         ?? any.currentPlayer;
       const client = clients.find((c) => c.playerId === chooser) || clients[0];
-      const choices = getPendingChoices(any);
+      const choices = getPendingChoices(await freshStateOf(client, freshest.seq));
       if (choices.length === 0) return { error: "pending action with no choices", state: any };
       const choice = choices[0];
       await client.act("board_click", {
@@ -341,7 +375,8 @@ async function playGame(clients, { maxActions = 4000 } = {}) {
     const client = clients.find((c) => c.playerId === any.currentPlayer);
     if (!client) return { error: "no client for current player", state: any };
 
-    const moves = getLegalMovesForPlayer(any, any.currentPlayer);
+    const own = await freshStateOf(client, freshest.seq);
+    const moves = getLegalMovesForPlayer(own, own.currentPlayer);
     if (moves.length === 0) return { error: "no legal moves", state: any };
     // A plain column drop is what board_click carries; targeted placements
     // (Nauthiz) need a row/col the action shape does not take.
@@ -605,6 +640,63 @@ async function main() {
     }
 
     lobbyB.close();
+  }
+
+  section("Correspondence: a search that waits");
+  {
+    const seekA = new Client("corr-A", guestA);
+    await seekA.connect();
+    seekA.send({ type: "seek_open", guestId: guestA, displayName: "AliceE2E" });
+    const openA = await seekA.waitFor((m) => m.type === "seek_status" && m.open === true);
+    check("a correspondence search opens", Boolean(openA?.open));
+    seekA.close();
+    await sleep(100);
+
+    const backA = new Client("corr-A2", guestA);
+    await backA.connect();
+    const stillOpen = await backA.waitFor((m) => m.type === "seek_status");
+    check("the search outlives the socket that opened it", stillOpen?.open === true);
+    backA.close();
+
+    const seekB = new Client("corr-B", guestB);
+    await seekB.connect();
+    seekB.send({ type: "seek_open", guestId: guestB, displayName: "BobE2E" });
+    const matched = await seekB.waitFor((m) => m.type === "seek_matched", 5000).catch(() => null);
+    check("a second search is matched with the waiting one", Boolean(matched?.roomCode), JSON.stringify(matched));
+
+    if (matched?.roomCode) {
+      const roomCode = matched.roomCode;
+      const ongoingA = await api("/api/me/rooms", { guestId: guestA, session: accountA?.session });
+      const entry = ongoingA.body?.rooms?.find((room) => room.roomCode === roomCode);
+      check("the absent player finds the game among theirs", Boolean(entry), JSON.stringify(ongoingA.body));
+      check("it is listed as a correspondence game, waiting on them", entry?.cadence === "correspondence" && entry?.yourTurn === true && entry?.deadlineMs > 0, JSON.stringify(entry));
+
+      const from = seekB.messages.length;
+      seekB.send({ type: "join_room", roomCode, guestId: guestB, displayName: "BobE2E" });
+      const joined = await seekB.waitFor((m) => m.type === "state_snapshot", 5000, from).catch(() => null);
+      check("a correspondence game has no clock", joined && !joined.clock, JSON.stringify(joined?.clock));
+      check("it has a deadline on whoever must act", joined?.deadline?.remainingMs > 0 && joined?.deadline?.remainingMs <= 6000 && joined?.deadline?.seats?.length === 2, JSON.stringify(joined?.deadline));
+
+      const round = await seekB.waitFor((m) => m.type === "state_snapshot" && m.state?.phase === "round", 9000, from).catch(() => null);
+      check("an unfinished shop is closed when its day runs out", Boolean(round), round ? `round ${round.state.roundNumber}` : "still in the shop");
+      check("the player on move gets a fresh day", round?.deadline?.seats?.length === 1 && round.deadline.remainingMs > 5000, JSON.stringify(round?.deadline));
+
+      const over = await seekB.waitFor((m) => m.type === "state_snapshot" && m.state?.phase === "game-over", 9000, from).catch(() => null);
+      check("a move not played in time loses the game", over?.state?.gameWinnerReason === "timeout", over ? `winner ${over.state.gameWinner}` : "no game over");
+      const rating = await seekB.waitFor((m) => m.type === "rating_update", 3000, from).catch(() => null);
+      check("a correspondence game between accounts moves the same ratings", Boolean(rating), rating ? `${rating.before} -> ${rating.after}` : "no rating update");
+    }
+    seekB.close();
+
+    const seekC = new Client("corr-C", "e2e-guest-cccccccccccccccccccccccc");
+    await seekC.connect();
+    seekC.send({ type: "seek_open", guestId: "e2e-guest-cccccccccccccccccccccccc", displayName: "Carol" });
+    await seekC.waitFor((m) => m.type === "seek_status" && m.open === true);
+    const fromC = seekC.messages.length;
+    seekC.send({ type: "seek_cancel", guestId: "e2e-guest-cccccccccccccccccccccccc" });
+    const cancelled = await seekC.waitFor((m) => m.type === "seek_status", 3000, fromC).catch(() => null);
+    check("a search can be cancelled", cancelled?.open === false);
+    seekC.close();
   }
 
   section("Push subscription");

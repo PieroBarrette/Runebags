@@ -17,8 +17,9 @@ level-2 rune. 24 runes have powers; some are cursed or
 corrupted, which slips neutral runes into their owner's bag.
 
 It can be played against the computer at five levels, online with a friend by
-room code, link or QR code, as rated games matched by Elo rating, or at the
-table with a free print-and-play kit. Against the computer a move can be taken
+room code, link or QR code, as rated games matched by Elo rating, by
+correspondence (a day for each move, with a notification when it is your
+turn), or at the table with a free print-and-play kit. Against the computer a move can be taken
 back, and each finished game reviewed move by move, with an accuracy score and
 the turning point. Created by Piero Barrette, in Quebec.
 

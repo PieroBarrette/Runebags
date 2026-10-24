@@ -28,6 +28,11 @@ function renderPlayerHand(state, playerId, elements, isVisible, isForcedVisible)
   handEl.classList.toggle("hidden-hand", !isVisible);
 
   player.hand.forEach((rune) => {
+    if (!isVisible || rune.hidden) {
+      handEl.appendChild(faceDownCard(playerId, rune));
+      return;
+    }
+
     const button = document.createElement("button");
     button.type = "button";
     button.className = "rune-card";
@@ -82,6 +87,21 @@ function renderPlayerHand(state, playerId, elements, isVisible, isForcedVisible)
     button.appendChild(textWrap);
     handEl.appendChild(button);
   });
+}
+
+// A rune the player may not see: the same back for every rune, the owner's
+// bag on it. A blurred card still gave its rune away by the shape of its name
+// and the length of its text. Online, the server does not even send what the
+// rune is (server/stateView.mjs).
+function faceDownCard(playerId, rune) {
+  const card = document.createElement("div");
+  card.className = `rune-card face-down ${playerId === 1 ? "player-1" : "player-2"}`;
+  card.dataset.playerId = String(playerId);
+  card.dataset.runeInstanceId = rune.instanceId;
+  card.setAttribute("role", "img");
+  card.setAttribute("aria-label", t("game.hiddenRune"));
+  card.innerHTML = '<svg class="rune-back-mark" viewBox="0 0 64 72" aria-hidden="true" focusable="false"><use href="#bag-pouch"/></svg>';
+  return card;
 }
 
 function getRuneDisplayOwner(playerId, rune) {

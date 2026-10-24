@@ -534,8 +534,20 @@
         </div>
         <div id="online-normal-actions" class="menu-actions online-primary-actions">
           <button id="online-quick-btn" class="menu-btn primary" type="button" data-i18n="online.quickPlay">Quick Play</button>
+          <button id="online-corr-btn" class="menu-btn primary" type="button" data-i18n="online.correspondence">By correspondence</button>
           <button id="online-friend-btn" class="menu-btn" type="button" data-i18n="online.playFriend">Play with Friend</button>
         </div>
+        <p class="online-cadence-hint" data-i18n="online.cadenceHint">Quick play is live, ten minutes each. By correspondence you have a day for each move, and a notification when it is your turn.</p>
+        <!-- An open correspondence search: it waits on the server, so the player
+             can play the AI meanwhile, or leave. -->
+        <section id="online-seek" class="online-seek" hidden>
+          <p id="online-seek-text" class="online-seek-text"></p>
+          <div class="menu-actions compact online-seek-actions">
+            <button id="online-seek-ai-btn" class="menu-btn" type="button" data-i18n="online.seekPlayAi">Play the AI while waiting</button>
+            <button id="online-seek-push-btn" class="menu-btn secondary" type="button" data-i18n="online.seekNotify" hidden>Turn on notifications</button>
+            <button id="online-seek-cancel-btn" class="menu-btn secondary" type="button" data-i18n="online.seekCancel">Cancel the search</button>
+          </div>
+        </section>
         <div id="online-join-row" class="online-join-row">
           <label for="online-join-code" data-i18n="online.joinLabel">Join with Room Code</label>
           <div class="online-join-controls">
@@ -717,6 +729,7 @@
         <section id="board-panel" class="board-panel panel">
           <div id="online-disconnect-banner" class="online-disconnect-banner" role="status" hidden></div>
           <div id="turn-pill" class="turn-pill">Turn: White</div>
+          <p id="turn-announcer" class="sr-only" aria-live="polite"></p>
           <p class="bag-meta"><span id="point-pool">Pool:</span> · <span id="win-goal" class="win-goal">Majority: 6</span> | <span id="neutral-supply">Neutral Supply: 0</span></p>
           <p class="bag-meta" id="round-discards" hidden>Discarded this round: none</p>
           <div id="round-away-list" class="round-away-list" aria-live="polite" hidden></div>
@@ -761,14 +774,14 @@
         </aside>
       </section>
 
-      <section class="panel log-panel">
-        <div id="log-tabs" class="log-tabs" role="tablist" aria-label="Game feed tabs" data-i18n-attr="aria-label:log.gameFeedTabsAria">
-          <button id="log-tab-turn" class="log-tab active" type="button" role="tab" aria-selected="true" aria-controls="turn-log" data-i18n="log.turnTab">Turn Log</button>
-          <button id="log-tab-chat" class="log-tab" type="button" role="tab" aria-selected="false" aria-controls="chat-panel" data-i18n="log.chatTab">Chat</button>
-        </div>
+      <!-- Online only: the conversation with the opponent. The turn log that
+           used to share this panel is gone: the board shows every move, and
+           announceTurn() in main.js reads them out to screen readers and
+           spells out, in a toast, the few effects the board cannot show. -->
+      <section id="chat-section" class="panel log-panel" hidden>
+        <h2 class="chat-title" data-i18n="log.chatTab">Chat</h2>
         <div id="quick-chat-bar" class="quick-chat-bar" role="toolbar" aria-label="Quick chat" data-i18n-attr="aria-label:qc.barAria" hidden></div>
-        <div id="turn-log" class="turn-log" aria-live="polite"></div>
-        <section id="chat-panel" class="chat-panel" hidden>
+        <section id="chat-panel" class="chat-panel">
           <div id="chat-log" class="chat-log" aria-live="polite"></div>
           <form id="chat-form" class="chat-form" autocomplete="off">
             <input id="chat-input" type="text" maxlength="180" placeholder="Type a message..." aria-label="Chat message" data-i18n-attr="placeholder:chat.placeholder;aria-label:chat.ariaLabel">

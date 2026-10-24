@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
 import { createInitialState, ENGINE_VERSION, restoreState, startRoundFromShop } from "../js/core/gameState.js";
 import { applyAction, applyForfeit } from "../js/core/onlineActions.js";
+import { stateViewFor } from "./stateView.mjs";
 import {
   applyRating,
   closeDb,
@@ -49,6 +50,15 @@ const ROOM_SWEEP_INTERVAL_MS = 60 * 60 * 1000;
 // where a clock would only ever run out on someone living their life.
 const CLOCK_BUDGET_MS = 10 * 60 * 1000;
 const CLOCK_TICK_MS = 1000;
+
+// Correspondence games are played over days, between players who are rarely
+// online at the same time: no clock, a day for each move, and a reminder when a
+// quarter of it is left. Both figures can be shortened through the environment
+// for tests (tools/e2e-online.mjs).
+const CORRESPONDENCE_MOVE_MS = Number(process.env.CORRESPONDENCE_MOVE_MS) || 24 * 60 * 60 * 1000;
+const CORRESPONDENCE_REMINDER_MS = Number(process.env.CORRESPONDENCE_REMINDER_MS) || 6 * 60 * 60 * 1000;
+// A correspondence search waits this long for someone to answer it.
+const SEEK_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 // Quick play pairs on rating, with a window that opens as someone waits.
 const QUEUE_WINDOW_START = 100;
@@ -124,6 +134,9 @@ const SECURITY_HEADERS = {
 const rooms = new Map();
 const wsToSession = new Map();
 const quickQueue = [];
+// Open correspondence searches. Unlike the quick-play queue they outlive the
+// socket that opened them, and they are saved with the rooms.
+const correspondenceSeeks = [];
 
 // Avatar payloads are client-chosen but validated against fixed sets so a
 // tampered client can't inject arbitrary strings into other players' UI.
@@ -155,6 +168,7 @@ setInterval(() => {
   }
 }, QUEUE_RETRY_INTERVAL_MS).unref();
 setInterval(sweepClocks, CLOCK_TICK_MS).unref();
+setInterval(sweepDeadlines, CLOCK_TICK_MS).unref();
 
 const server = createServer(handleHttp);
 const wss = new WebSocketServer({ noServer: true });
@@ -509,6 +523,7 @@ function sweepRooms() {
     schedulePersistRooms().catch(() => {});
   }
 
+  pruneSeeks();
   purgeExpiredAuthRows();
 }
 
@@ -532,7 +547,14 @@ function handleMessage(ws, message) {
       // again after signing in — which is the moment this socket becomes a named
       // player everyone else can see and challenge.
       broadcastPresence();
+      if (ws.guestId) {
+        sendSeekStatus(ws, ws.guestId);
+      }
       return;
+    case "seek_open":
+      return onSeekOpen(ws, message);
+    case "seek_cancel":
+      return onSeekCancel(ws, message);
     case "create_room":
       return onCreateRoom(ws, message);
     case "join_room":
@@ -731,6 +753,254 @@ function createInstantMatch(firstEntry, secondEntry) {
   schedulePersistRooms().catch(() => {});
 }
 
+/* ---------------------------------------------------------- correspondence */
+//
+// A search for a correspondence game is not a seat in a queue: the player can
+// close the app, and the game starts whenever someone else asks for one. Then
+// each move has CORRESPONDENCE_MOVE_MS; past that, the player on move loses
+// (sweepDeadlines). The ratings are the ladder's own, moved as in quick play
+// when both seats belong to accounts.
+
+function onSeekOpen(ws, message) {
+  const guestId = normalizeGuestId(message.guestId);
+  if (!guestId) {
+    send(ws, { type: "error", code: "invalid_guest", message: "Invalid guest id for a correspondence game." });
+    return;
+  }
+
+  const displayName = normalizeDisplayName(message.displayName, `Guest-${guestId.slice(-4).toUpperCase()}`);
+  const avatar = normalizeAvatar(message.avatar);
+  const playerRowId = getPlayerIdByGuestId(guestId);
+  const rating = (playerRowId ? getRatingSnapshot(playerRowId)?.rating : null) ?? START_RATING;
+  pruneSeeks();
+
+  // Someone is already waiting: that is the game. With so few players any
+  // waiting search is taken, the closest rating first.
+  const waiting = correspondenceSeeks
+    .filter((seek) => seek.guestId !== guestId && (!playerRowId || getPlayerIdByGuestId(seek.guestId) !== playerRowId))
+    .sort((a, b) => Math.abs(a.rating - rating) - Math.abs(b.rating - rating))[0];
+  if (waiting) {
+    correspondenceSeeks.splice(correspondenceSeeks.indexOf(waiting), 1);
+    const own = correspondenceSeeks.findIndex((seek) => seek.guestId === guestId);
+    if (own !== -1) {
+      correspondenceSeeks.splice(own, 1);
+    }
+    createCorrespondenceMatch(waiting, { guestId, displayName, avatar, rating, createdAt: Date.now() });
+    return;
+  }
+
+  const existing = correspondenceSeeks.find((seek) => seek.guestId === guestId);
+  if (existing) {
+    existing.displayName = displayName;
+    existing.avatar = avatar || existing.avatar;
+  } else {
+    correspondenceSeeks.push({ guestId, displayName, avatar, rating, createdAt: Date.now() });
+  }
+  schedulePersistRooms().catch(() => {});
+  for (const socket of socketsOfGuest(guestId)) {
+    sendSeekStatus(socket, guestId);
+  }
+}
+
+function onSeekCancel(ws, message) {
+  const guestId = normalizeGuestId(message.guestId) || ws.guestId;
+  const index = correspondenceSeeks.findIndex((seek) => seek.guestId === guestId);
+  if (index !== -1) {
+    correspondenceSeeks.splice(index, 1);
+    schedulePersistRooms().catch(() => {});
+  }
+  for (const socket of socketsOfGuest(guestId)) {
+    sendSeekStatus(socket, guestId);
+  }
+}
+
+function sendSeekStatus(ws, guestId) {
+  const seek = correspondenceSeeks.find((entry) => entry.guestId === guestId);
+  send(ws, { type: "seek_status", open: Boolean(seek), since: seek?.createdAt || null });
+}
+
+function pruneSeeks() {
+  const now = Date.now();
+  for (let i = correspondenceSeeks.length - 1; i >= 0; i -= 1) {
+    if (now - Number(correspondenceSeeks[i].createdAt || 0) > SEEK_TTL_MS) {
+      correspondenceSeeks.splice(i, 1);
+    }
+  }
+}
+
+function socketsOfGuest(guestId) {
+  return [...wss.clients].filter((client) => client.readyState === 1 && client.guestId === guestId);
+}
+
+function createCorrespondenceMatch(waiting, arriving) {
+  const roomCode = generateRoomCode();
+  const room = {
+    code: roomCode,
+    createdAt: Date.now(),
+    started: true,
+    seq: 1,
+    state: restoreState(createInitialState()),
+    chat: [],
+    shopSync: createShopSyncState(),
+    lastActivityAt: Date.now(),
+    // On the ladder like quick play; the ratings move only between accounts.
+    ranked: true,
+    cadence: "correspondence",
+    players: {
+      1: createPlayerRecord(createToken(), normalizeDisplayName(waiting.displayName, "Player 1"), waiting.avatar, waiting.guestId),
+      2: createPlayerRecord(createToken(), normalizeDisplayName(arriving.displayName, "Player 2"), arriving.avatar, arriving.guestId),
+    },
+  };
+  room.players[1].ready = true;
+  room.players[2].ready = true;
+
+  rooms.set(roomCode, room);
+  registerSeatIdentity(room, 1, waiting.guestId);
+  registerSeatIdentity(room, 2, arriving.guestId);
+  beginGameRecording(room);
+  updateDeadline(room);
+  schedulePersistRooms().catch(() => {});
+
+  // Whoever has the app open is told at once; whoever is away gets a
+  // notification and finds the game among their games.
+  for (const [seat, seek] of [[1, waiting], [2, arriving]]) {
+    const sockets = socketsOfGuest(seek.guestId);
+    for (const socket of sockets) {
+      send(socket, {
+        type: "seek_matched",
+        roomCode,
+        playerId: seat,
+        opponentName: room.players[seat === 1 ? 2 : 1].name,
+      });
+      sendSeekStatus(socket, seek.guestId);
+    }
+    if (sockets.length === 0) {
+      pushToSeatIfOffline(room, seat, "match_found");
+    }
+  }
+}
+
+// Who has to act for a correspondence game to go on: the player on move (or
+// the one an effect hands a choice to), whoever has not finished shopping, or
+// either player once a round is over.
+function actorsOf(room) {
+  const state = room.state;
+  if (!state || state.phase === "game-over" || state.gameWinner) {
+    return [];
+  }
+  if (state.phase === "shop") {
+    return [1, 2].filter((seat) => !room.shopSync?.ready?.[seat]);
+  }
+  if (state.phase === "round-end") {
+    return [1, 2];
+  }
+  if (state.phase === "round") {
+    return [state.pendingAction?.playerId ?? state.currentPlayer];
+  }
+  return [];
+}
+
+// A new player on move gets a full day; the same player still acting (an extra
+// turn, the choice that follows their own placement) keeps the day they had,
+// and so does a shop, whoever has finished it.
+function updateDeadline(room) {
+  if (room.cadence !== "correspondence") {
+    return;
+  }
+  const actors = actorsOf(room);
+  if (actors.length === 0) {
+    room.deadline = null;
+    return;
+  }
+  const state = room.state;
+  const key = state.phase === "round"
+    ? `round:${state.roundNumber}:${state.turnNumber}:${actors[0]}`
+    : `${state.phase}:${state.roundNumber}`;
+  if (room.deadline?.key === key) {
+    room.deadline.seats = actors;
+    return;
+  }
+  room.deadline = { key, at: Date.now() + CORRESPONDENCE_MOVE_MS, seats: actors, reminded: false };
+}
+
+function deadlinePayload(room) {
+  if (room.cadence !== "correspondence" || !room.deadline) {
+    return null;
+  }
+  return {
+    remainingMs: Math.max(0, room.deadline.at - Date.now()),
+    seats: room.deadline.seats,
+    moveMs: CORRESPONDENCE_MOVE_MS,
+  };
+}
+
+// Nobody acts on a deadline: it has to be looked for.
+function sweepDeadlines() {
+  const now = Date.now();
+  for (const room of rooms.values()) {
+    const deadline = room.deadline;
+    if (room.cadence !== "correspondence" || !deadline || !room.started || !room.state || room.state.phase === "game-over") {
+      continue;
+    }
+    if (!deadline.reminded && deadline.at - now <= CORRESPONDENCE_REMINDER_MS) {
+      deadline.reminded = true;
+      for (const seat of deadline.seats) {
+        pushToSeatIfOffline(room, seat, "turn_reminder");
+      }
+      schedulePersistRooms().catch(() => {});
+    }
+    if (now >= deadline.at) {
+      expireDeadline(room);
+    }
+  }
+}
+
+// Out of time: during a round the player on move loses the game, as on the
+// clock. A shop is not worth a game: whoever has not finished it simply keeps
+// the bag they had. A finished round moves on to the shop.
+function expireDeadline(room) {
+  const phaseBefore = room.state.phase;
+  const turnPlayerBefore = room.state.currentPlayer;
+
+  if (phaseBefore === "round") {
+    const loser = room.deadline.seats[0];
+    applyForfeit(room.state, loser);
+    recordGameAction(room, loser, "forfeit", {});
+    room.deadline = null;
+    room.seq += 1;
+    room.lastActivityAt = Date.now();
+    schedulePersistRooms().catch(() => {});
+    broadcastState(room);
+    onGameOver(room);
+    return;
+  }
+
+  if (phaseBefore === "shop") {
+    for (const seat of [...room.deadline.seats]) {
+      if (room.state.phase !== "shop") {
+        break;
+      }
+      const result = setShopReady(room, seat, true);
+      recordGameAction(room, seat, "shop_ready", { ready: true });
+      if (result.startedRound) {
+        recordGameAction(room, 0, "shop_round_start", {});
+      }
+    }
+  } else if (phaseBefore === "round-end") {
+    room.state = applyAction(room.state, 0, "phase_action", {}).state;
+    recordGameAction(room, 0, "phase_action", {});
+    room.shopSync = createShopSyncState();
+  }
+
+  room.seq += 1;
+  room.lastActivityAt = Date.now();
+  room.deadline = null;
+  updateDeadline(room);
+  schedulePersistRooms().catch(() => {});
+  broadcastState(room);
+  notifyTurnIfOffline(room, turnPlayerBefore, phaseBefore);
+}
+
 function onCreateRoom(ws, message) {
   const roomCode = normalizeRoomCode(message.roomCode) || generateRoomCode();
   if (rooms.has(roomCode)) {
@@ -808,12 +1078,13 @@ function onJoinRoom(ws, message) {
       type: "state_snapshot",
       roomCode: room.code,
       seq: room.seq,
-      state: room.state,
+      state: stateViewFor(room.state, reclaimPlayerId, room.code),
       chat: Array.isArray(room.chat) ? room.chat : [],
       playerId: reclaimPlayerId,
       playerNames: getRoomPlayerNames(room),
       playerAvatars: getRoomPlayerAvatars(room),
       shopSync: getShopSyncPayload(room, reclaimPlayerId),
+      deadline: deadlinePayload(room),
     });
     broadcastWaitingState(room);
     return;
@@ -887,12 +1158,13 @@ function onReconnect(ws, message) {
       type: "state_snapshot",
       roomCode: room.code,
       seq: room.seq,
-      state: room.state,
+      state: stateViewFor(room.state, playerId, room.code),
       chat: Array.isArray(room.chat) ? room.chat : [],
       playerId,
       playerNames: getRoomPlayerNames(room),
       playerAvatars: getRoomPlayerAvatars(room),
       shopSync: getShopSyncPayload(room, playerId),
+      deadline: deadlinePayload(room),
     });
   }
 
@@ -1006,7 +1278,9 @@ function onRematchRequest(ws) {
     room.lastActivityAt = Date.now();
     // The previous game is already finished in the DB; start a new recording.
     beginGameRecording(room);
-  startClock(room);
+    startClock(room);
+    room.deadline = null;
+    updateDeadline(room);
     schedulePersistRooms().catch(() => {});
     broadcastState(room);
   }
@@ -1084,6 +1358,7 @@ function onAction(ws, message) {
 
     recordGameAction(room, session.playerId, "shop_ready", { ready: readyValue });
     syncClock(room);
+    updateDeadline(room);
     if (syncResult.startedRound) {
       // The only state transition the server initiates on its own; recorded
       // under playerId 0 so a replay can reproduce it.
@@ -1119,6 +1394,7 @@ function onAction(ws, message) {
   playerState.lastClientSeq = clientSeq;
   recordGameAction(room, session.playerId, actionType, payload);
   syncClock(room);
+  updateDeadline(room);
 
   room.seq += 1;
   room.lastActivityAt = Date.now();
@@ -1284,7 +1560,7 @@ function pushToSeatIfOffline(room, seat, kind) {
 // and clients only ever receive a snapshot to count down from.
 
 function startClock(room) {
-  if (!room.ranked) {
+  if (!room.ranked || room.cadence === "correspondence") {
     return;
   }
   room.clock = { 1: CLOCK_BUDGET_MS, 2: CLOCK_BUDGET_MS, running: null, since: 0 };
@@ -1358,7 +1634,7 @@ function broadcastState(room) {
       type: "state_snapshot",
       roomCode: room.code,
       seq: room.seq,
-      state: room.state,
+      state: stateViewFor(room.state, playerId, room.code),
       chat: Array.isArray(room.chat) ? room.chat : [],
       playerId,
       playerNames: getRoomPlayerNames(room),
@@ -1366,6 +1642,7 @@ function broadcastState(room) {
       playerRatings: getRoomPlayerRatings(room),
       shopSync: getShopSyncPayload(room, playerId),
       clock: clockPayload(room),
+      deadline: deadlinePayload(room),
     });
   });
 }
@@ -1825,6 +2102,10 @@ async function loadRooms() {
       return;
     }
 
+    if (Array.isArray(parsed.seeks)) {
+      correspondenceSeeks.push(...parsed.seeks.filter((seek) => seek && normalizeGuestId(seek.guestId)));
+    }
+
     parsed.rooms.forEach((entry) => {
       if (!entry || typeof entry.code !== "string") {
         return;
@@ -1843,6 +2124,8 @@ async function loadRooms() {
         actionCount: Number(entry.actionCount || 0),
         resultRecorded: Boolean(entry.resultRecorded),
         lastActivityAt: Number(entry.lastActivityAt || 0) || null,
+        cadence: entry.cadence === "correspondence" ? "correspondence" : "live",
+        deadline: entry.deadline && Number.isFinite(entry.deadline.at) ? entry.deadline : null,
         players: {
           1: {
             ...createPlayerRecord(entry.players?.[1]?.token || null, entry.players?.[1]?.name || "Player 1", entry.players?.[1]?.avatar),
@@ -1881,11 +2164,14 @@ function serializeRooms() {
       actionCount: room.actionCount || 0,
       resultRecorded: Boolean(room.resultRecorded),
       lastActivityAt: room.lastActivityAt || null,
+      cadence: room.cadence || "live",
+      deadline: room.deadline || null,
       players: {
         1: serializePlayer(room.players[1]),
         2: serializePlayer(room.players[2]),
       },
     })),
+    seeks: correspondenceSeeks,
   };
 }
 

@@ -33,7 +33,6 @@ import {
 import { runAiTurn } from "./ai/aiRunner.js";
 import { renderBoard } from "./ui/boardView.js";
 import { renderHands } from "./ui/handView.js";
-import { renderLog } from "./ui/logView.js";
 import { clearModeSave, loadGameRecord, loadModeSave, saveGameRecord, saveModeSave } from "./persistence/localStore.js";
 import { createOnlineController, AVATAR_GLYPHS, AVATAR_COLORS, QUICK_CHAT_KEYS } from "./online/onlineController.js";
 import { getRuneById, RUNE_CATALOG, getAllowedColumns } from "./runes/runeCatalog.js";
@@ -307,6 +306,12 @@ const elements = {
   waitingSummary: document.getElementById("waiting-summary"),
   onlineQuickBtn: document.getElementById("online-quick-btn"),
   onlineFriendBtn: document.getElementById("online-friend-btn"),
+  onlineCorrBtn: document.getElementById("online-corr-btn"),
+  onlineSeek: document.getElementById("online-seek"),
+  onlineSeekText: document.getElementById("online-seek-text"),
+  onlineSeekAiBtn: document.getElementById("online-seek-ai-btn"),
+  onlineSeekPushBtn: document.getElementById("online-seek-push-btn"),
+  onlineSeekCancelBtn: document.getElementById("online-seek-cancel-btn"),
   onlinePseudo: document.getElementById("online-pseudo"),
   onlineJoinCode: document.getElementById("online-join-code"),
   onlineJoinBtn: document.getElementById("online-join-btn"),
@@ -347,10 +352,8 @@ const elements = {
   neutralSupply: document.getElementById("neutral-supply"),
   roundDiscards: document.getElementById("round-discards"),
   roundAwayList: document.getElementById("round-away-list"),
-  logTabs: document.getElementById("log-tabs"),
-  logTabTurn: document.getElementById("log-tab-turn"),
-  logTabChat: document.getElementById("log-tab-chat"),
-  turnLog: document.getElementById("turn-log"),
+  chatSection: document.getElementById("chat-section"),
+  turnAnnouncer: document.getElementById("turn-announcer"),
   chatPanel: document.getElementById("chat-panel"),
   chatLog: document.getElementById("chat-log"),
   chatForm: document.getElementById("chat-form"),
@@ -497,6 +500,20 @@ let previousTieRemoved = null;
 // Each player's hand and bag size at the last render: a rune in hand that was
 // not there before has just been drawn, and comes out of its owner's bag.
 let previousHands = null;
+// The engine's log length at the last render: what was logged since is this
+// turn (announceTurn). Up here with the other render state: boot renders
+// before the bottom of this file is reached.
+let previousLogLength = null;
+// Effects the board cannot show, spelled out in a toast as they happen.
+const OFF_BOARD_EFFECT_KEYS = new Set([
+  "log.mannazAdded",
+  "log.corruptionAdded",
+  "log.dagazAdded",
+  "log.pointGain",
+  "log.odalPoint",
+  "log.dagazCopied",
+]);
+const MAX_ENTRIES_PER_TURN = 8;
 // When each effect ghost first appeared, so a board rebuild can resume its
 // fade instead of restarting it. Keyed by "row:col".
 const ghostStartedAt = new Map();
@@ -504,9 +521,7 @@ let ghostCleanupTimer = null;
 let previousPendingActionSnapshot = null;
 let previousAudioSnapshot = null;
 let suppressBoardClickOnce = false;
-let activeFeedTab = "turn";
 let onlineChatMessages = [];
-let hasUnreadChat = false;
 let toastShowTimer = null;
 let toastHideTimer = null;
 let quickChatCooldownTimer = null;
@@ -655,9 +670,6 @@ function wireOnlineEvents() {
       if (onlineChatMessages.length > 100) {
         onlineChatMessages = onlineChatMessages.slice(-100);
       }
-      if (activeFeedTab === "turn") {
-        hasUnreadChat = true;
-      }
       if (isQuick) {
         spawnQuickBubble(message);
       }
@@ -695,6 +707,12 @@ function wireOnlineEvents() {
     },
     wake: (info) => {
       updateWakeBanner(info);
+    },
+    seek: () => {
+      renderSeekStatus();
+    },
+    seekMatched: (match) => {
+      onSeekMatched(match);
     },
     presence: (info) => {
       onlinePresenceCount = Math.max(0, Number(info?.count) || 0);
@@ -895,6 +913,36 @@ function bindEvents() {
       activeRoomCode = null;
       updateOnlineRoomUI("-");
     }
+  });
+
+  elements.onlineCorrBtn.addEventListener("click", async () => {
+    const pseudo = getValidatedOnlinePseudo();
+    if (!pseudo) {
+      return;
+    }
+    online.setDisplayName(pseudo);
+    await online.openSeek(pseudo);
+  });
+
+  elements.onlineSeekCancelBtn.addEventListener("click", () => {
+    online.cancelSeek();
+  });
+
+  // The search waits on the server: playing the AI meanwhile loses nothing.
+  elements.onlineSeekAiBtn.addEventListener("click", () => {
+    showAiPanel();
+  });
+
+  elements.onlineSeekPushBtn.addEventListener("click", async () => {
+    const result = await enablePush(getLang(), {
+      name: online.getSession().displayName || null,
+      avatar: online.getAvatar() || null,
+    });
+    showToast(t(result.ok ? "settings.pushEnabled" : result.reason === "denied" ? "settings.pushDenied" : "settings.pushError"));
+    if (result.ok && elements.pushToggle) {
+      elements.pushToggle.checked = true;
+    }
+    renderSeekStatus();
   });
 
   elements.onlineJoinBtn.addEventListener("click", () => {
@@ -1121,18 +1169,6 @@ function bindEvents() {
 
   buildAvatarPicker();
   buildQuickChatBar();
-
-  elements.logTabTurn.addEventListener("click", () => {
-    activeFeedTab = "turn";
-    renderChatPanel();
-  });
-
-  elements.logTabChat.addEventListener("click", () => {
-    activeFeedTab = "chat";
-    hasUnreadChat = false;
-    renderChatPanel();
-    elements.chatInput.focus();
-  });
 
   elements.chatForm.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -1796,6 +1832,7 @@ function render() {
     previousRenderRound = state.roundNumber;
     previousTieRemoved = state.tieRemovedPoints || 0;
     previousHands = snapshotHands(state);
+    previousLogLength = Array.isArray(state.log) ? state.log.length : 0;
     return;
   }
 
@@ -1902,7 +1939,7 @@ function render() {
   animateDraws();
   applyOnlinePlayerNames();
 
-  renderLog(state, elements, formatLogEntry);
+  announceTurn();
   renderChatPanel();
   renderShopPanel();
   renderEndgameBags();
@@ -2064,7 +2101,8 @@ function renderShopPanel() {
   if (online.isOnlineActive()) {
     const opponentId = waitingRoomState.playerId === 1 ? 2 : 1;
     const opponentPseudo = opponentId ? getDisplayPlayerName(opponentId) : (waitingRoomState.opponentName || "Opponent");
-    const opponentStatus = waitingRoomState.shopReadyOpponent ? t("common.ready") : t("common.notReady");
+    // A whole sentence per case: "{opp} est {status}" read "TestA est pas prêt".
+    const opponentStatus = t(waitingRoomState.shopReadyOpponent ? "shop.oppReady" : "shop.oppNotReady", { opp: opponentPseudo });
     elements.shopInstruction.textContent = waitingRoomState.shopReadyYou
       ? t("shop.instrReady", { opp: opponentPseudo, status: opponentStatus })
       : t("shop.instrOnline", { opp: opponentPseudo, status: opponentStatus });
@@ -2134,6 +2172,31 @@ function renderEndgameBags() {
 let clockSnapshot = null;
 let clockSnapshotAt = 0;
 let clockTicker = null;
+let deadlineSnapshot = null;
+let deadlineSnapshotAt = 0;
+let deadlineTicker = null;
+
+// A correspondence game has no clock but a deadline on whoever must act. It
+// shows where the live clock would, on that player's side, to the minute.
+function applyDeadlineSnapshot(deadline) {
+  deadlineSnapshot = deadline || null;
+  deadlineSnapshotAt = Date.now();
+  if (deadlineTicker) {
+    window.clearInterval(deadlineTicker);
+    deadlineTicker = null;
+  }
+  if (deadlineSnapshot) {
+    deadlineTicker = window.setInterval(renderClocks, 30000);
+  }
+  renderClocks();
+}
+
+function formatDeadline(ms) {
+  const minutes = Math.max(1, Math.ceil(ms / 60000));
+  return minutes >= 60
+    ? t("online.deadlineHours", { n: Math.floor(minutes / 60) })
+    : t("online.deadlineMinutes", { n: minutes });
+}
 
 function applyClockSnapshot(clock) {
   clockSnapshot = clock || null;
@@ -2156,6 +2219,24 @@ function formatClock(ms) {
 }
 
 function renderClocks() {
+  if (deadlineSnapshot && online.isOnlineActive()) {
+    const left = Math.max(0, deadlineSnapshot.remainingMs - (Date.now() - deadlineSnapshotAt));
+    [1, 2].forEach((seat) => {
+      const el = seat === 1 ? elements.p1Clock : elements.p2Clock;
+      if (!el) {
+        return;
+      }
+      const acting = deadlineSnapshot.seats.includes(seat);
+      el.hidden = !acting;
+      if (acting) {
+        el.textContent = formatDeadline(left);
+        el.classList.add("is-running");
+        el.classList.toggle("is-low", left <= 6 * 60 * 60 * 1000);
+      }
+    });
+    return;
+  }
+
   const show = Boolean(clockSnapshot) && online.isOnlineActive();
   [1, 2].forEach((seat) => {
     const el = seat === 1 ? elements.p1Clock : elements.p2Clock;
@@ -2459,11 +2540,19 @@ async function renderOnlineOngoing() {
     } else {
       status.textContent = t("home.ongoing.waiting");
     }
+    // A correspondence game says how long whoever is on move has left.
+    if (room.cadence === "correspondence" && Number.isFinite(room.deadlineMs)) {
+      status.textContent += ` · ${formatDeadline(room.deadlineMs)}`;
+    }
     card.appendChild(status);
 
     const meta = document.createElement("span");
     meta.className = "home-ongoing-meta";
-    meta.textContent = t("home.ongoing.round", { n: room.roundNumber });
+    // A shop comes before its round: the one about to be played.
+    const round = room.phase === "shop" ? room.roundNumber + 1 : room.roundNumber;
+    meta.textContent = room.cadence === "correspondence"
+      ? `${t("home.ongoing.correspondence")} · ${t("home.ongoing.round", { n: round })}`
+      : t("home.ongoing.round", { n: round });
     card.appendChild(meta);
 
     card.addEventListener("click", () => {
@@ -3306,41 +3395,16 @@ function renderRoundAwayRunes(entries) {
   });
 }
 
+// The chat is the whole panel now, and only online: against the AI there is
+// nobody to talk to.
 function renderChatPanel() {
   const isOnline = online.isOnlineActive();
+  elements.chatSection.hidden = !isOnline;
   elements.quickChatBar.hidden = !isOnline;
-
-  // Offline (vs the AI): no chat, no tabs — just the plain turn log.
   if (!isOnline) {
-    activeFeedTab = "turn";
-    hasUnreadChat = false;
-    elements.logTabs.hidden = true;
-    elements.turnLog.hidden = false;
-    elements.chatPanel.hidden = true;
     return;
   }
-
-  elements.logTabs.hidden = false;
-  const showChat = activeFeedTab === "chat";
-
-  if (showChat) {
-    hasUnreadChat = false;
-  }
-
-  elements.logTabTurn.classList.toggle("active", !showChat);
-  elements.logTabChat.classList.toggle("active", showChat);
-  elements.logTabChat.classList.toggle("has-notification", hasUnreadChat && !showChat);
-  elements.logTabTurn.setAttribute("aria-selected", String(!showChat));
-  elements.logTabChat.setAttribute("aria-selected", String(showChat));
-
-  elements.turnLog.hidden = showChat;
-  elements.chatPanel.hidden = !showChat;
-  elements.logTabChat.disabled = false;
   elements.chatInput.disabled = false;
-
-  if (!showChat) {
-    return;
-  }
 
   elements.chatLog.innerHTML = "";
   if (!onlineChatMessages.length) {
@@ -3562,6 +3626,14 @@ function initializeEntryMode() {
     return;
   }
 
+  // A notification ("your turn", "your game has begun") opens /?room=CODE:
+  // straight back into that game.
+  if (!mode && room && /^[A-Z2-9]{6}$/i.test(room)) {
+    clearRoomQuery();
+    resumeOnlineRoom(room);
+    return;
+  }
+
   const savedOnline = loadModeSave(MODE_ONLINE);
   const savedRoomCode = String(savedOnline?.roomCode || "").toUpperCase();
   if (/^[A-Z2-9]{6}$/.test(savedRoomCode)) {
@@ -3570,6 +3642,34 @@ function initializeEntryMode() {
   }
 
   showMainMenu();
+}
+
+// The open correspondence search, if any, in the lobby: since when, and what
+// to do meanwhile. Notifications are offered while they are off.
+async function renderSeekStatus() {
+  const seek = online.getSeek();
+  elements.onlineSeek.hidden = !seek.open;
+  elements.onlineCorrBtn.hidden = seek.open;
+  if (!seek.open) {
+    return;
+  }
+  const since = seek.since ? new Date(seek.since) : new Date();
+  const time = since.toLocaleString(getLang() === "fr" ? "fr-CA" : "en-CA", { weekday: "short", hour: "numeric", minute: "2-digit" });
+  elements.onlineSeekText.textContent = t("online.seekWaiting", { time });
+  const push = isPushSupported() && !needsInstallForPush() ? await getPushState() : { enabled: true };
+  elements.onlineSeekPushBtn.hidden = push.enabled;
+}
+
+// A correspondence search has found its game. Whoever is in the lobby goes
+// straight in; anyone busy elsewhere (an AI game, say) is told, and finds it
+// among their games.
+function onSeekMatched(match) {
+  renderOnlineOngoing();
+  if (!elements.onlinePanel.hidden && !online.isOnlineActive()) {
+    resumeOnlineRoom(match.roomCode);
+    return;
+  }
+  showToast(t("online.seekMatchedToast", { opponent: match.opponentName || "?" }));
 }
 
 // Every screen in the shell, in one place.
@@ -3911,6 +4011,7 @@ function applyOnlineStateSnapshot(snapshot) {
   }
   state = restoreState(snapshot.state);
   applyClockSnapshot(snapshot.clock);
+  applyDeadlineSnapshot(snapshot.deadline);
   currentLocalMode = MODE_ONLINE;
   onlineChatMessages = Array.isArray(snapshot.chat) ? snapshot.chat.slice(-100) : [];
   waitingRoomState = {
@@ -5391,6 +5492,38 @@ function animateDraws() {
       ], { duration: 360, easing: "ease-out" });
     }
   }
+}
+
+// The turn log, without the panel it used to fill: what the engine logged
+// since the last render is read out to screen readers, and an effect the
+// board cannot show (a neutral rune slipped into a bag, a point won outside a
+// line, the rune Dagaz copied) is spelled out in a toast. A jump of more than
+// a turn's worth (another game loaded, a reconnect) is not a turn: nothing is
+// said for it.
+function announceTurn() {
+  const log = Array.isArray(state.log) ? state.log : [];
+  const added = previousLogLength === null ? 0 : log.length - previousLogLength;
+  previousLogLength = log.length;
+  if (added <= 0 || added > MAX_ENTRIES_PER_TURN) {
+    return;
+  }
+
+  // Newest first in the log; oldest first when read out.
+  const entries = log.slice(0, added).filter((entry) => !isShopLogEntry(entry)).reverse();
+  const text = entries.map(formatLogEntry).filter(Boolean).join(" ");
+  if (text) {
+    elements.turnAnnouncer.textContent = text;
+  }
+  const effect = entries.filter((entry) => OFF_BOARD_EFFECT_KEYS.has(entry?.k)).pop();
+  if (effect) {
+    showToast(formatLogEntry(effect));
+  }
+}
+
+// Shop entries are the shop's own business, and some are still raw English
+// from the engine.
+function isShopLogEntry(entry) {
+  return typeof entry === "string" || Boolean(entry?.shop);
 }
 
 // A drawn round takes a point out of play and the majority may drop with it:

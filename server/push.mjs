@@ -22,6 +22,8 @@ const PUSH_TEXT = {
     rematch: { title: "RuneBags", body: "{opponent} wants a rematch." },
     opponent_joined: { title: "RuneBags", body: "{opponent} joined your room." },
     challenge: { title: "RuneBags", body: "{opponent} has challenged you." },
+    match_found: { title: "RuneBags", body: "Your correspondence game against {opponent} has begun." },
+    turn_reminder: { title: "RuneBags", body: "A few hours left to play your move against {opponent}." },
   },
   fr: {
     your_turn: { title: "RuneBags", body: "C'est votre tour contre {opponent}." },
@@ -29,6 +31,8 @@ const PUSH_TEXT = {
     rematch: { title: "RuneBags", body: "{opponent} veut une revanche." },
     opponent_joined: { title: "RuneBags", body: "{opponent} a rejoint votre salle." },
     challenge: { title: "RuneBags", body: "{opponent} vous a défié." },
+    match_found: { title: "RuneBags", body: "Votre partie par correspondance contre {opponent} a commencé." },
+    turn_reminder: { title: "RuneBags", body: "Plus que quelques heures pour jouer votre coup contre {opponent}." },
   },
 };
 

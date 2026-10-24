@@ -1530,17 +1530,11 @@ body[data-theme="dark"] .menu-btn.primary {
 body[data-theme="dark"] .online-player-card,
 body[data-theme="dark"] .shop-panel,
 body[data-theme="dark"] .shop-instruction,
-body[data-theme="dark"] .turn-log,
 body[data-theme="dark"] .chat-row,
 body[data-theme="dark"] .turn-pill {
   background: rgba(54, 48, 38, 0.8);
 }
 
-body[data-theme="dark"] .log-row + .log-row {
-  border-top-color: rgba(241, 233, 220, 0.1);
-}
-
-body[data-theme="dark"] .log-tab,
 body[data-theme="dark"] .chat-form button {
   background: var(--paper-strong);
 }
@@ -1693,24 +1687,32 @@ body[data-theme="dark"] .qc-btn {
   width: 2.5rem;
   height: 2.8rem;
   transform-origin: 50% 85%;
+}
+
+/* The same bag marks the back of the player's hidden runes (runes.css). */
+.bag-pouch,
+.rune-back-mark {
   --cloth: var(--stone-black);
   --bag-line: var(--stone-black);
   --cord: #e9dcc0;
   --fold: rgba(233, 220, 192, 0.32);
 }
 
-#player-2-panel .bag-pouch {
+#player-2-panel .bag-pouch,
+#player-2-panel .rune-back-mark {
   --cloth: var(--stone-white);
   --bag-line: #1e1a15;
   --cord: #1e1a15;
   --fold: rgba(30, 26, 21, 0.35);
 }
 
-body[data-theme="dark"] #player-1-panel .bag-pouch {
+body[data-theme="dark"] #player-1-panel .bag-pouch,
+body[data-theme="dark"] #player-1-panel .rune-back-mark {
   --bag-line: rgba(236, 227, 207, 0.72);
 }
 
-body[data-theme="dark"] #player-2-panel .bag-pouch {
+body[data-theme="dark"] #player-2-panel .bag-pouch,
+body[data-theme="dark"] #player-2-panel .rune-back-mark {
   --bag-line: rgba(0, 0, 0, 0.55);
 }
 
@@ -1922,48 +1924,9 @@ body[data-theme="dark"] #player-2-panel .bag-pouch {
   margin-top: 1rem;
 }
 
-.log-tabs {
-  display: inline-flex;
-  gap: 0.35rem;
-  margin-bottom: 0.6rem;
-}
-
-.log-tab {
-  position: relative;
-  border: 1px solid var(--panel-border);
-  background: var(--bone);
-  color: var(--text-soft);
-  padding: 0.35rem 0.62rem;
-  border-radius: 9px;
-  font: inherit;
-  cursor: pointer;
-}
-
-.log-tab.has-notification::after {
-  content: "";
-  position: absolute;
-  top: 0.18rem;
-  right: 0.2rem;
-  width: 0.46rem;
-  height: 0.46rem;
-  border-radius: 50%;
-  background: #e23b3b;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.95);
-}
-
-.log-tab.active {
-  color: var(--text-main);
-  border-color: var(--accent);
-  box-shadow: inset 0 0 0 1px rgba(69, 57, 37, 0.18);
-}
-
-.turn-log {
-  max-height: 170px;
-  overflow: auto;
-  background: rgba(240, 232, 214, 0.9);
-  border: 1px solid var(--panel-border);
-  border-radius: 10px;
-  padding: 0.15rem 0.25rem;
+.chat-title {
+  margin: 0 0 0.55rem;
+  font-size: 1rem;
 }
 
 .chat-panel {
@@ -2040,16 +2003,6 @@ body[data-theme="dark"] #player-2-panel .bag-pouch {
   font: inherit;
   cursor: pointer;
 }
-}
-
-.log-row {
-  padding: 0.4rem 0.55rem;
-  font-size: 0.95rem;
-  background: transparent;
-}
-
-.log-row + .log-row {
-  border-top: 1px solid rgba(67, 57, 40, 0.08);
 }
 
 /* End-game summary overlay */
@@ -2838,13 +2791,37 @@ body[data-theme="dark"] .modal-prompt-card {
     overflow: visible;
   }
 
-  .turn-log {
-    max-height: 8rem;
-  }
 }
 
 /* End card: what comes next in the first row, the rest in a quieter one. */
 .endgame-card .endgame-actions {
+  justify-content: center;
+}
+
+/* Online lobby: the two cadences, and an open correspondence search. */
+.online-cadence-hint {
+  margin: 0.2rem auto 0.6rem;
+  max-width: 34rem;
+  color: var(--text-soft);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.online-seek {
+  margin: 0 auto 0.9rem;
+  max-width: 36rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--ochre-bright);
+  border-radius: 6px;
+  background: var(--ochre-soft);
+  text-align: center;
+}
+
+.online-seek-text {
+  margin: 0 0 0.6rem;
+}
+
+.online-seek-actions {
   justify-content: center;
 }
 

@@ -371,7 +371,13 @@ function collectOngoingRooms(rooms, guestId) {
       yourSeat: seat,
       phase: room.state.phase,
       roundNumber: room.state.roundNumber,
-      yourTurn: room.state.phase === "round" && room.state.currentPlayer === seat,
+      // A correspondence game also waits on a shop or a finished round, and
+      // says how long is left; a live game only on the player to move.
+      yourTurn: room.deadline
+        ? room.deadline.seats.includes(seat)
+        : room.state.phase === "round" && room.state.currentPlayer === seat,
+      cadence: room.cadence || "live",
+      deadlineMs: room.deadline ? Math.max(0, room.deadline.at - Date.now()) : null,
       opponent: { name: opponent?.name || null, avatar: opponent?.avatar || null },
       opponentConnected: Boolean(opponent?.connected),
       lastActivityAt: room.lastActivityAt || room.createdAt || null,

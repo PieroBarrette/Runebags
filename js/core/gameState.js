@@ -1190,7 +1190,7 @@ function forcePassIfNeeded(state) {
   pushLog(state, "log.mustPass", { player: current });
 
   if (!opponentCanPlay) {
-    finishRoundAsDraw(state, "Both players cannot play any rune. Round is a draw.");
+    finishRoundAsDraw(state, { k: "log.drawNoMoves", p: null, shop: false });
     return { state, error: null };
   }
 

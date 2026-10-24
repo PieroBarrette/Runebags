@@ -52,11 +52,12 @@ export const SITE = {
   <li><strong>Power has a price.</strong> Cursed and corrupted runes are strong, but they slip neutral runes into your bag, and neutral runes clog your hand.</li>
 </ul>
 
-<h2>Four ways to play</h2>
+<h2>Five ways to play</h2>
 <ul>
   <li><strong>Against the computer</strong>, at five levels from Easy to Expert. No level sees your hand: each one weighs the hands you might be holding.</li>
   <li><strong>With a friend online</strong>: share a room code, a link or a QR code.</li>
   <li><strong>Ranked</strong>: quick play and challenges between accounts move an Elo rating, with a ten-minute clock. An account needs only an email address — no password.</li>
+  <li><strong>By correspondence</strong>: look for an opponent and close the app; the game starts when someone answers, you have a day for each move, and a notification tells you when it is your turn.</li>
   <li><strong>At the table</strong>, with the free <a href="{printUrl}">print-and-play kit</a>.</li>
 </ul>
 
@@ -141,6 +142,7 @@ export const SITE = {
           ["Do I need an account?", "No. You can play the computer and your friends without one. An account keeps your statistics across devices, gives you a rating and a public profile, and lets you challenge other players. It only needs an email address: you sign in with a one-time link, and there is no password."],
           ["How do I play with a friend?", "Choose Play online, then Play with a friend. You get a room code, a link and a QR code to send. Games in a room are friendly: they don't change anyone's rating."],
           ["How do ranked games work?", "Quick play pairs you with a player of a similar rating, and challenges can be ranked too; both players need an account. Everyone starts at an Elo rating of {startRating}, and each player has ten minutes on the clock."],
+          ["What if nobody is online when I want to play?", "Play by correspondence: choose Play online, then By correspondence, and close the app. The game starts as soon as someone else looks for one. You then have a day for each move, a notification tells you when it is your turn, and a move not played in time loses the game. Between two accounts it counts on the same ladder as quick play. While you wait, you can play the computer."],
           ["How strong is the computer?", "There are five levels, from Easy to Expert. None of them sees your hand or the runes you will draw. In our tests, each level beat the one below it about two games out of three."],
           ["Can I take back a move, or review my game?", "Against the computer, yes. Undo (or Ctrl+Z) takes back your last move for as long as the round is on. Once the game is over, Review the game gives your accuracy, sorts each of your moves from excellent to blunder and shows the turning point. Each move is judged as the Expert level would judge it, without seeing your opponent's hand."],
           ["Can I play on my phone?", "Yes, in the browser of any phone, tablet or computer. You can also install RuneBags on your home screen: the home page offers it when your browser allows it."],
@@ -237,11 +239,12 @@ export const SITE = {
   <li><strong>Le pouvoir a un prix.</strong> Les runes maudites et corrompues sont fortes, mais elles glissent dans votre sac des runes neutres, qui encombrent votre main.</li>
 </ul>
 
-<h2>Quatre façons de jouer</h2>
+<h2>Cinq façons de jouer</h2>
 <ul>
   <li><strong>Contre l'ordinateur</strong>, sur cinq niveaux, de Facile à Expert. Aucun niveau ne voit votre main : chacun évalue les mains que vous pourriez tenir.</li>
   <li><strong>Avec un ami en ligne</strong> : partagez un code de salle, un lien ou un code QR.</li>
   <li><strong>En classé</strong> : les parties rapides et les défis entre comptes font évoluer une cote Elo, avec une horloge de dix minutes. Un compte ne demande qu'une adresse courriel, sans mot de passe.</li>
+  <li><strong>Par correspondance</strong> : cherchez un adversaire et fermez l'appli ; la partie commence quand quelqu'un répond, vous avez une journée par coup, et une notification vous prévient quand c'est votre tour.</li>
   <li><strong>Sur table</strong>, avec la <a href="{printUrl}">trousse gratuite à imprimer</a>.</li>
 </ul>
 
@@ -326,6 +329,7 @@ export const SITE = {
           ["Faut-il un compte ?", "Non. Vous pouvez jouer contre l'ordinateur et avec vos amis sans compte. Un compte garde vos statistiques d'un appareil à l'autre, vous donne une cote et un profil public, et permet de défier d'autres joueurs. Il ne demande qu'une adresse courriel : vous vous connectez avec un lien à usage unique, sans mot de passe."],
           ["Comment jouer avec un ami ?", "Choisissez « Jouer en ligne », puis « Jouer avec un ami ». Vous obtenez un code de salle, un lien et un code QR à envoyer. Les parties en salle sont amicales : elles ne changent la cote de personne."],
           ["Comment fonctionnent les parties classées ?", "La partie rapide vous associe à un joueur de cote voisine, et les défis peuvent aussi être classés ; les deux joueurs doivent avoir un compte. Tout le monde commence avec une cote Elo de {startRating}, et chaque joueur a dix minutes à l'horloge."],
+          ["Et si personne n'est en ligne quand je veux jouer ?", "Jouez par correspondance : choisissez « Jouer en ligne », puis « Par correspondance », et fermez l'appli. La partie commence dès que quelqu'un d'autre en cherche une. Vous avez ensuite une journée par coup, une notification vous prévient quand c'est votre tour, et un coup non joué à temps fait perdre la partie. Entre deux comptes, elle compte au même classement que la partie rapide. En attendant, vous pouvez jouer contre l'ordinateur."],
           ["L'ordinateur est-il fort ?", "Il y a cinq niveaux, de Facile à Expert. Aucun ne voit votre main ni les runes que vous allez piger. Dans nos tests, chaque niveau a battu le précédent environ deux fois sur trois."],
           ["Peut-on annuler un coup ou analyser sa partie ?", "Contre l'ordinateur, oui. Annuler (ou Ctrl+Z) reprend votre dernier coup tant que la manche dure. À la fin de la partie, « Analyser la partie » donne votre précision, classe chacun de vos coups d'excellent à gaffe et montre le tournant. Chaque coup est jugé comme le jugerait le niveau Expert, sans voir la main de l'adversaire."],
           ["Peut-on jouer sur téléphone ?", "Oui, dans le navigateur d'un téléphone, d'une tablette ou d'un ordinateur. Vous pouvez aussi installer RuneBags sur votre écran d'accueil : la page d'accueil le propose quand votre navigateur le permet."],
