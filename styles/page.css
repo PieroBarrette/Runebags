@@ -1,31 +1,38 @@
 /* Pages outside the app (privacy, terms, not found, audience counts): the
-   game's palette and type in a reading column. Dark unless the player chose
-   the light theme in the game, which an inline script copies onto <html>. */
-:root {
-  --bg-deep: #10141a;
-  --bg-mid: #1f2833;
-  --panel: rgba(24, 31, 40, 0.9);
-  --panel-border: rgba(220, 230, 241, 0.18);
-  --text-main: #eef3fa;
-  --text-soft: #bdc8d7;
-  --gold: #d4af58;
-  --link: #e8c97a;
-  --cta: #43608f;
-  --cta-text: #f4f8fd;
+   game's palette and type in a reading column. Parchment, as in the game,
+   unless the player chose the dark theme there, which an inline script
+   copies onto <html>. */
+html[data-theme="dark"] {
+  --bg-deep: #100e0b;
+  --bg-mid: #1b1813;
+  --panel: rgba(33, 29, 24, 0.95);
+  --panel-border: rgba(236, 227, 207, 0.26);
+  --text-main: #ece3cf;
+  --text-soft: #c4b59b;
+  --gold: #d9aa4c;
+  --link: #e6bb62;
+  --cta: #ece3cf;
+  --cta-text: #1e1a15;
+  --ink: #ece3cf;
+  --rule-soft: rgba(236, 227, 207, 0.22);
+  --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.93 0 0 0 0 0.89 0 0 0 0 0.8 0.13 0 0 0 -0.05'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23g)'/%3E%3C/svg%3E");
   color-scheme: dark;
 }
 
-html[data-theme="light"] {
-  --bg-deep: #e5ebf2;
-  --bg-mid: #cfd8e4;
-  --panel: rgba(247, 250, 255, 0.92);
-  --panel-border: rgba(35, 50, 72, 0.22);
-  --text-main: #162132;
-  --text-soft: #46566c;
-  --gold: #7d5f17;
-  --link: #6e4f0e;
-  --cta: #21364f;
-  --cta-text: #f4f7fb;
+:root {
+  --bg-deep: #e3d6ba;
+  --bg-mid: #eee4cd;
+  --panel: rgba(250, 245, 234, 0.95);
+  --panel-border: rgba(30, 26, 21, 0.36);
+  --text-main: #2a241c;
+  --text-soft: #5e5141;
+  --gold: #9a6a1a;
+  --link: #7a4f0e;
+  --cta: #1e1a15;
+  --cta-text: #f9f4e8;
+  --ink: #1e1a15;
+  --rule-soft: rgba(30, 26, 21, 0.3);
+  --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.36 0 0 0 0 0.28 0 0 0 0 0.16 0.24 0 0 0 -0.07'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23g)'/%3E%3C/svg%3E");
   color-scheme: light;
 }
 
@@ -39,7 +46,8 @@ body {
   color: var(--text-main);
   font-family: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
   line-height: 1.6;
-  background: linear-gradient(160deg, var(--bg-deep), var(--bg-mid));
+  background: var(--paper-grain), linear-gradient(175deg, var(--bg-mid), var(--bg-deep));
+  background-color: var(--bg-mid);
   background-attachment: fixed;
 }
 
@@ -92,12 +100,14 @@ select:focus-visible {
   height: 2.4rem;
 }
 
+/* The printed frame of the game's panels: a border, then a hairline inside. */
 .page {
   margin-block: 1rem 2rem;
   padding: clamp(1.1rem, 4vw, 2.2rem);
   background: var(--panel);
   border: 1px solid var(--panel-border);
-  border-radius: 18px;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 4px var(--panel), inset 0 0 0 5px var(--rule-soft);
 }
 
 h1,
@@ -159,7 +169,7 @@ h2 {
   display: inline-block;
   margin-top: 0.6rem;
   padding: 0.7rem 1.4rem;
-  border-radius: 12px;
+  border-radius: 6px;
   background: var(--cta);
   color: var(--cta-text);
   font-weight: 600;
@@ -183,14 +193,33 @@ h2 {
 
 /* The site's generated pages (tools/make-pages.mjs): a header with the
    sections, the rule diagrams drawn as SVG, the rune sheets and the files. */
+/* The diagrams are the game's engraved plate: ink lines on parchment. */
 :root {
-  --fig-board: #232b36;
-  --fig-grid: rgba(220, 230, 241, 0.14);
+  --fig-board: #f4ecd8;
+  --fig-grid: rgba(30, 26, 21, 0.55);
+  --fig-frame: #1e1a15;
+  --fig-black: #1e1a15;
+  --fig-black-edge: none;
+  --fig-white: #f9f4e8;
+  --fig-white-edge: #1e1a15;
+  --fig-neutral: #bfb6a2;
+  --fig-neutral-edge: rgba(30, 26, 21, 0.72);
+  --fig-win: #c8962f;
+  --fig-fading: #b3412e;
 }
 
-html[data-theme="light"] {
-  --fig-board: #e7edf5;
-  --fig-grid: rgba(35, 50, 72, 0.18);
+html[data-theme="dark"] {
+  --fig-board: #25211b;
+  --fig-grid: rgba(236, 227, 207, 0.4);
+  --fig-frame: #ece3cf;
+  --fig-black: #0f0d0a;
+  --fig-black-edge: rgba(236, 227, 207, 0.72);
+  --fig-white: #efe6d2;
+  --fig-white-edge: rgba(0, 0, 0, 0.5);
+  --fig-neutral: #8e8676;
+  --fig-neutral-edge: rgba(236, 227, 207, 0.6);
+  --fig-win: #e6bb62;
+  --fig-fading: #e0735e;
 }
 
 .site-header {
@@ -260,6 +289,14 @@ html[data-theme="light"] {
 
 .fig-board {
   fill: var(--fig-board);
+  stroke: var(--fig-frame);
+  stroke-width: 2.5;
+}
+
+.fig-frame {
+  fill: none;
+  stroke: var(--fig-frame);
+  stroke-width: 1;
 }
 
 .fig-grid {
@@ -268,24 +305,24 @@ html[data-theme="light"] {
 }
 
 .fig-forced {
-  fill: rgba(212, 175, 88, 0.16);
+  fill: rgba(184, 134, 43, 0.2);
 }
 
 .fig-black {
-  fill: #15181d;
-  stroke: #4b5563;
-  stroke-width: 1.5;
+  fill: var(--fig-black);
+  stroke: var(--fig-black-edge);
+  stroke-width: 2;
 }
 
 .fig-white {
-  fill: #f1f1f1;
-  stroke: #9aa3ad;
-  stroke-width: 1.5;
+  fill: var(--fig-white);
+  stroke: var(--fig-white-edge);
+  stroke-width: 2;
 }
 
 .fig-neutral {
-  fill: #8f8f8f;
-  stroke: #5c6772;
+  fill: var(--fig-neutral);
+  stroke: var(--fig-neutral-edge);
   stroke-width: 2;
   stroke-dasharray: 4 3;
 }
@@ -293,18 +330,18 @@ html[data-theme="light"] {
 /* The rune an effect is about to remove or move away. */
 .fig-fading {
   opacity: 0.42;
-  stroke: #d9705f;
+  stroke: var(--fig-fading);
   stroke-width: 2.5;
 }
 
 .fig-win {
   fill: none;
-  stroke: var(--gold);
+  stroke: var(--fig-win);
   stroke-width: 3;
 }
 
 .fig-glyph-light {
-  filter: invert(1);
+  filter: invert(0.93) sepia(0.4) brightness(1.02);
 }
 
 .rule-rune,
@@ -315,7 +352,8 @@ html[data-theme="light"] {
 .rule-rune-glyph,
 .rune-entry-glyph {
   border-radius: 50%;
-  background: #f1f1f1;
+  background: #f9f4e8;
+  box-shadow: inset 0 0 0 2px #1e1a15;
 }
 
 .rule-rune-glyph {
@@ -369,11 +407,12 @@ html[data-theme="light"] {
 }
 
 .rune-entry-chip-plain {
-  background: radial-gradient(circle at 30% 25%, #6d6d6d, #111111 60%);
+  background: radial-gradient(circle at 34% 30%, #51483b 0, #2a241c 40%, #13100c 100%);
 }
 
 .rune-entry-chip-neutral {
-  background: radial-gradient(circle at 30% 25%, #cfcfcf, #808080 60%);
+  background: repeating-linear-gradient(45deg, rgba(30, 26, 21, 0.26) 0 1px, transparent 1px 4px), radial-gradient(circle at 34% 30%, #ddd5c4 0, #a89f8b 75%);
+  border: 2px dashed rgba(30, 26, 21, 0.72);
 }
 
 .page .rune-tags {

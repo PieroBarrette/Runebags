@@ -143,6 +143,7 @@ const elements = {
   menuRulesBtn: document.getElementById("menu-rules-btn"),
   menuSettingsBtn: document.getElementById("menu-settings-btn"),
   homeRuneGallery: document.getElementById("home-rune-gallery"),
+  homeBoard: document.getElementById("home-board"),
   footerLangBtn: document.getElementById("footer-lang-btn"),
   homeStats: document.getElementById("home-stats"),
   homeInstallBtn: document.getElementById("home-install"),
@@ -493,6 +494,9 @@ let previousRenderRound = null;
 // Points taken out of play by drawn rounds at the last render, so a draw that
 // lowers the majority can be announced as it happens.
 let previousTieRemoved = null;
+// Each player's hand and bag size at the last render: a rune in hand that was
+// not there before has just been drawn, and comes out of its owner's bag.
+let previousHands = null;
 // When each effect ghost first appeared, so a board rebuild can resume its
 // fade instead of restarting it. Keyed by "row:col".
 const ghostStartedAt = new Map();
@@ -532,6 +536,7 @@ bindAccountEvents();
 replay.bind();
 review.bind();
 renderHomeRuneGallery();
+renderHomeBoard();
 renderRulesFigures();
 renderHomeStats();
 bindSoundUnlockHandlers();
@@ -1790,6 +1795,7 @@ function render() {
     previousAudioSnapshot = snapshotAudioState(state, previousBoardSnapshot);
     previousRenderRound = state.roundNumber;
     previousTieRemoved = state.tieRemovedPoints || 0;
+    previousHands = snapshotHands(state);
     return;
   }
 
@@ -1893,6 +1899,7 @@ function render() {
   scheduleGhostCleanup(animationFrame);
   previousPendingActionSnapshot = pendingSnapshot;
   renderHands(state, elements, handVisibility, forcedVisible);
+  animateDraws();
   applyOnlinePlayerNames();
 
   renderLog(state, elements, formatLogEntry);
@@ -1957,6 +1964,18 @@ function updateTips() {
   if (state.phase === "shop") {
     tips.show("shop", "tip.shop");
   }
+  placeTipCard();
+}
+
+// A tip floats just under the top bar while the bar is on screen, and at the
+// top of the screen once the page has scrolled it away.
+function placeTipCard() {
+  if (elements.tipCard.hidden || elements.gameScreen.hidden) {
+    return;
+  }
+  const bar = elements.gameScreen.querySelector(".top-bar");
+  const bottom = bar ? Math.max(0, Math.round(bar.getBoundingClientRect().bottom)) : 0;
+  elements.tipCard.style.setProperty("--tip-top", `${bottom}px`);
 }
 
 function updateTopStatus() {
@@ -3515,6 +3534,7 @@ function undoLastMove() {
   previousBoardSnapshot = null;
   previousAudioSnapshot = null;
   previousPendingActionSnapshot = null;
+  previousHands = null;
   persistState();
   render();
   showToast(t("status.moveUndone"));
@@ -4463,6 +4483,52 @@ function getLocalGameOptions() {
   return {};
 }
 
+// The home page's plate, a game a few moves in: Black has just completed a
+// diagonal with Raido. B and W are plain runes, N a neutral one, R and A
+// Raido for Black and Algiz for White; the top row is the top of the board.
+// The tables live inside the function: boot calls it before a module-level
+// const below this point would be initialised.
+function renderHomeBoard() {
+  if (!elements.homeBoard) {
+    return;
+  }
+  const layout = [
+    ".......",
+    ".......",
+    "...R...",
+    "..BWB..",
+    ".BWBA..",
+    "BWBWWN.",
+  ];
+  const pieces = {
+    B: { owner: "p1" },
+    W: { owner: "p2" },
+    N: { owner: "neutral" },
+    R: { owner: "p1", rune: "raido" },
+    A: { owner: "p2", rune: "algiz" },
+  };
+  const winningLine = new Set(["5:0", "4:1", "3:2", "2:3"]);
+  elements.homeBoard.replaceChildren(...layout.flatMap((line, row) => [...line].map((mark, col) => {
+    const cell = document.createElement("span");
+    cell.className = "cell";
+    const piece = pieces[mark];
+    if (piece) {
+      cell.classList.add("has-piece", piece.owner);
+      if (piece.rune) {
+        const symbol = document.createElement("img");
+        symbol.src = `./assets/runes/${piece.rune}.svg`;
+        symbol.alt = "";
+        symbol.className = "rune-symbol";
+        cell.appendChild(symbol);
+      }
+    }
+    if (winningLine.has(`${row}:${col}`)) {
+      cell.classList.add("winning-cell");
+    }
+    return cell;
+  })));
+}
+
 function renderHomeRuneGallery() {
   const gallery = elements.homeRuneGallery;
   if (!gallery) {
@@ -5002,8 +5068,9 @@ async function initializePush() {
 }
 
 function initializeTheme() {
+  // Parchment is the game's own look, as in the logo; charcoal is the choice.
   const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
-  const theme = savedTheme === "light" ? "light" : "dark";
+  const theme = savedTheme === "dark" ? "dark" : "light";
   applyTheme(theme);
   elements.themeSelect.value = theme;
 }
@@ -5015,6 +5082,10 @@ function initializeTips() {
     tips.setEnabled(false);
   }
   elements.tipsToggle.checked = tips.isEnabled();
+  window.addEventListener("scroll", placeTipCard, { passive: true });
+  window.addEventListener("resize", placeTipCard);
+  // "Got it" can bring up the next tip in the queue.
+  elements.tipOkBtn.addEventListener("click", placeTipCard);
 }
 
 function initializeAnimations() {
@@ -5076,6 +5147,7 @@ function applyTheme(theme) {
   // Keep <html> in step: the inlined splash styles key off it, and it is what
   // the pre-paint script in index.html sets on a cold load.
   document.documentElement.setAttribute("data-theme", theme);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#1b1813" : "#eee4cd");
 }
 
 // Called once the first render has painted, so players never see the bare
@@ -5259,6 +5331,66 @@ function isLocalPlayerLogEntry(logText) {
   }
   const localSide = waitingRoomState.playerId === 2 ? "White" : "Black";
   return logText.startsWith(`${localSide} `);
+}
+
+function snapshotHands(currentState) {
+  return Object.fromEntries([1, 2].map((playerId) => [playerId, {
+    ids: new Set(currentState.players[playerId].hand.map((rune) => rune.instanceId)),
+    bag: currentState.players[playerId].bag.length,
+  }]));
+}
+
+// Runes drawn since the last render fly out of their owner's bag to their
+// place in the hand, and the bag gives a shake; a bag that takes runes back
+// (Fehu, a neutral from Mannaz) swells. A whole new hand, at the start of a
+// round, is dealt the same way.
+function animateDraws() {
+  const before = previousHands;
+  previousHands = snapshotHands(state);
+  if (!before || !animationsEnabled || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+    return;
+  }
+
+  for (const playerId of [1, 2]) {
+    const panel = playerId === 1 ? elements.player1Panel : elements.player2Panel;
+    const handEl = playerId === 1 ? elements.player1Hand : elements.player2Hand;
+    const pouch = panel.querySelector(".bag-pouch");
+    const from = pouch?.getBoundingClientRect();
+    if (!from || from.width === 0) {
+      continue;
+    }
+
+    const drawn = [...handEl.querySelectorAll(".rune-card")]
+      .filter((card) => !before[playerId].ids.has(card.dataset.runeInstanceId));
+    drawn.forEach((card, index) => {
+      const to = card.getBoundingClientRect();
+      if (to.width === 0) {
+        return;
+      }
+      const dx = from.left + from.width / 2 - (to.left + to.width / 2);
+      const dy = from.top + from.height / 2 - (to.top + to.height / 2);
+      card.animate([
+        { transform: `translate(${dx}px, ${dy}px) scale(0.2)`, opacity: 0 },
+        { transform: `translate(${dx * 0.35}px, ${dy * 0.35}px) scale(0.7)`, opacity: 1, offset: 0.4 },
+        { transform: "none", opacity: 1 },
+      ], { duration: 520, delay: index * 120, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)", fill: "backwards" });
+    });
+
+    if (drawn.length > 0) {
+      pouch.animate([
+        { transform: "rotate(0deg)" },
+        { transform: "rotate(-10deg)" },
+        { transform: "rotate(7deg)" },
+        { transform: "rotate(0deg)" },
+      ], { duration: 440, easing: "ease-out" });
+    } else if (state.players[playerId].bag.length > before[playerId].bag) {
+      pouch.animate([
+        { transform: "scale(1)" },
+        { transform: "scale(1.18)" },
+        { transform: "scale(1)" },
+      ], { duration: 360, easing: "ease-out" });
+    }
+  }
 }
 
 // A drawn round takes a point out of play and the majority may drop with it:

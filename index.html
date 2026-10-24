@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#131820">
+  <meta name="theme-color" content="#eee4cd">
   <title>RuneBags — runic tactics board game</title>
   <meta name="description" content="Runic tactics, hidden hands, and evolving rounds. Drop runes, build winning lines of four, and bend the rules with 24 unique rune powers. Play the AI or challenge a friend online.">
   <link rel="canonical" href="https://runebags.ca/">
@@ -16,14 +16,14 @@
   <meta property="og:title" content="RuneBags — runic tactics board game">
   <meta property="og:description" content="Drop runes, build winning lines of four, and bend the rules with 24 unique rune powers. Play the AI or challenge a friend online.">
   <meta property="og:url" content="https://runebags.ca/">
-  <meta property="og:image" content="https://runebags.ca/assets/og-image.png">
+  <meta property="og:image" content="https://runebags.ca/assets/og-image.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
 
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="RuneBags — runic tactics board game">
   <meta name="twitter:description" content="Drop runes, build winning lines of four, and bend the rules with 24 unique rune powers.">
-  <meta name="twitter:image" content="https://runebags.ca/assets/og-image.png">
+  <meta name="twitter:image" content="https://runebags.ca/assets/og-image.jpg">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -38,7 +38,7 @@
     "operatingSystem": "Any",
     "playMode": ["SinglePlayer", "MultiPlayer"],
     "numberOfPlayers": { "@type": "QuantitativeValue", "minValue": 2, "maxValue": 2 },
-    "image": "https://runebags.ca/assets/og-image.png",
+    "image": "https://runebags.ca/assets/og-image.jpg",
     "author": { "@type": "Person", "name": "Piero Barrette" },
     "offers": { "@type": "Offer", "price": 0, "priceCurrency": "CAD" }
   }
@@ -83,12 +83,12 @@
       align-items: center;
       justify-content: center;
       gap: 1.1rem;
-      background: #0f131a;
-      color: #f2e6c8;
+      background: #eee4cd;
+      color: #2a241c;
       font-family: "Cinzel", Georgia, serif;
       transition: opacity 420ms ease;
     }
-    html[data-theme="light"] #app-splash { background: #f4f1e8; color: #2a2118; }
+    html[data-theme="dark"] #app-splash { background: #1b1813; color: #ece3cf; }
     #app-splash[hidden] { display: none; }
     .app-splash-mark { position: relative; width: 132px; height: 132px; }
     .app-splash-logo {
@@ -103,8 +103,8 @@
       position: absolute;
       inset: 0;
       border-radius: 50%;
-      border: 2px solid rgba(212, 175, 88, 0.18);
-      border-top-color: #d4af58;
+      border: 2px solid rgba(154, 106, 26, 0.18);
+      border-top-color: #9a6a1a;
       animation: splash-spin 1.15s linear infinite;
     }
     .app-splash-title { margin: 0; font-size: 1.6rem; letter-spacing: 0.16em; text-transform: uppercase; }
@@ -120,6 +120,18 @@
   </style>
 </head>
 <body>
+  <!-- Each player's bag, drawn like the two in the logo; colours come from the
+       panel it sits in (main.css), so one drawing serves both players. -->
+  <svg width="0" height="0" style="position: absolute" aria-hidden="true" focusable="false">
+    <symbol id="bag-pouch" viewBox="0 0 64 72">
+      <path d="M19 15 L13 5 Q23 9 32 7 Q41 9 51 5 L45 15 Z" style="fill: var(--cloth); stroke: var(--bag-line); stroke-width: 2" stroke-linejoin="round"/>
+      <path d="M20 16 Q32 20 44 16 L46 22 Q61 35 57 52 Q53 68 32 68 Q11 68 7 52 Q3 35 18 22 Z" style="fill: var(--cloth); stroke: var(--bag-line); stroke-width: 2" stroke-linejoin="round"/>
+      <path d="M48 31 L53 39 M47 38 L54 48 M46 46 L52 57 M41 55 L45 63" style="fill: none; stroke: var(--fold); stroke-width: 1.2" stroke-linecap="round"/>
+      <path d="M17 18 Q32 25 47 18" style="fill: none; stroke: var(--cord); stroke-width: 3" stroke-linecap="round"/>
+      <path d="M46 19 Q53 27 49 37 M46 19 Q42 28 43 39" style="fill: none; stroke: var(--cord); stroke-width: 2.4" stroke-linecap="round"/>
+      <circle cx="46" cy="19" r="2.8" style="fill: var(--cord)"/>
+    </symbol>
+  </svg>
   <div id="app-splash" role="status" aria-live="polite">
     <div class="app-splash-mark">
       <div class="app-splash-ring" aria-hidden="true"></div>
@@ -211,6 +223,16 @@
           <button id="home-install" class="menu-btn secondary" type="button" data-i18n="home.install" hidden>Install app</button>
         </div>
       </div>
+
+      <!-- The game at a glance: an engraved plate drawn by renderHomeBoard()
+           with the board's own styles, Black's diagonal just completed. -->
+      <section class="home-showcase" aria-labelledby="home-showcase-title">
+        <div id="home-board" class="board home-board" aria-hidden="true"></div>
+        <div class="home-showcase-text">
+          <h2 id="home-showcase-title" data-i18n="home.showcaseTitle">Four in a line takes the round</h2>
+          <p data-i18n="home.showcaseText">Draw runes from your bag and drop them into the seven columns. Line up four of yours, across, down or diagonally, to take a point from the pool. Many runes bend the rules: an extra turn, a stolen cell, a rune that cannot be moved.</p>
+        </div>
+      </section>
 
       <div class="home-pillars">
         <article class="home-pillar">
@@ -687,7 +709,7 @@
           <h2 class="player-title"><span id="p1-avatar" class="online-avatar-chip tiny" hidden aria-hidden="true"></span><span id="p1-name">Black</span><span id="p1-online-dot" class="online-dot" hidden aria-label="Player online status" data-i18n-attr="aria-label:online.playerStatusAria"></span></h2>
           <p id="p1-rating" class="player-rating" hidden></p>
           <p class="bag-meta"><span id="p1-points">Points:</span></p>
-          <p class="bag-meta"><span id="p1-bag">Bag: 0</span></p>
+          <p class="bag-meta bag-line"><svg class="bag-pouch" viewBox="0 0 64 72" aria-hidden="true" focusable="false"><use href="#bag-pouch"/></svg><span id="p1-bag">Bag: 0</span></p>
           <p id="p1-clock" class="player-clock" hidden></p>
           <div id="p1-hand" class="hand hidden-hand" aria-live="polite"></div>
         </aside>
@@ -733,7 +755,7 @@
           <h2 class="player-title"><span id="p2-avatar" class="online-avatar-chip tiny" hidden aria-hidden="true"></span><span id="p2-name">White</span><span id="p2-online-dot" class="online-dot" hidden aria-label="Player online status" data-i18n-attr="aria-label:online.playerStatusAria"></span></h2>
           <p id="p2-rating" class="player-rating" hidden></p>
           <p class="bag-meta"><span id="p2-points">Points:</span></p>
-          <p class="bag-meta"><span id="p2-bag">Bag: 0</span></p>
+          <p class="bag-meta bag-line"><svg class="bag-pouch" viewBox="0 0 64 72" aria-hidden="true" focusable="false"><use href="#bag-pouch"/></svg><span id="p2-bag">Bag: 0</span></p>
           <p id="p2-clock" class="player-clock" hidden></p>
           <div id="p2-hand" class="hand hidden-hand" aria-live="polite"></div>
         </aside>

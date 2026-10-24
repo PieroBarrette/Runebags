@@ -5,16 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Mesure d'audience — RuneBags</title>
   <meta name="robots" content="noindex, nofollow">
-  <meta name="theme-color" content="#131820">
+  <meta name="theme-color" content="#eee4cd">
   <link rel="icon" type="image/svg+xml" href="/assets/RuneBags_Logo.svg">
   <link rel="stylesheet" href="/styles/page.css">
   <script>
     // The theme chosen in the game, before first paint.
     try {
-      if (localStorage.getItem("runebags-theme-v1") === "light") {
-        document.documentElement.setAttribute("data-theme", "light");
+      if (localStorage.getItem("runebags-theme-v1") === "dark") {
+        document.documentElement.setAttribute("data-theme", "dark");
       }
-    } catch (e) { /* private mode: keep the dark default */ }
+    } catch (e) { /* private mode: keep the parchment default */ }
   </script>
   <script type="module" src="/js/admin/metricsPage.js"></script>
 </head>

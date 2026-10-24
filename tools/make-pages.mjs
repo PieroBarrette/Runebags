@@ -379,18 +379,27 @@ function formatSize(lang, bytes) {
 function figureSvg(spec, label) {
   const size = 40;
   const columns = 7;
-  const width = columns * size;
-  const height = spec.rows * size;
-  const parts = [`<rect class="fig-board" x="0" y="0" width="${width}" height="${height}" rx="8"/>`];
+  // The board is the game's engraved plate: a double rule round it, which
+  // takes a margin.
+  const pad = 6;
+  const boardWidth = columns * size;
+  const boardHeight = spec.rows * size;
+  const width = boardWidth + pad * 2;
+  const height = boardHeight + pad * 2;
+  const parts = [
+    `<rect class="fig-frame" x="0.5" y="0.5" width="${width - 1}" height="${height - 1}" rx="4"/>`,
+    `<g transform="translate(${pad} ${pad})">`,
+    `<rect class="fig-board" x="0" y="0" width="${boardWidth}" height="${boardHeight}" rx="2"/>`,
+  ];
 
   (spec.forcedColumns || []).forEach((column) => {
-    parts.push(`<rect class="fig-forced" x="${column * size}" y="0" width="${size}" height="${height}"/>`);
+    parts.push(`<rect class="fig-forced" x="${column * size}" y="0" width="${size}" height="${boardHeight}"/>`);
   });
   for (let column = 1; column < columns; column += 1) {
-    parts.push(`<line class="fig-grid" x1="${column * size}" y1="0" x2="${column * size}" y2="${height}"/>`);
+    parts.push(`<line class="fig-grid" x1="${column * size}" y1="0" x2="${column * size}" y2="${boardHeight}"/>`);
   }
   for (let row = 1; row < spec.rows; row += 1) {
-    parts.push(`<line class="fig-grid" x1="0" y1="${row * size}" x2="${width}" y2="${row * size}"/>`);
+    parts.push(`<line class="fig-grid" x1="0" y1="${row * size}" x2="${boardWidth}" y2="${row * size}"/>`);
   }
 
   spec.cells.forEach((cell) => {
@@ -408,6 +417,7 @@ function figureSvg(spec, label) {
       parts.push(`<image class="${glyphClass}" href="/assets/runes/${cell.runeId}.svg" x="${cx - 9}" y="${cy - 9}" width="18" height="18"/>`);
     }
   });
+  parts.push("</g>");
 
   return `<figure class="rule-figure"><svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${esc(label)}">${parts.join("")}</svg></figure>`;
 }
@@ -436,7 +446,7 @@ function layout({ lang, key, title, description, heading, lede, body, jsonLd }) 
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${esc(title)}</title>
   <meta name="description" content="${esc(description)}">
-  <meta name="theme-color" content="#131820">
+  <meta name="theme-color" content="#eee4cd">
   <link rel="canonical" href="${url}">
   <link rel="alternate" hreflang="en" href="${SITE_URL}${ROUTES[key].en}">
   <link rel="alternate" hreflang="fr" href="${SITE_URL}${ROUTES[key].fr}">
@@ -448,13 +458,13 @@ function layout({ lang, key, title, description, heading, lede, body, jsonLd }) 
   <meta property="og:url" content="${url}">
   <meta property="og:locale" content="${site.locale}">
   <meta property="og:locale:alternate" content="${SITE[other].locale}">
-  <meta property="og:image" content="${SITE_URL}/assets/og-image.png">
+  <meta property="og:image" content="${SITE_URL}/assets/og-image.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="${esc(title)}">
   <meta name="twitter:description" content="${esc(description)}">
-  <meta name="twitter:image" content="${SITE_URL}/assets/og-image.png">
+  <meta name="twitter:image" content="${SITE_URL}/assets/og-image.jpg">
   <link rel="icon" type="image/svg+xml" href="/assets/RuneBags_Logo.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -463,10 +473,10 @@ function layout({ lang, key, title, description, heading, lede, body, jsonLd }) 
   <script>
     // The theme chosen in the game, before first paint.
     try {
-      if (localStorage.getItem("runebags-theme-v1") === "light") {
-        document.documentElement.setAttribute("data-theme", "light");
+      if (localStorage.getItem("runebags-theme-v1") === "dark") {
+        document.documentElement.setAttribute("data-theme", "dark");
       }
-    } catch (e) { /* private mode: keep the dark default */ }
+    } catch (e) { /* private mode: keep the parchment default */ }
   </script>
 ${ldBlocks}
 </head>
@@ -526,7 +536,7 @@ function videoGameLd(lang, page) {
     operatingSystem: "Any",
     playMode: ["SinglePlayer", "MultiPlayer"],
     numberOfPlayers: { "@type": "QuantitativeValue", minValue: 2, maxValue: 2 },
-    image: `${SITE_URL}/assets/og-image.png`,
+    image: `${SITE_URL}/assets/og-image.jpg`,
     author: AUTHOR,
     offers: { "@type": "Offer", price: 0, priceCurrency: "CAD" },
   };

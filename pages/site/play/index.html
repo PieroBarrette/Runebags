@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>RuneBags — a free runic tactics board game for two</title>
   <meta name="description" content="Drop runes into a seven-column board, line up four to win the round, and build a bag of runes that bend the rules. Free, no ads, no account needed: play the computer or a friend online.">
-  <meta name="theme-color" content="#131820">
+  <meta name="theme-color" content="#eee4cd">
   <link rel="canonical" href="https://runebags.ca/play/">
   <link rel="alternate" hreflang="en" href="https://runebags.ca/play/">
   <link rel="alternate" hreflang="fr" href="https://runebags.ca/fr/jouer/">
@@ -17,13 +17,13 @@
   <meta property="og:url" content="https://runebags.ca/play/">
   <meta property="og:locale" content="en_CA">
   <meta property="og:locale:alternate" content="fr_CA">
-  <meta property="og:image" content="https://runebags.ca/assets/og-image.png">
+  <meta property="og:image" content="https://runebags.ca/assets/og-image.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="RuneBags — a free runic tactics board game for two">
   <meta name="twitter:description" content="Drop runes into a seven-column board, line up four to win the round, and build a bag of runes that bend the rules. Free, no ads, no account needed: play the computer or a friend online.">
-  <meta name="twitter:image" content="https://runebags.ca/assets/og-image.png">
+  <meta name="twitter:image" content="https://runebags.ca/assets/og-image.jpg">
   <link rel="icon" type="image/svg+xml" href="/assets/RuneBags_Logo.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -32,10 +32,10 @@
   <script>
     // The theme chosen in the game, before first paint.
     try {
-      if (localStorage.getItem("runebags-theme-v1") === "light") {
-        document.documentElement.setAttribute("data-theme", "light");
+      if (localStorage.getItem("runebags-theme-v1") === "dark") {
+        document.documentElement.setAttribute("data-theme", "dark");
       }
-    } catch (e) { /* private mode: keep the dark default */ }
+    } catch (e) { /* private mode: keep the parchment default */ }
   </script>
   <script type="application/ld+json">
 {
@@ -64,7 +64,7 @@
     "minValue": 2,
     "maxValue": 2
   },
-  "image": "https://runebags.ca/assets/og-image.png",
+  "image": "https://runebags.ca/assets/og-image.jpg",
   "author": {
     "@type": "Person",
     "name": "Piero Barrette"
@@ -105,7 +105,7 @@
   <li>Between rounds, visit the shop: add runes to your bag, remove one, or combine two identical runes into a stronger one.</li>
 </ol>
 <p>The first player to hold the majority of the points still in play wins the game: 6 of 10 at the start. A drawn round takes a point out of play, and the majority can drop with it — 5 of 9 after one draw.</p>
-<figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="A winning line of four runes"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="60" cy="100" r="14"/><circle class="fig-win" cx="60" cy="100" r="17.5"/><circle class="fig-piece fig-black" cx="100" cy="100" r="14"/><circle class="fig-win" cx="100" cy="100" r="17.5"/><circle class="fig-piece fig-black" cx="140" cy="100" r="14"/><circle class="fig-win" cx="140" cy="100" r="17.5"/><circle class="fig-piece fig-black" cx="180" cy="100" r="14"/><circle class="fig-win" cx="180" cy="100" r="17.5"/><circle class="fig-piece fig-white" cx="20" cy="100" r="14"/><circle class="fig-piece fig-white" cx="100" cy="60" r="14"/><circle class="fig-piece fig-white" cx="140" cy="60" r="14"/></svg></figure>
+<figure class="rule-figure"><svg viewBox="0 0 292 132" width="292" height="132" role="img" aria-label="A winning line of four runes"><rect class="fig-frame" x="0.5" y="0.5" width="291" height="131" rx="4"/><g transform="translate(6 6)"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="2"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="60" cy="100" r="14"/><circle class="fig-win" cx="60" cy="100" r="17.5"/><circle class="fig-piece fig-black" cx="100" cy="100" r="14"/><circle class="fig-win" cx="100" cy="100" r="17.5"/><circle class="fig-piece fig-black" cx="140" cy="100" r="14"/><circle class="fig-win" cx="140" cy="100" r="17.5"/><circle class="fig-piece fig-black" cx="180" cy="100" r="14"/><circle class="fig-win" cx="180" cy="100" r="17.5"/><circle class="fig-piece fig-white" cx="20" cy="100" r="14"/><circle class="fig-piece fig-white" cx="100" cy="60" r="14"/><circle class="fig-piece fig-white" cx="140" cy="60" r="14"/></g></svg></figure>
 
 <h2>What makes it different</h2>
 <ul>

@@ -18,6 +18,34 @@
   }
 }
 
+/* The stones, drawn once for every place a rune sits: the board, the effect
+   ghosts, the hands and the review. A black stone is an ink disc with a faint
+   carved rim, a white one bone circled in ink, a neutral one hatched grey. */
+:root {
+  --stone-p1-face: radial-gradient(circle at 34% 30%, #51483b 0, #2a241c 40%, #13100c 100%);
+  --stone-p1-edge: inset 0 0 0 1.5px rgba(0, 0, 0, 0.55), inset 0 0 0 3px rgba(239, 229, 207, 0.16);
+  --stone-p2-face: radial-gradient(circle at 34% 30%, #ffffff 0, #f7f0e1 45%, #e0d1b0 100%);
+  --stone-p2-edge: inset 0 0 0 2px #1e1a15, inset 0 0 0 3.5px rgba(30, 26, 21, 0.1);
+  --stone-neutral-face: repeating-linear-gradient(45deg, rgba(30, 26, 21, 0.26) 0 1px, transparent 1px 4px), radial-gradient(circle at 34% 30%, #ddd5c4 0, #a89f8b 75%);
+  --stone-neutral-border: 2px dashed rgba(30, 26, 21, 0.72);
+  --glyph-on-p1: invert(0.93) sepia(0.4) brightness(1.02);
+  --glyph-on-p2: none;
+  --glyph-level-2: drop-shadow(0 0 3px rgba(200, 150, 47, 0.95)) drop-shadow(0 0 1px rgba(200, 150, 47, 0.95));
+  --vermilion: #b3412e;
+}
+
+body[data-theme="dark"] {
+  --stone-p1-face: radial-gradient(circle at 34% 30%, #3d362c 0, #191612 45%, #0b0907 100%);
+  --stone-p1-edge: inset 0 0 0 2px rgba(236, 227, 207, 0.72), inset 0 0 0 3.5px rgba(0, 0, 0, 0.4);
+  --stone-p2-face: radial-gradient(circle at 34% 30%, #ffffff 0, #efe6d2 45%, #cbbb98 100%);
+  --stone-p2-edge: inset 0 0 0 2px rgba(0, 0, 0, 0.5);
+  --stone-neutral-face: repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.32) 0 1px, transparent 1px 4px), radial-gradient(circle at 34% 30%, #a39b8a 0, #6d6658 75%);
+  --stone-neutral-border: 2px dashed rgba(236, 227, 207, 0.6);
+  --vermilion: #e0735e;
+}
+
+/* An engraved plate: ink grid lines (the gaps show the board's own colour)
+   on parchment, inside a double rule. */
 .board {
   --board-anim-duration: 500ms;
   --algiz-anim-duration: 780ms;
@@ -27,9 +55,11 @@
   --rows: 6;
   display: grid;
   grid-template-columns: repeat(var(--columns), minmax(46px, 1fr));
-  gap: 0;
-  border-radius: 10px;
-  border: 1px solid rgba(35, 50, 72, 0.22);
+  gap: 1px;
+  border-radius: 3px;
+  border: 2px solid var(--ink);
+  background: var(--rule);
+  box-shadow: 0 0 0 3px var(--panel), 0 0 0 4px var(--rule);
   overflow: hidden;
 }
 
@@ -43,16 +73,11 @@
   position: relative;
   width: 100%;
   aspect-ratio: 1 / 1;
-  border: 1px solid rgba(120, 138, 161, 0.24);
-  border-right-width: 3px;
+  border: 0;
   border-radius: 0;
-  background: rgba(231, 238, 247, 0.85);
+  background: var(--paper) var(--paper-grain);
   cursor: pointer;
   transition: transform 120ms ease;
-}
-
-.cell:nth-child(7n + 1) {
-  border-left-width: 3px;
 }
 
 /* Static mini-boards embedded in the Rules screen. */
@@ -60,8 +85,11 @@
   margin: 0.8rem 0 0.4rem;
 }
 
+/* Hugs its grid: the board behind the cells is the ink of the grid lines, so
+   any width left over would show as a dark band. */
 .rules-mini-board {
   grid-template-columns: repeat(var(--columns), minmax(18px, 30px));
+  width: fit-content;
   max-width: 240px;
   pointer-events: none;
 }
@@ -76,7 +104,7 @@
 }
 
 .rules-mini-board .cell.rules-fading-cell {
-  box-shadow: inset 0 0 0 2px rgba(217, 112, 95, 0.75);
+  box-shadow: inset 0 0 0 2px var(--vermilion);
 }
 
 .rune-detail-figure {
@@ -95,44 +123,46 @@
   position: absolute;
   inset: 15%;
   border-radius: 50%;
-  background: #222;
+  background: var(--stone-p1-face);
+  box-shadow: var(--stone-p1-edge);
 }
 
 .cell.p1.has-piece::before {
-  background: radial-gradient(circle at 30% 25%, #6f6f6f, #111111 60%);
+  background: var(--stone-p1-face);
+  box-shadow: var(--stone-p1-edge);
 }
 
 .cell.p2.has-piece::before {
-  background: radial-gradient(circle at 30% 25%, #ffffff, #e8e8e8 60%);
-}
-
-body:not([data-theme="dark"]) .cell.p2.has-piece::before {
-  box-shadow: inset 0 0 0 1px rgba(76, 90, 107, 0.52);
+  background: var(--stone-p2-face);
+  box-shadow: var(--stone-p2-edge);
 }
 
 .cell.neutral.has-piece::before {
-  background: radial-gradient(circle at 30% 25%, #cdcdcd, #7f7f7f 60%);
-  border: 2px dashed #5c6772;
+  background: var(--stone-neutral-face);
+  box-shadow: none;
+  border: var(--stone-neutral-border);
 }
 
 .cell.ethereal-piece.has-piece::before {
-  border: 2px dashed #ffc94d;
+  border: 2px dashed var(--ochre-bright);
 }
 
 .cell.target-cell {
-  background: rgba(255, 214, 102, 0.16);
-  outline: 2px solid rgba(255, 214, 102, 0.7);
-  outline-offset: -2px;
+  background: var(--ochre-soft) var(--paper-grain);
+  outline: 2px solid var(--ochre-bright);
+  outline-offset: -3px;
 }
 
+/* Where the next rune may go (Perth, Jera, Inguz): hatched in ochre, the way
+   an engraver shades a region. */
 .cell.forced-column {
-  background: rgba(102, 173, 255, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(102, 173, 255, 0.5);
+  background: repeating-linear-gradient(135deg, var(--ochre-soft) 0 2px, transparent 2px 7px), var(--paper);
+  box-shadow: inset 0 0 0 1px var(--ochre-soft);
 }
 
 .cell.winning-cell {
-  background: rgba(255, 214, 102, 0.18);
-  box-shadow: inset 0 0 0 2px rgba(255, 214, 102, 0.72);
+  background: rgba(200, 150, 47, 0.26) var(--paper-grain);
+  box-shadow: inset 0 0 0 2px var(--ochre-bright);
 }
 
 body[data-animations="on"] .cell.winning-cell {
@@ -141,11 +171,11 @@ body[data-animations="on"] .cell.winning-cell {
 
 @keyframes winning-pulse {
   0%, 100% {
-    box-shadow: inset 0 0 0 2px rgba(255, 214, 102, 0.72);
+    box-shadow: inset 0 0 0 2px var(--ochre-bright);
   }
   50% {
-    background: rgba(255, 214, 102, 0.32);
-    box-shadow: inset 0 0 0 3px rgba(255, 214, 102, 0.98);
+    background: rgba(200, 150, 47, 0.4);
+    box-shadow: inset 0 0 0 3px var(--ochre-bright);
   }
 }
 
@@ -155,28 +185,26 @@ body[data-animations="on"] .cell.winning-cell {
   width: 44%;
   height: 44%;
   object-fit: contain;
-  filter: grayscale(1) brightness(0.24) drop-shadow(0 1px 2px rgba(255, 255, 255, 0.55));
+  filter: var(--glyph-on-p2);
   pointer-events: none;
   z-index: 1;
 }
 
 .cell.p1 .rune-symbol {
-  filter: invert(1) brightness(1.25) contrast(1.2) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+  filter: var(--glyph-on-p1);
 }
 
 .cell.p2 .rune-symbol,
 .cell.neutral .rune-symbol {
-  filter: grayscale(1) brightness(0.24) drop-shadow(0 1px 2px rgba(255, 255, 255, 0.55));
+  filter: var(--glyph-on-p2);
 }
 
 .rune-symbol.level-2-rune {
-  filter: drop-shadow(0 0 5px rgba(255, 214, 102, 0.8));
+  filter: var(--glyph-level-2);
 }
 
 .cell.p1 .rune-symbol.level-2-rune {
-  filter: invert(1) brightness(1.25) contrast(1.2)
-    drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45))
-    drop-shadow(0 0 5px rgba(255, 214, 102, 0.8));
+  filter: var(--glyph-on-p1) var(--glyph-level-2);
 }
 
 .rune-symbol.ethereal-rune {
@@ -192,20 +220,18 @@ body[data-animations="on"] .cell.winning-cell {
 }
 
 .effect-fade-ghost.p1 {
-  background: radial-gradient(circle at 30% 25%, #6f6f6f, #111111 60%);
+  background: var(--stone-p1-face);
+  box-shadow: var(--stone-p1-edge);
 }
 
 .effect-fade-ghost.p2 {
-  background: radial-gradient(circle at 30% 25%, #ffffff, #e8e8e8 60%);
-}
-
-body:not([data-theme="dark"]) .effect-fade-ghost.p2 {
-  box-shadow: inset 0 0 0 1px rgba(76, 90, 107, 0.52);
+  background: var(--stone-p2-face);
+  box-shadow: var(--stone-p2-edge);
 }
 
 .effect-fade-ghost.neutral {
-  background: radial-gradient(circle at 30% 25%, #cdcdcd, #7f7f7f 60%);
-  border: 2px dashed #5c6772;
+  background: var(--stone-neutral-face);
+  border: var(--stone-neutral-border);
 }
 
 .effect-fade-ghost-symbol {
@@ -214,12 +240,12 @@ body:not([data-theme="dark"]) .effect-fade-ghost.p2 {
   width: 44%;
   height: 44%;
   object-fit: contain;
-  filter: grayscale(1) brightness(0.24) drop-shadow(0 1px 2px rgba(255, 255, 255, 0.55));
+  filter: var(--glyph-on-p2);
   pointer-events: none;
 }
 
 .effect-fade-ghost.p1 .effect-fade-ghost-symbol {
-  filter: invert(1) brightness(1.25) contrast(1.2) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+  filter: var(--glyph-on-p1);
 }
 
 .effect-lift-ghost {
@@ -231,20 +257,18 @@ body:not([data-theme="dark"]) .effect-fade-ghost.p2 {
 }
 
 .effect-lift-ghost.p1 {
-  background: radial-gradient(circle at 30% 25%, #6f6f6f, #111111 60%);
+  background: var(--stone-p1-face);
+  box-shadow: var(--stone-p1-edge);
 }
 
 .effect-lift-ghost.p2 {
-  background: radial-gradient(circle at 30% 25%, #ffffff, #e8e8e8 60%);
-}
-
-body:not([data-theme="dark"]) .effect-lift-ghost.p2 {
-  box-shadow: inset 0 0 0 1px rgba(76, 90, 107, 0.52);
+  background: var(--stone-p2-face);
+  box-shadow: var(--stone-p2-edge);
 }
 
 .effect-lift-ghost.neutral {
-  background: radial-gradient(circle at 30% 25%, #cdcdcd, #7f7f7f 60%);
-  border: 2px dashed #5c6772;
+  background: var(--stone-neutral-face);
+  border: var(--stone-neutral-border);
 }
 
 .effect-lift-ghost-symbol {
@@ -253,17 +277,17 @@ body:not([data-theme="dark"]) .effect-lift-ghost.p2 {
   width: 44%;
   height: 44%;
   object-fit: contain;
-  filter: grayscale(1) brightness(0.24) drop-shadow(0 1px 2px rgba(255, 255, 255, 0.55));
+  filter: var(--glyph-on-p2);
   pointer-events: none;
 }
 
 .effect-lift-ghost.p1 .effect-lift-ghost-symbol {
-  filter: invert(1) brightness(1.25) contrast(1.2) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+  filter: var(--glyph-on-p1);
 }
 
 .board-rune-info {
-  --info-bg: rgba(247, 250, 255, 0.98);
-  --info-border: rgba(36, 51, 71, 0.28);
+  --info-bg: rgba(250, 245, 234, 0.98);
+  --info-border: rgba(67, 57, 40, 0.28);
   position: absolute;
   z-index: 5;
   width: min(240px, calc(100% - 16px));
@@ -271,8 +295,8 @@ body:not([data-theme="dark"]) .effect-lift-ghost.p2 {
   border-radius: 9px;
   border: 1px solid var(--info-border);
   background: var(--info-bg);
-  box-shadow: 0 8px 18px rgba(20, 32, 48, 0.22);
-  color: #182537;
+  box-shadow: 0 8px 18px rgba(45, 37, 24, 0.22);
+  color: var(--text-main);
   pointer-events: none;
 }
 
@@ -616,32 +640,11 @@ body[data-animations="on"] .cell.anim-shift-up .rune-symbol {
 }
 
 
-body[data-theme="dark"] .board {
-  border-color: rgba(220, 230, 241, 0.24);
-}
-
-body[data-theme="dark"] .cell {
-  border-color: rgba(218, 228, 240, 0.16);
-  background: rgba(26, 34, 44, 0.88);
-}
-
-body[data-theme="dark"] .cell.target-cell {
-  background: rgba(255, 214, 102, 0.2);
-}
-
-body[data-theme="dark"] .cell.forced-column {
-  background: rgba(102, 173, 255, 0.16);
-}
-
-body[data-theme="dark"] .cell.winning-cell {
-  background: rgba(255, 214, 102, 0.24);
-}
-
 body[data-theme="dark"] .board-rune-info {
-  --info-bg: rgba(17, 24, 32, 0.97);
-  --info-border: rgba(230, 238, 248, 0.24);
+  --info-bg: rgba(30, 26, 19, 0.97);
+  --info-border: rgba(236, 227, 207, 0.26);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
-  color: #edf2fa;
+  color: var(--text-main);
 }
 
 body[data-theme="dark"] .board-rune-info[data-touch="yes"] {
