@@ -1,0 +1,14 @@
+{
+  "/play/": "pages/site/play/index.html",
+  "/rules/": "pages/site/rules/index.html",
+  "/guide/": "pages/site/guide/index.html",
+  "/runes/": "pages/site/runes/index.html",
+  "/faq/": "pages/site/faq/index.html",
+  "/print-and-play/": "pages/site/print-and-play/index.html",
+  "/fr/jouer/": "pages/site/fr/jouer/index.html",
+  "/fr/regles/": "pages/site/fr/regles/index.html",
+  "/fr/guide/": "pages/site/fr/guide/index.html",
+  "/fr/runes/": "pages/site/fr/runes/index.html",
+  "/fr/faq/": "pages/site/fr/faq/index.html",
+  "/fr/imprimer/": "pages/site/fr/imprimer/index.html"
+}

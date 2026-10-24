@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RuneBags — un jeu de tactique runique gratuit pour deux</title>
+  <meta name="description" content="Faites tomber des runes dans un plateau de sept colonnes, alignez-en quatre pour gagner la manche et construisez un sac de runes qui plient les règles. Gratuit, sans publicité, sans compte : contre l'ordinateur ou un ami en ligne.">
+  <meta name="theme-color" content="#131820">
+  <link rel="canonical" href="https://runebags.ca/fr/jouer/">
+  <link rel="alternate" hreflang="en" href="https://runebags.ca/play/">
+  <link rel="alternate" hreflang="fr" href="https://runebags.ca/fr/jouer/">
+  <link rel="alternate" hreflang="x-default" href="https://runebags.ca/play/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="RuneBags">
+  <meta property="og:title" content="RuneBags — un jeu de tactique runique gratuit pour deux">
+  <meta property="og:description" content="Faites tomber des runes dans un plateau de sept colonnes, alignez-en quatre pour gagner la manche et construisez un sac de runes qui plient les règles. Gratuit, sans publicité, sans compte : contre l'ordinateur ou un ami en ligne.">
+  <meta property="og:url" content="https://runebags.ca/fr/jouer/">
+  <meta property="og:locale" content="fr_CA">
+  <meta property="og:locale:alternate" content="en_CA">
+  <meta property="og:image" content="https://runebags.ca/assets/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="RuneBags — un jeu de tactique runique gratuit pour deux">
+  <meta name="twitter:description" content="Faites tomber des runes dans un plateau de sept colonnes, alignez-en quatre pour gagner la manche et construisez un sac de runes qui plient les règles. Gratuit, sans publicité, sans compte : contre l'ordinateur ou un ami en ligne.">
+  <meta name="twitter:image" content="https://runebags.ca/assets/og-image.png">
+  <link rel="icon" type="image/svg+xml" href="/assets/RuneBags_Logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Space+Grotesk:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles/page.css">
+  <script>
+    // The theme chosen in the game, before first paint.
+    try {
+      if (localStorage.getItem("runebags-theme-v1") === "light") {
+        document.documentElement.setAttribute("data-theme", "light");
+      }
+    } catch (e) { /* private mode: keep the dark default */ }
+  </script>
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "VideoGame",
+  "name": "RuneBags",
+  "url": "https://runebags.ca/",
+  "description": "Faites tomber des runes dans un plateau de sept colonnes, alignez-en quatre pour gagner la manche et construisez un sac de runes qui plient les règles. Gratuit, sans publicité, sans compte : contre l'ordinateur ou un ami en ligne.",
+  "inLanguage": [
+    "en",
+    "fr"
+  ],
+  "genre": [
+    "Board game",
+    "Strategy game"
+  ],
+  "gamePlatform": "Web browser",
+  "applicationCategory": "Game",
+  "operatingSystem": "Any",
+  "playMode": [
+    "SinglePlayer",
+    "MultiPlayer"
+  ],
+  "numberOfPlayers": {
+    "@type": "QuantitativeValue",
+    "minValue": 2,
+    "maxValue": 2
+  },
+  "image": "https://runebags.ca/assets/og-image.png",
+  "author": {
+    "@type": "Person",
+    "name": "Piero Barrette"
+  },
+  "offers": {
+    "@type": "Offer",
+    "price": 0,
+    "priceCurrency": "CAD"
+  }
+}
+  </script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="page-brand" href="/?lang=fr"><img src="/assets/RuneBags_Logo.svg" alt="" width="40" height="40">RuneBags</a>
+    <div class="site-header-actions">
+      <a class="site-lang" href="/play/" hreflang="en" lang="en">English</a>
+      <a class="page-cta site-play" href="/?lang=fr">Jouer</a>
+    </div>
+    <nav class="site-nav" aria-label="Sections du site">
+      <a href="/fr/jouer/" aria-current="page">Le jeu</a>
+      <a href="/fr/regles/">Règles</a>
+      <a href="/fr/guide/">Guide</a>
+      <a href="/fr/runes/">Les runes</a>
+      <a href="/fr/faq/">FAQ</a>
+      <a href="/fr/imprimer/">Imprimer et jouer</a>
+    </nav>
+  </header>
+
+  <main class="page">
+    <h1>RuneBags</h1>
+    <p class="page-lede">Un jeu de tactique pour deux, dans votre navigateur. Faites tomber des runes dans un plateau de sept colonnes et alignez-en quatre pour gagner la manche — puis, entre les manches, construisez un sac de runes dont les pouvoirs plient les règles.</p>
+
+<h2>Le déroulement d'une partie</h2>
+<ol>
+  <li>Chaque joueur pige deux runes dans son propre sac. À tour de rôle, vous en faites tomber une dans une colonne : elle descend jusqu'à la plus basse case libre.</li>
+  <li>Alignez quatre de vos runes — en ligne, en colonne ou en diagonale — pour gagner la manche et prendre un point dans la réserve commune de 10 points.</li>
+  <li>Entre les manches, passez à la boutique : ajoutez des runes à votre sac, retirez-en une, ou combinez deux runes identiques en une plus forte.</li>
+</ol>
+<p>Le premier joueur à détenir la majorité des points encore en jeu gagne la partie.</p>
+<figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Une ligne gagnante de quatre runes"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="60" cy="100" r="14"/><circle class="fig-win" cx="60" cy="100" r="17.5"/><circle class="fig-piece fig-black" cx="100" cy="100" r="14"/><circle class="fig-win" cx="100" cy="100" r="17.5"/><circle class="fig-piece fig-black" cx="140" cy="100" r="14"/><circle class="fig-win" cx="140" cy="100" r="17.5"/><circle class="fig-piece fig-black" cx="180" cy="100" r="14"/><circle class="fig-win" cx="180" cy="100" r="17.5"/><circle class="fig-piece fig-white" cx="20" cy="100" r="14"/><circle class="fig-piece fig-white" cx="100" cy="60" r="14"/><circle class="fig-piece fig-white" cx="140" cy="60" r="14"/></svg></figure>
+
+<h2>Ce qui le rend unique</h2>
+<ul>
+  <li><strong>Des mains cachées.</strong> Votre adversaire ne voit jamais les deux runes que vous tenez — sauf si Uruz est sur le plateau. Bluffez, appâtez, puis frappez.</li>
+  <li><strong>Un sac qui évolue.</strong> Comme un paquet de cartes qu'on construit en jouant, votre sac décide de ce que vous pigerez ensuite.</li>
+  <li><strong>24 pouvoirs.</strong> Pousser une colonne par le bas, jouer deux fois de suite, copier un pouvoir, ancrer une rune que rien ne déplace : chaque rune plie le plateau à sa façon.</li>
+  <li><strong>Le pouvoir a un prix.</strong> Les runes maudites et corrompues sont fortes, mais elles glissent dans votre sac des runes neutres, qui encombrent votre main.</li>
+</ul>
+
+<h2>Quatre façons de jouer</h2>
+<ul>
+  <li><strong>Contre l'ordinateur</strong>, sur cinq niveaux, de Facile à Expert. Aucun niveau ne voit votre main : chacun évalue les mains que vous pourriez tenir.</li>
+  <li><strong>Avec un ami en ligne</strong> : partagez un code de salle, un lien ou un code QR.</li>
+  <li><strong>En classé</strong> : les parties rapides et les défis entre comptes font évoluer une cote Elo, avec une horloge de dix minutes. Un compte ne demande qu'une adresse courriel, sans mot de passe.</li>
+  <li><strong>Sur table</strong>, avec la <a href="/fr/imprimer/">trousse gratuite à imprimer</a>.</li>
+</ul>
+
+<h2>Gratuit, et fait au Québec</h2>
+<p>RuneBags est gratuit, sans publicité et sans achat. Il est créé par Piero Barrette, qui a aussi créé <a href="https://hexaequo.com/">Hexaequo</a>, un jeu de stratégie pour deux.</p>
+  </main>
+
+  <section class="page page-cta-box">
+    <h2>Prêt pour une manche ?</h2>
+    <p>Gratuit, dans votre navigateur, sans compte.</p>
+    <a class="page-cta" href="/?lang=fr">Jouer à RuneBags</a>
+    <h3>À lire ensuite</h3>
+    <ul class="read-next"><li><a href="/fr/regles/">Règles</a></li><li><a href="/fr/guide/">Guide</a></li><li><a href="/fr/runes/">Les runes</a></li><li><a href="/fr/faq/">FAQ</a></li><li><a href="/fr/imprimer/">Imprimer et jouer</a></li></ul>
+  </section>
+
+  <footer class="page-footer">
+    <nav aria-label="Liens du site">
+      <a href="/confidentialite/">Confidentialité</a>
+      <a href="/conditions/">Conditions d'utilisation</a>
+      <a href="mailto:info@hexaequo.com">info@hexaequo.com</a>
+      <a href="https://hexaequo.com/">Hexaequo, du même créateur</a>
+    </nav>
+    <p>Un jeu créé par Piero Barrette</p>
+  </footer>
+</body>
+</html>

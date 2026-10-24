@@ -358,6 +358,38 @@ body[data-theme="dark"] .home-rune-icon {
   letter-spacing: 0.02em;
 }
 
+/* What the game is, in plain words and links to the site's pages. */
+.home-about {
+  max-width: 680px;
+  margin: 1.4rem auto 1.6rem;
+  text-align: center;
+}
+
+.home-about p {
+  color: var(--text-soft);
+  line-height: 1.55;
+}
+
+.home-about-links,
+.rules-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem 1.1rem;
+}
+
+.home-about-links a,
+.rules-links a {
+  color: var(--text-main);
+  text-underline-offset: 0.2em;
+}
+
+.rules-links {
+  justify-content: flex-start;
+  margin: 0.2rem 0 0.8rem;
+  font-size: 0.92rem;
+}
+
 .home-footer {
   display: flex;
   flex-direction: column;

@@ -1,6 +1,79 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://runebags.ca/</loc>
+  </url>
+  <url>
+    <loc>https://runebags.ca/play/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://runebags.ca/play/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://runebags.ca/fr/jouer/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://runebags.ca/play/"/>
+  </url>
+  <url>
+    <loc>https://runebags.ca/fr/jouer/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://runebags.ca/play/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://runebags.ca/fr/jouer/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://runebags.ca/play/"/>
+  </url>
+  <url>
+    <loc>https://runebags.ca/rules/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://runebags.ca/rules/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://runebags.ca/fr/regles/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://runebags.ca/rules/"/>
+  </url>
+  <url>
+    <loc>https://runebags.ca/fr/regles/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://runebags.ca/rules/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://runebags.ca/fr/regles/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://runebags.ca/rules/"/>
+  </url>
+  <url>
+    <loc>https://runebags.ca/guide/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://runebags.ca/guide/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://runebags.ca/fr/guide/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://runebags.ca/guide/"/>
+  </url>
+  <url>
+    <loc>https://runebags.ca/fr/guide/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://runebags.ca/guide/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://runebags.ca/fr/guide/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://runebags.ca/guide/"/>
+  </url>
+  <url>
+    <loc>https://runebags.ca/runes/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://runebags.ca/runes/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://runebags.ca/fr/runes/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://runebags.ca/runes/"/>
+  </url>
+  <url>
+    <loc>https://runebags.ca/fr/runes/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://runebags.ca/runes/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://runebags.ca/fr/runes/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://runebags.ca/runes/"/>
+  </url>
+  <url>
+    <loc>https://runebags.ca/faq/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://runebags.ca/faq/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://runebags.ca/fr/faq/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://runebags.ca/faq/"/>
+  </url>
+  <url>
+    <loc>https://runebags.ca/fr/faq/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://runebags.ca/faq/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://runebags.ca/fr/faq/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://runebags.ca/faq/"/>
+  </url>
+  <url>
+    <loc>https://runebags.ca/print-and-play/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://runebags.ca/print-and-play/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://runebags.ca/fr/imprimer/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://runebags.ca/print-and-play/"/>
+  </url>
+  <url>
+    <loc>https://runebags.ca/fr/imprimer/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://runebags.ca/print-and-play/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://runebags.ca/fr/imprimer/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://runebags.ca/print-and-play/"/>
   </url>
 </urlset>

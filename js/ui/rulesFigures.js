@@ -8,8 +8,9 @@
 const FIGURE_COLUMNS = 7;
 
 // Keyed by rune id: the Rules screen appends these under each rune's line, and
-// the home gallery's detail popup shows the same diagram.
-const RUNE_FIGURES = {
+// the home gallery's detail popup shows the same diagram. The site's static
+// pages draw the same data as SVG (tools/make-pages.mjs).
+export const RUNE_FIGURES = {
   algiz: {
     rows: 3,
     cells: [
@@ -166,7 +167,7 @@ const RUNE_FIGURES = {
 
 // Diagrams that illustrate a rule rather than a rune; placed by an explicit
 // [data-figure] anchor in the Rules markup.
-const NAMED_FIGURES = {
+export const NAMED_FIGURES = {
   "win-line": {
     rows: 3,
     cells: [

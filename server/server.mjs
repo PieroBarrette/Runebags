@@ -73,6 +73,7 @@ const MIME = {
   ".webp": "image/webp",
   ".txt": "text/plain; charset=utf-8",
   ".xml": "application/xml; charset=utf-8",
+  ".pdf": "application/pdf",
 };
 
 // Files at the root that are public. Everything else at the root (the server,
@@ -83,6 +84,7 @@ const PUBLIC_FILES = new Set([
   "service-worker.js",
   "robots.txt",
   "sitemap.xml",
+  "llms.txt",
 ]);
 
 // Pages that live at an address of their own, outside the app.
@@ -93,6 +95,16 @@ const PAGE_ROUTES = new Map([
   ["/terms/", "pages/terms.html"],
   ["/admin/", "pages/admin.html"],
 ]);
+// The site's generated pages (about, rules, guide, runes, FAQ, print & play in
+// both languages): tools/make-pages.mjs writes their route table.
+try {
+  const generated = JSON.parse(await fs.readFile(path.join(ROOT, "pages", "routes.json"), "utf8"));
+  for (const [route, file] of Object.entries(generated)) {
+    PAGE_ROUTES.set(route, file);
+  }
+} catch (error) {
+  console.warn(`[pages] generated pages unavailable: ${error?.message || error}`);
+}
 const NOT_FOUND_PAGE = "pages/404.html";
 
 // File names carry no version, so code and pages are revalidated on every load
@@ -254,6 +266,13 @@ async function handleHttp(req, res) {
 
   if (req.method !== "GET" && req.method !== "HEAD") {
     res.writeHead(405, { Allow: "GET, HEAD" });
+    res.end();
+    return;
+  }
+
+  // The French side of the site starts on its page about the game.
+  if (reqPath === "/fr" || reqPath === "/fr/") {
+    res.writeHead(301, { Location: "/fr/jouer/" });
     res.end();
     return;
   }

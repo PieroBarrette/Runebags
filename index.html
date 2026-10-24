@@ -24,6 +24,35 @@
   <meta name="twitter:title" content="RuneBags — runic tactics board game">
   <meta name="twitter:description" content="Drop runes, build winning lines of four, and bend the rules with 24 unique rune powers.">
   <meta name="twitter:image" content="https://runebags.ca/assets/og-image.png">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "VideoGame",
+    "name": "RuneBags",
+    "url": "https://runebags.ca/",
+    "description": "A free tactics board game for two, played in the browser: drop runes into a seven-column board, line up four to win the round, and build a bag of runes whose powers bend the rules.",
+    "inLanguage": ["en", "fr"],
+    "genre": ["Board game", "Strategy game"],
+    "gamePlatform": "Web browser",
+    "applicationCategory": "Game",
+    "operatingSystem": "Any",
+    "playMode": ["SinglePlayer", "MultiPlayer"],
+    "numberOfPlayers": { "@type": "QuantitativeValue", "minValue": 2, "maxValue": 2 },
+    "image": "https://runebags.ca/assets/og-image.png",
+    "author": { "@type": "Person", "name": "Piero Barrette" },
+    "offers": { "@type": "Offer", "price": 0, "priceCurrency": "CAD" }
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "RuneBags",
+    "url": "https://runebags.ca/",
+    "inLanguage": ["en", "fr"],
+    "publisher": { "@type": "Person", "name": "Piero Barrette" }
+  }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -207,6 +236,20 @@
       </section>
 
       <p id="home-stats" class="home-stats" hidden></p>
+
+      <!-- Plain words about the game, readable before (and without) the app:
+           what a search engine or a link preview sees on this page. -->
+      <section class="home-about" aria-labelledby="home-about-title">
+        <h2 id="home-about-title" class="home-section-title" data-i18n="home.aboutTitle">How RuneBags plays</h2>
+        <p data-i18n="home.aboutText">A tactics game for two: drop runes into a seven-column board, line up four to win the round, and between rounds build a bag of runes whose powers bend the rules. Play the computer at five levels, a friend online, or ranked games — free, with no ads and no account needed.</p>
+        <nav class="home-about-links" aria-label="Learn more" data-i18n-attr="aria-label:home.aboutNav">
+          <a href="/rules/" data-i18n="home.linkRules" data-i18n-attr="href:home.linkRulesHref">Rules</a>
+          <a href="/guide/" data-i18n="home.linkGuide" data-i18n-attr="href:home.linkGuideHref">Beginner's guide</a>
+          <a href="/runes/" data-i18n="home.linkRunes" data-i18n-attr="href:home.linkRunesHref">The runes</a>
+          <a href="/faq/" data-i18n="home.linkFaq" data-i18n-attr="href:home.linkFaqHref">FAQ</a>
+          <a href="/print-and-play/" data-i18n="home.linkPrint" data-i18n-attr="href:home.linkPrintHref">Print and play</a>
+        </nav>
+      </section>
 
       <footer class="home-footer">
         <p class="home-footer-credit">
@@ -541,6 +584,12 @@
       <div class="menu-actions compact rules-actions">
         <button id="rules-back-btn" class="menu-btn secondary" type="button" data-i18n="nav.back">Back</button>
       </div>
+      <nav class="rules-links" aria-label="Learn more" data-i18n-attr="aria-label:home.aboutNav">
+        <a href="/guide/" data-i18n="home.linkGuide" data-i18n-attr="href:home.linkGuideHref">Beginner's guide</a>
+        <a href="/runes/" data-i18n="rules.linkRunes" data-i18n-attr="href:home.linkRunesHref">Every rune in detail</a>
+        <a href="/faq/" data-i18n="home.linkFaq" data-i18n-attr="href:home.linkFaqHref">FAQ</a>
+        <a href="/print-and-play/" data-i18n="home.linkPrint" data-i18n-attr="href:home.linkPrintHref">Print and play</a>
+      </nav>
       <div class="rules-content">
         <h3 data-i18n="rules.s1h">1. Goal</h3>
         <p data-i18n="rules.s1p1">Win the majority of a shared 10-point supply by forming winning lines of 4 or more runes.</p>

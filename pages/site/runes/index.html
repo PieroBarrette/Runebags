@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The runes — RuneBags</title>
+  <meta name="description" content="Every rune of RuneBags: its power, its level-2 effect, whether it is cursed, corrupted or ethereal, and a diagram of what it does.">
+  <meta name="theme-color" content="#131820">
+  <link rel="canonical" href="https://runebags.ca/runes/">
+  <link rel="alternate" hreflang="en" href="https://runebags.ca/runes/">
+  <link rel="alternate" hreflang="fr" href="https://runebags.ca/fr/runes/">
+  <link rel="alternate" hreflang="x-default" href="https://runebags.ca/runes/">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="RuneBags">
+  <meta property="og:title" content="The runes — RuneBags">
+  <meta property="og:description" content="Every rune of RuneBags: its power, its level-2 effect, whether it is cursed, corrupted or ethereal, and a diagram of what it does.">
+  <meta property="og:url" content="https://runebags.ca/runes/">
+  <meta property="og:locale" content="en_CA">
+  <meta property="og:locale:alternate" content="fr_CA">
+  <meta property="og:image" content="https://runebags.ca/assets/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="The runes — RuneBags">
+  <meta name="twitter:description" content="Every rune of RuneBags: its power, its level-2 effect, whether it is cursed, corrupted or ethereal, and a diagram of what it does.">
+  <meta name="twitter:image" content="https://runebags.ca/assets/og-image.png">
+  <link rel="icon" type="image/svg+xml" href="/assets/RuneBags_Logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Space+Grotesk:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles/page.css">
+  <script>
+    // The theme chosen in the game, before first paint.
+    try {
+      if (localStorage.getItem("runebags-theme-v1") === "light") {
+        document.documentElement.setAttribute("data-theme", "light");
+      }
+    } catch (e) { /* private mode: keep the dark default */ }
+  </script>
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  "name": "The runes of RuneBags",
+  "numberOfItems": 24,
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Algiz",
+      "description": "Inserted at the bottom of a column, pushing runes upward. Whenever played, add 1 neutral rune to owner bag.",
+      "url": "https://runebags.ca/runes/#algiz"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Ansuz",
+      "description": "Returns the rune directly beneath to its owner bag.",
+      "url": "https://runebags.ca/runes/#ansuz"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "Berkana",
+      "description": "If inside an owner winning line, grants +1 bonus point once per round.",
+      "url": "https://runebags.ca/runes/#berkana"
+    },
+    {
+      "@type": "ListItem",
+      "position": 4,
+      "name": "Dagaz",
+      "description": "Copies the rune effect directly below it (except Kenaz). Whenever played, add 1 neutral rune to owner bag.",
+      "url": "https://runebags.ca/runes/#dagaz"
+    },
+    {
+      "@type": "ListItem",
+      "position": 5,
+      "name": "Ehwaz",
+      "description": "Raises its owner's hand limit to 3 while on the board, or 4 at level 2.",
+      "url": "https://runebags.ca/runes/#ehwaz"
+    },
+    {
+      "@type": "ListItem",
+      "position": 6,
+      "name": "Eihwaz",
+      "description": "If discarded or removed for the round, its owner gains 1 point.",
+      "url": "https://runebags.ca/runes/#eihwaz"
+    },
+    {
+      "@type": "ListItem",
+      "position": 7,
+      "name": "Fehu",
+      "description": "Recovers 1 discarded rune to your bag, or 2 at level 2. Recovered runes can include opponent runes.",
+      "url": "https://runebags.ca/runes/#fehu"
+    },
+    {
+      "@type": "ListItem",
+      "position": 8,
+      "name": "Gebo",
+      "description": "Removes the rune beneath it from the board for the round, or an adjacent rune at level 2.",
+      "url": "https://runebags.ca/runes/#gebo"
+    },
+    {
+      "@type": "ListItem",
+      "position": 9,
+      "name": "Hagalz",
+      "description": "One adjacent neutral rune can count towards your winning line.",
+      "url": "https://runebags.ca/runes/#hagalz"
+    },
+    {
+      "@type": "ListItem",
+      "position": 10,
+      "name": "Inguz",
+      "description": "Can only be played in the center column.",
+      "url": "https://runebags.ca/runes/#inguz"
+    },
+    {
+      "@type": "ListItem",
+      "position": 11,
+      "name": "Isa",
+      "description": "Remains on the board between rounds.",
+      "url": "https://runebags.ca/runes/#isa"
+    },
+    {
+      "@type": "ListItem",
+      "position": 12,
+      "name": "Jera",
+      "description": "Can only be played in the leftmost or rightmost column.",
+      "url": "https://runebags.ca/runes/#jera"
+    },
+    {
+      "@type": "ListItem",
+      "position": 13,
+      "name": "Kenaz",
+      "description": "One Kenaz does nothing. When your second Kenaz enters play, destroy 1 board rune permanently.",
+      "url": "https://runebags.ca/runes/#kenaz"
+    },
+    {
+      "@type": "ListItem",
+      "position": 14,
+      "name": "Laguz",
+      "description": "Cannot be moved or removed.",
+      "url": "https://runebags.ca/runes/#laguz"
+    },
+    {
+      "@type": "ListItem",
+      "position": 15,
+      "name": "Mannaz",
+      "description": "Adds 1 neutral rune to the opponent's bag, or 2 at level 2.",
+      "url": "https://runebags.ca/runes/#mannaz"
+    },
+    {
+      "@type": "ListItem",
+      "position": 16,
+      "name": "Nauthiz",
+      "description": "Floats on any free space. Ethereal.",
+      "url": "https://runebags.ca/runes/#nauthiz"
+    },
+    {
+      "@type": "ListItem",
+      "position": 17,
+      "name": "Odal",
+      "description": "If played on the top row, gain 1 point without ending the round.",
+      "url": "https://runebags.ca/runes/#odal"
+    },
+    {
+      "@type": "ListItem",
+      "position": 18,
+      "name": "Perth",
+      "description": "Restricts the opponent's next turn to adjacent columns. At level 2, you choose which adjacent column.",
+      "url": "https://runebags.ca/runes/#perth"
+    },
+    {
+      "@type": "ListItem",
+      "position": 19,
+      "name": "Raido",
+      "description": "Grants an immediate extra turn. Ethereal at level 1 only.",
+      "url": "https://runebags.ca/runes/#raido"
+    },
+    {
+      "@type": "ListItem",
+      "position": 20,
+      "name": "Sowelu",
+      "description": "The opponent loses 1 random bag rune for the round, or 2 at level 2.",
+      "url": "https://runebags.ca/runes/#sowelu"
+    },
+    {
+      "@type": "ListItem",
+      "position": 21,
+      "name": "Teiwaz",
+      "description": "Moves the top rune of a column to an adjacent column, or to any column at level 2.",
+      "url": "https://runebags.ca/runes/#teiwaz"
+    },
+    {
+      "@type": "ListItem",
+      "position": 22,
+      "name": "Thurisa",
+      "description": "Places 1 extra neutral rune from the supply onto the board, or 2 at level 2.",
+      "url": "https://runebags.ca/runes/#thurisa"
+    },
+    {
+      "@type": "ListItem",
+      "position": 23,
+      "name": "Uruz",
+      "description": "Opponent can no longer hide their hand while this rune is on board.",
+      "url": "https://runebags.ca/runes/#uruz"
+    },
+    {
+      "@type": "ListItem",
+      "position": 24,
+      "name": "Wunjo",
+      "description": "If isolated from allied runes at round end, grants +1 add and +1 remove in next shop.",
+      "url": "https://runebags.ca/runes/#wunjo"
+    }
+  ]
+}
+  </script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="page-brand" href="/?lang=en"><img src="/assets/RuneBags_Logo.svg" alt="" width="40" height="40">RuneBags</a>
+    <div class="site-header-actions">
+      <a class="site-lang" href="/fr/runes/" hreflang="fr" lang="fr">Français</a>
+      <a class="page-cta site-play" href="/?lang=en">Play</a>
+    </div>
+    <nav class="site-nav" aria-label="Site sections">
+      <a href="/play/">About</a>
+      <a href="/rules/">Rules</a>
+      <a href="/guide/">Guide</a>
+      <a href="/runes/" aria-current="page">Runes</a>
+      <a href="/faq/">FAQ</a>
+      <a href="/print-and-play/">Print &amp; play</a>
+    </nav>
+  </header>
+
+  <main class="page">
+    <h1>The runes</h1>
+    <p class="page-lede">Every rune has a power. Some are <strong>cursed</strong> (a neutral rune enters your bag when you buy them), <strong>corrupted</strong> (one enters each time you play them) or <strong>ethereal</strong> (they go back to the shop at the end of the round). In the shop, two identical runes combine into a level-2 rune; it only changes anything for the runes that have a level-2 effect.</p>
+
+<nav class="rune-index" aria-label="The runes"><a href="#algiz">Algiz</a> <a href="#ansuz">Ansuz</a> <a href="#berkana">Berkana</a> <a href="#dagaz">Dagaz</a> <a href="#ehwaz">Ehwaz</a> <a href="#eihwaz">Eihwaz</a> <a href="#fehu">Fehu</a> <a href="#gebo">Gebo</a> <a href="#hagalz">Hagalz</a> <a href="#inguz">Inguz</a> <a href="#isa">Isa</a> <a href="#jera">Jera</a> <a href="#kenaz">Kenaz</a> <a href="#laguz">Laguz</a> <a href="#mannaz">Mannaz</a> <a href="#nauthiz">Nauthiz</a> <a href="#odal">Odal</a> <a href="#perth">Perth</a> <a href="#raido">Raido</a> <a href="#sowelu">Sowelu</a> <a href="#teiwaz">Teiwaz</a> <a href="#thurisa">Thurisa</a> <a href="#uruz">Uruz</a> <a href="#wunjo">Wunjo</a></nav>
+<h2>The plain runes</h2>
+
+<article class="rune-entry" id="basic">
+  <div class="rune-entry-head">
+    <span class="rune-entry-chip rune-entry-chip-plain" aria-hidden="true"></span>
+    <h3>Basic</h3>
+  </div>
+  <p>No special effect.</p>
+</article>
+<article class="rune-entry" id="neutral">
+  <div class="rune-entry-head">
+    <span class="rune-entry-chip rune-entry-chip-neutral" aria-hidden="true"></span>
+    <h3>Neutral</h3>
+  </div>
+  <p>Blocks both players and cannot create wins by itself.</p>
+</article>
+<h2>The 24 runes with a power</h2>
+
+<article class="rune-entry" id="algiz">
+  <div class="rune-entry-head">
+    <img class="rune-entry-glyph" src="/assets/runes/algiz.svg" alt="" width="40" height="40">
+    <h3>Algiz</h3>
+  </div>
+  <ul class="rune-tags"><li>Cursed</li><li>Corrupted</li></ul>
+  <p>Inserted at the bottom of a column, pushing runes upward. Whenever played, add 1 neutral rune to owner bag.</p>
+  <p class="rune-entry-note">When picked from shop, add a neutral rune to owner bag.</p>
+  <p class="rune-entry-note">In each player's shop supply: 1</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Algiz"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="140" cy="20" r="14"/><circle class="fig-piece fig-white" cx="140" cy="60" r="14"/><circle class="fig-piece fig-black" cx="140" cy="100" r="14"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/algiz.svg" x="131" y="91" width="18" height="18"/><circle class="fig-piece fig-white" cx="100" cy="100" r="14"/><circle class="fig-piece fig-black" cx="180" cy="100" r="14"/></svg></figure>
+</article>
+<article class="rune-entry" id="ansuz">
+  <div class="rune-entry-head">
+    <img class="rune-entry-glyph" src="/assets/runes/ansuz.svg" alt="" width="40" height="40">
+    <h3>Ansuz</h3>
+  </div>
+  
+  <p>Returns the rune directly beneath to its owner bag.</p>
+  
+  <p class="rune-entry-note">In each player's shop supply: 1</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Ansuz"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="140" cy="60" r="14"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/ansuz.svg" x="131" y="51" width="18" height="18"/><circle class="fig-piece fig-white fig-fading" cx="140" cy="100" r="14"/><circle class="fig-piece fig-black" cx="100" cy="100" r="14"/><circle class="fig-piece fig-white" cx="180" cy="100" r="14"/></svg></figure>
+</article>
+<article class="rune-entry" id="berkana">
+  <div class="rune-entry-head">
+    <img class="rune-entry-glyph" src="/assets/runes/berkana.svg" alt="" width="40" height="40">
+    <h3>Berkana</h3>
+  </div>
+  <ul class="rune-tags"><li>Not combinable</li></ul>
+  <p>If inside an owner winning line, grants +1 bonus point once per round.</p>
+  
+  <p class="rune-entry-note">In each player's shop supply: 2</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Berkana"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="60" cy="100" r="14"/><circle class="fig-win" cx="60" cy="100" r="17.5"/><circle class="fig-piece fig-black" cx="100" cy="100" r="14"/><circle class="fig-win" cx="100" cy="100" r="17.5"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/berkana.svg" x="91" y="91" width="18" height="18"/><circle class="fig-piece fig-black" cx="140" cy="100" r="14"/><circle class="fig-win" cx="140" cy="100" r="17.5"/><circle class="fig-piece fig-black" cx="180" cy="100" r="14"/><circle class="fig-win" cx="180" cy="100" r="17.5"/></svg></figure>
+</article>
+<article class="rune-entry" id="dagaz">
+  <div class="rune-entry-head">
+    <img class="rune-entry-glyph" src="/assets/runes/dagaz.svg" alt="" width="40" height="40">
+    <h3>Dagaz</h3>
+  </div>
+  <ul class="rune-tags"><li>Corrupted</li><li>Not combinable</li></ul>
+  <p>Copies the rune effect directly below it (except Kenaz). Whenever played, add 1 neutral rune to owner bag.</p>
+  
+  <p class="rune-entry-note">In each player's shop supply: 1</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Dagaz"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="140" cy="60" r="14"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/dagaz.svg" x="131" y="51" width="18" height="18"/><circle class="fig-piece fig-black" cx="140" cy="100" r="14"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/gebo.svg" x="131" y="91" width="18" height="18"/><circle class="fig-piece fig-white" cx="100" cy="100" r="14"/><circle class="fig-piece fig-white" cx="180" cy="100" r="14"/></svg></figure>
+</article>
+<article class="rune-entry" id="ehwaz">
+  <div class="rune-entry-head">
+    <img class="rune-entry-glyph" src="/assets/runes/ehwaz.svg" alt="" width="40" height="40">
+    <h3>Ehwaz</h3>
+  </div>
+  <ul class="rune-tags"><li>Level 2</li></ul>
+  <p>Raises its owner's hand limit to 3 while on the board, or 4 at level 2.</p>
+  
+  <p class="rune-entry-note">In each player's shop supply: 2</p>
+  
+</article>
+<article class="rune-entry" id="eihwaz">
+  <div class="rune-entry-head">
+    <img class="rune-entry-glyph" src="/assets/runes/eihwaz.svg" alt="" width="40" height="40">
+    <h3>Eihwaz</h3>
+  </div>
+  <ul class="rune-tags"><li>Not combinable</li></ul>
+  <p>If discarded or removed for the round, its owner gains 1 point.</p>
+  
+  <p class="rune-entry-note">In each player's shop supply: 1</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Eihwaz"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black fig-fading" cx="140" cy="100" r="14"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/eihwaz.svg" x="131" y="91" width="18" height="18"/><circle class="fig-piece fig-white" cx="100" cy="100" r="14"/><circle class="fig-piece fig-black" cx="180" cy="100" r="14"/></svg></figure>
+</article>
+<article class="rune-entry" id="fehu">
+  <div class="rune-entry-head">
+    <img class="rune-entry-glyph" src="/assets/runes/fehu.svg" alt="" width="40" height="40">
+    <h3>Fehu</h3>
+  </div>
+  <ul class="rune-tags"><li>Level 2</li></ul>
+  <p>Recovers 1 discarded rune to your bag, or 2 at level 2. Recovered runes can include opponent runes.</p>
+  
+  <p class="rune-entry-note">In each player's shop supply: 2</p>
+  
+</article>
+<article class="rune-entry" id="gebo">
+  <div class="rune-entry-head">
+    <img class="rune-entry-glyph" src="/assets/runes/gebo.svg" alt="" width="40" height="40">
+    <h3>Gebo</h3>
+  </div>
+  <ul class="rune-tags"><li>Cursed</li><li>Level 2</li></ul>
+  <p>Removes the rune beneath it from the board for the round, or an adjacent rune at level 2.</p>
+  <p class="rune-entry-note">When picked from shop, add a neutral rune to owner bag.</p>
+  <p class="rune-entry-note">In each player's shop supply: 2</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Gebo"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="140" cy="60" r="14"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/gebo.svg" x="131" y="51" width="18" height="18"/><circle class="fig-piece fig-white fig-fading" cx="140" cy="100" r="14"/><circle class="fig-piece fig-black" cx="100" cy="100" r="14"/><circle class="fig-piece fig-white" cx="180" cy="100" r="14"/></svg></figure>
+</article>
+<article class="rune-entry" id="hagalz">
+  <div class="rune-entry-head">
+    <img class="rune-entry-glyph" src="/assets/runes/hagalz.svg" alt="" width="40" height="40">
+    <h3>Hagalz</h3>
+  </div>
+  <ul class="rune-tags"><li>Not combinable</li></ul>
+  <p>One adjacent neutral rune can count towards your winning line.</p>
+  
+  <p class="rune-entry-note">In each player's shop supply: 2</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Hagalz"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="60" cy="100" r="14"/><circle class="fig-win" cx="60" cy="100" r="17.5"/><circle class="fig-piece fig-black" cx="100" cy="100" r="14"/><circle class="fig-win" cx="100" cy="100" r="17.5"/><circle class="fig-piece fig-neutral" cx="140" cy="100" r="14"/><circle class="fig-win" cx="140" cy="100" r="17.5"/><circle class="fig-piece fig-black" cx="180" cy="100" r="14"/><circle class="fig-win" cx="180" cy="100" r="17.5"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/hagalz.svg" x="171" y="91" width="18" height="18"/><circle class="fig-piece fig-white" cx="60" cy="60" r="14"/><circle class="fig-piece fig-white" cx="220" cy="100" r="14"/></svg></figure>
+</article>
+<article class="rune-entry" id="inguz">
+  <div class="rune-entry-head">
+    <img class="rune-entry-glyph" src="/assets/runes/inguz.svg" alt="" width="40" height="40">
+    <h3>Inguz</h3>
+  </div>
+  <ul class="rune-tags"><li>Not combinable</li><li>Centre column only</li></ul>
+  <p>Can only be played in the center column.</p>
+  
+  <p class="rune-entry-note">In each starting bag: 2</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Inguz"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><rect class="fig-forced" x="120" y="0" width="40" height="120"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="140" cy="100" r="14"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/inguz.svg" x="131" y="91" width="18" height="18"/></svg></figure>
+</article>
+<article class="rune-entry" id="isa">
+  <div class="rune-entry-head">
+    <img class="rune-entry-glyph" src="/assets/runes/isa.svg" alt="" width="40" height="40">
+    <h3>Isa</h3>
+  </div>
+  <ul class="rune-tags"><li>Not combinable</li></ul>
+  <p>Remains on the board between rounds.</p>
+  
+  <p class="rune-entry-note">In each player's shop supply: 2</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Isa"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="140" cy="100" r="14"/><circle class="fig-win" cx="140" cy="100" r="17.5"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/isa.svg" x="131" y="91" width="18" height="18"/></svg></figure>
+</article>
+<article class="rune-entry" id="jera">
+  <div class="rune-entry-head">
+    <img class="rune-entry-glyph" src="/assets/runes/jera.svg" alt="" width="40" height="40">
+    <h3>Jera</h3>
+  </div>
+  <ul class="rune-tags"><li>Not combinable</li><li>Edge columns only</li></ul>
+  <p>Can only be played in the leftmost or rightmost column.</p>
+  
+  <p class="rune-entry-note">In each starting bag: 2</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Jera"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><rect class="fig-forced" x="0" y="0" width="40" height="120"/><rect class="fig-forced" x="240" y="0" width="40" height="120"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="20" cy="100" r="14"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/jera.svg" x="11" y="91" width="18" height="18"/><circle class="fig-piece fig-black" cx="260" cy="100" r="14"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/jera.svg" x="251" y="91" width="18" height="18"/></svg></figure>
+</article>
+<article class="rune-entry" id="kenaz">
+  <div class="rune-entry-head">
+    <img class="rune-entry-glyph" src="/assets/runes/kenaz.svg" alt="" width="40" height="40">
+    <h3>Kenaz</h3>
+  </div>
+  <ul class="rune-tags"><li>Not combinable</li></ul>
+  <p>One Kenaz does nothing. When your second Kenaz enters play, destroy 1 board rune permanently.</p>
+  
+  <p class="rune-entry-note">In each player's shop supply: 2</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Kenaz"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="60" cy="100" r="14"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/kenaz.svg" x="51" y="91" width="18" height="18"/><circle class="fig-piece fig-black" cx="140" cy="100" r="14"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/kenaz.svg" x="131" y="91" width="18" height="18"/><circle class="fig-piece fig-white fig-fading" cx="220" cy="100" r="14"/></svg></figure>
+</article>
+<article class="rune-entry" id="laguz">
+  <div class="rune-entry-head">
+    <img class="rune-entry-glyph" src="/assets/runes/laguz.svg" alt="" width="40" height="40">
+    <h3>Laguz</h3>
+  </div>
+  <ul class="rune-tags"><li>Not combinable</li></ul>
+  <p>Cannot be moved or removed.</p>
+  
+  <p class="rune-entry-note">In each player's shop supply: 2</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Laguz"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="140" cy="100" r="14"/><circle class="fig-win" cx="140" cy="100" r="17.5"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/laguz.svg" x="131" y="91" width="18" height="18"/><circle class="fig-piece fig-white" cx="100" cy="100" r="14"/><circle class="fig-piece fig-white" cx="180" cy="100" r="14"/></svg></figure>
+</article>
+<article class="rune-entry" id="mannaz">
+  <div class="rune-entry-head">
+    <img class="rune-entry-glyph" src="/assets/runes/mannaz.svg" alt="" width="40" height="40">
+    <h3>Mannaz</h3>
+  </div>
+  <ul class="rune-tags"><li>Level 2</li></ul>
+  <p>Adds 1 neutral rune to the opponent's bag, or 2 at level 2.</p>
+  
+  <p class="rune-entry-note">In each player's shop supply: 2</p>
+  
+</article>
+<article class="rune-entry" id="nauthiz">
+  <div class="rune-entry-head">
+    <img class="rune-entry-glyph" src="/assets/runes/nauthiz.svg" alt="" width="40" height="40">
+    <h3>Nauthiz</h3>
+  </div>
+  <ul class="rune-tags"><li>Cursed</li><li>Ethereal</li><li>Not combinable</li></ul>
+  <p>Floats on any free space. Ethereal.</p>
+  <p class="rune-entry-note">When picked from shop, add a neutral rune to owner bag.</p>
+  <p class="rune-entry-note">In each player's shop supply: 1</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Nauthiz"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="180" cy="20" r="14"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/nauthiz.svg" x="171" y="11" width="18" height="18"/><circle class="fig-piece fig-white" cx="60" cy="100" r="14"/><circle class="fig-piece fig-black" cx="100" cy="100" r="14"/></svg></figure>
+</article>
+<article class="rune-entry" id="odal">
+  <div class="rune-entry-head">
+    <img class="rune-entry-glyph" src="/assets/runes/odal.svg" alt="" width="40" height="40">
+    <h3>Odal</h3>
+  </div>
+  
+  <p>If played on the top row, gain 1 point without ending the round.</p>
+  
+  <p class="rune-entry-note">In each player's shop supply: 1</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Odal"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="140" cy="20" r="14"/><circle class="fig-win" cx="140" cy="20" r="17.5"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/odal.svg" x="131" y="11" width="18" height="18"/><circle class="fig-piece fig-white" cx="140" cy="60" r="14"/><circle class="fig-piece fig-black" cx="140" cy="100" r="14"/></svg></figure>
+</article>
+<article class="rune-entry" id="perth">
+  <div class="rune-entry-head">
+    <img class="rune-entry-glyph" src="/assets/runes/perth.svg" alt="" width="40" height="40">
+    <h3>Perth</h3>
+  </div>
+  <ul class="rune-tags"><li>Level 2</li></ul>
+  <p>Restricts the opponent's next turn to adjacent columns. At level 2, you choose which adjacent column.</p>
+  
+  <p class="rune-entry-note">In each player's shop supply: 2</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Perth"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><rect class="fig-forced" x="80" y="0" width="40" height="120"/><rect class="fig-forced" x="160" y="0" width="40" height="120"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-white" cx="140" cy="100" r="14"/><image class="fig-glyph" href="/assets/runes/perth.svg" x="131" y="91" width="18" height="18"/><circle class="fig-piece fig-black" cx="60" cy="100" r="14"/><circle class="fig-piece fig-black" cx="140" cy="60" r="14"/></svg></figure>
+</article>
+<article class="rune-entry" id="raido">
+  <div class="rune-entry-head">
+    <img class="rune-entry-glyph" src="/assets/runes/raido.svg" alt="" width="40" height="40">
+    <h3>Raido</h3>
+  </div>
+  <ul class="rune-tags"><li>Cursed</li><li>Ethereal at level 1</li><li>Level 2</li></ul>
+  <p>Grants an immediate extra turn. Ethereal at level 1 only.</p>
+  <p class="rune-entry-note">When picked from shop, add a neutral rune to owner bag.</p>
+  <p class="rune-entry-note">In each player's shop supply: 2</p>
+  
+</article>
+<article class="rune-entry" id="sowelu">
+  <div class="rune-entry-head">
+    <img class="rune-entry-glyph" src="/assets/runes/sowelu.svg" alt="" width="40" height="40">
+    <h3>Sowelu</h3>
+  </div>
+  <ul class="rune-tags"><li>Level 2</li></ul>
+  <p>The opponent loses 1 random bag rune for the round, or 2 at level 2.</p>
+  
+  <p class="rune-entry-note">In each player's shop supply: 2</p>
+  
+</article>
+<article class="rune-entry" id="teiwaz">
+  <div class="rune-entry-head">
+    <img class="rune-entry-glyph" src="/assets/runes/teiwaz.svg" alt="" width="40" height="40">
+    <h3>Teiwaz</h3>
+  </div>
+  <ul class="rune-tags"><li>Cursed</li><li>Level 2</li></ul>
+  <p>Moves the top rune of a column to an adjacent column, or to any column at level 2.</p>
+  <p class="rune-entry-note">When picked from shop, add a neutral rune to owner bag.</p>
+  <p class="rune-entry-note">In each player's shop supply: 2</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Teiwaz"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><rect class="fig-forced" x="40" y="0" width="40" height="120"/><rect class="fig-forced" x="120" y="0" width="40" height="120"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-white fig-fading" cx="100" cy="100" r="14"/><circle class="fig-piece fig-black" cx="140" cy="100" r="14"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/teiwaz.svg" x="131" y="91" width="18" height="18"/><circle class="fig-piece fig-white" cx="60" cy="100" r="14"/></svg></figure>
+</article>
+<article class="rune-entry" id="thurisa">
+  <div class="rune-entry-head">
+    <img class="rune-entry-glyph" src="/assets/runes/thurisa.svg" alt="" width="40" height="40">
+    <h3>Thurisa</h3>
+  </div>
+  <ul class="rune-tags"><li>Level 2</li></ul>
+  <p>Places 1 extra neutral rune from the supply onto the board, or 2 at level 2.</p>
+  
+  <p class="rune-entry-note">In each player's shop supply: 2</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Thurisa"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="140" cy="100" r="14"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/thurisa.svg" x="131" y="91" width="18" height="18"/><circle class="fig-piece fig-neutral" cx="180" cy="100" r="14"/><circle class="fig-piece fig-white" cx="100" cy="100" r="14"/></svg></figure>
+</article>
+<article class="rune-entry" id="uruz">
+  <div class="rune-entry-head">
+    <img class="rune-entry-glyph" src="/assets/runes/uruz.svg" alt="" width="40" height="40">
+    <h3>Uruz</h3>
+  </div>
+  
+  <p>Opponent can no longer hide their hand while this rune is on board.</p>
+  
+  <p class="rune-entry-note">In each player's shop supply: 1</p>
+  
+</article>
+<article class="rune-entry" id="wunjo">
+  <div class="rune-entry-head">
+    <img class="rune-entry-glyph" src="/assets/runes/wunjo.svg" alt="" width="40" height="40">
+    <h3>Wunjo</h3>
+  </div>
+  <ul class="rune-tags"><li>Not combinable</li></ul>
+  <p>If isolated from allied runes at round end, grants +1 add and +1 remove in next shop.</p>
+  
+  <p class="rune-entry-note">In each player's shop supply: 1</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Wunjo"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="140" cy="100" r="14"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/wunjo.svg" x="131" y="91" width="18" height="18"/><circle class="fig-piece fig-white" cx="60" cy="100" r="14"/><circle class="fig-piece fig-white" cx="220" cy="100" r="14"/></svg></figure>
+</article>
+  </main>
+
+  <section class="page page-cta-box">
+    <h2>Ready for a round?</h2>
+    <p>Free, in your browser, no account needed.</p>
+    <a class="page-cta" href="/?lang=en">Play RuneBags</a>
+    <h3>Read next</h3>
+    <ul class="read-next"><li><a href="/play/">About</a></li><li><a href="/rules/">Rules</a></li><li><a href="/guide/">Guide</a></li><li><a href="/faq/">FAQ</a></li><li><a href="/print-and-play/">Print &amp; play</a></li></ul>
+  </section>
+
+  <footer class="page-footer">
+    <nav aria-label="Site links">
+      <a href="/privacy/">Privacy</a>
+      <a href="/terms/">Terms of use</a>
+      <a href="mailto:info@hexaequo.com">info@hexaequo.com</a>
+      <a href="https://hexaequo.com/">Hexaequo, by the same creator</a>
+    </nav>
+    <p>A game created by Piero Barrette</p>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RuneBags — a free runic tactics board game for two</title>
+  <meta name="description" content="Drop runes into a seven-column board, line up four to win the round, and build a bag of runes that bend the rules. Free, no ads, no account needed: play the computer or a friend online.">
+  <meta name="theme-color" content="#131820">
+  <link rel="canonical" href="https://runebags.ca/play/">
+  <link rel="alternate" hreflang="en" href="https://runebags.ca/play/">
+  <link rel="alternate" hreflang="fr" href="https://runebags.ca/fr/jouer/">
+  <link rel="alternate" hreflang="x-default" href="https://runebags.ca/play/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="RuneBags">
+  <meta property="og:title" content="RuneBags — a free runic tactics board game for two">
+  <meta property="og:description" content="Drop runes into a seven-column board, line up four to win the round, and build a bag of runes that bend the rules. Free, no ads, no account needed: play the computer or a friend online.">
+  <meta property="og:url" content="https://runebags.ca/play/">
+  <meta property="og:locale" content="en_CA">
+  <meta property="og:locale:alternate" content="fr_CA">
+  <meta property="og:image" content="https://runebags.ca/assets/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="RuneBags — a free runic tactics board game for two">
+  <meta name="twitter:description" content="Drop runes into a seven-column board, line up four to win the round, and build a bag of runes that bend the rules. Free, no ads, no account needed: play the computer or a friend online.">
+  <meta name="twitter:image" content="https://runebags.ca/assets/og-image.png">
+  <link rel="icon" type="image/svg+xml" href="/assets/RuneBags_Logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Space+Grotesk:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles/page.css">
+  <script>
+    // The theme chosen in the game, before first paint.
+    try {
+      if (localStorage.getItem("runebags-theme-v1") === "light") {
+        document.documentElement.setAttribute("data-theme", "light");
+      }
+    } catch (e) { /* private mode: keep the dark default */ }
+  </script>
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "VideoGame",
+  "name": "RuneBags",
+  "url": "https://runebags.ca/",
+  "description": "Drop runes into a seven-column board, line up four to win the round, and build a bag of runes that bend the rules. Free, no ads, no account needed: play the computer or a friend online.",
+  "inLanguage": [
+    "en",
+    "fr"
+  ],
+  "genre": [
+    "Board game",
+    "Strategy game"
+  ],
+  "gamePlatform": "Web browser",
+  "applicationCategory": "Game",
+  "operatingSystem": "Any",
+  "playMode": [
+    "SinglePlayer",
+    "MultiPlayer"
+  ],
+  "numberOfPlayers": {
+    "@type": "QuantitativeValue",
+    "minValue": 2,
+    "maxValue": 2
+  },
+  "image": "https://runebags.ca/assets/og-image.png",
+  "author": {
+    "@type": "Person",
+    "name": "Piero Barrette"
+  },
+  "offers": {
+    "@type": "Offer",
+    "price": 0,
+    "priceCurrency": "CAD"
+  }
+}
+  </script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="page-brand" href="/?lang=en"><img src="/assets/RuneBags_Logo.svg" alt="" width="40" height="40">RuneBags</a>
+    <div class="site-header-actions">
+      <a class="site-lang" href="/fr/jouer/" hreflang="fr" lang="fr">Français</a>
+      <a class="page-cta site-play" href="/?lang=en">Play</a>
+    </div>
+    <nav class="site-nav" aria-label="Site sections">
+      <a href="/play/" aria-current="page">About</a>
+      <a href="/rules/">Rules</a>
+      <a href="/guide/">Guide</a>
+      <a href="/runes/">Runes</a>
+      <a href="/faq/">FAQ</a>
+      <a href="/print-and-play/">Print &amp; play</a>
+    </nav>
+  </header>
+
+  <main class="page">
+    <h1>RuneBags</h1>
+    <p class="page-lede">A tactics game for two, played in your browser. Drop runes into a seven-column board and line up four of yours to win the round — then, between rounds, build a bag of runes whose powers bend the rules.</p>
+
+<h2>How a game goes</h2>
+<ol>
+  <li>Each player draws two runes from their own bag. In turn, you drop one into a column: it falls to the lowest free cell.</li>
+  <li>Line up four of your runes — across, down or diagonally — to win the round and take a point from the shared pool of 10 points.</li>
+  <li>Between rounds, visit the shop: add runes to your bag, remove one, or combine two identical runes into a stronger one.</li>
+</ol>
+<p>The first player to hold the majority of the points still in the pool wins the game.</p>
+<figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="A winning line of four runes"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="60" cy="100" r="14"/><circle class="fig-win" cx="60" cy="100" r="17.5"/><circle class="fig-piece fig-black" cx="100" cy="100" r="14"/><circle class="fig-win" cx="100" cy="100" r="17.5"/><circle class="fig-piece fig-black" cx="140" cy="100" r="14"/><circle class="fig-win" cx="140" cy="100" r="17.5"/><circle class="fig-piece fig-black" cx="180" cy="100" r="14"/><circle class="fig-win" cx="180" cy="100" r="17.5"/><circle class="fig-piece fig-white" cx="20" cy="100" r="14"/><circle class="fig-piece fig-white" cx="100" cy="60" r="14"/><circle class="fig-piece fig-white" cx="140" cy="60" r="14"/></svg></figure>
+
+<h2>What makes it different</h2>
+<ul>
+  <li><strong>Hidden hands.</strong> Your opponent never sees the two runes you hold — unless Uruz is on the board. Bluff, bait, then strike.</li>
+  <li><strong>A bag that grows.</strong> Like a deck you build as you play, your bag decides what you draw next.</li>
+  <li><strong>24 rune powers.</strong> Push a column up from below, take a second turn, copy a power, anchor a rune that nothing can move: each rune bends the board its own way.</li>
+  <li><strong>Power has a price.</strong> Cursed and corrupted runes are strong, but they slip neutral runes into your bag, and neutral runes clog your hand.</li>
+</ul>
+
+<h2>Four ways to play</h2>
+<ul>
+  <li><strong>Against the computer</strong>, at five levels from Easy to Expert. No level sees your hand: each one weighs the hands you might be holding.</li>
+  <li><strong>With a friend online</strong>: share a room code, a link or a QR code.</li>
+  <li><strong>Ranked</strong>: quick play and challenges between accounts move an Elo rating, with a ten-minute clock. An account needs only an email address — no password.</li>
+  <li><strong>At the table</strong>, with the free <a href="/print-and-play/">print-and-play kit</a>.</li>
+</ul>
+
+<h2>Free, and made in Quebec</h2>
+<p>RuneBags is free, with no advertising and nothing to buy. It is made by Piero Barrette, who also created <a href="https://hexaequo.com/">Hexaequo</a>, a strategy game for two.</p>
+  </main>
+
+  <section class="page page-cta-box">
+    <h2>Ready for a round?</h2>
+    <p>Free, in your browser, no account needed.</p>
+    <a class="page-cta" href="/?lang=en">Play RuneBags</a>
+    <h3>Read next</h3>
+    <ul class="read-next"><li><a href="/rules/">Rules</a></li><li><a href="/guide/">Guide</a></li><li><a href="/runes/">Runes</a></li><li><a href="/faq/">FAQ</a></li><li><a href="/print-and-play/">Print &amp; play</a></li></ul>
+  </section>
+
+  <footer class="page-footer">
+    <nav aria-label="Site links">
+      <a href="/privacy/">Privacy</a>
+      <a href="/terms/">Terms of use</a>
+      <a href="mailto:info@hexaequo.com">info@hexaequo.com</a>
+      <a href="https://hexaequo.com/">Hexaequo, by the same creator</a>
+    </nav>
+    <p>A game created by Piero Barrette</p>
+  </footer>
+</body>
+</html>

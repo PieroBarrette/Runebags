@@ -1,0 +1,43 @@
+# RuneBags
+
+> A free tactics board game for two players, played in a web browser. Players
+> drop runes into a board of seven columns and six rows; four of a player's
+> runes in a line win the round and a point. Between rounds, each player builds
+> their own bag of runes in a shop. No account required, no advertising.
+
+Each player draws two runes from their own bag; the opponent never sees them.
+On a turn, a player drops one rune into a column, applies its power if it has
+one, and draws back up. A line of four wins the round and one point from a
+shared pool of 10; the first player to hold the majority of the points
+still in play wins the game. Between rounds, each player may add up to two
+runes from a shop offer, remove one, or combine two identical runes into a
+level-2 rune. 24 runes have powers; some are cursed or
+corrupted, which slips neutral runes into their owner's bag.
+
+It can be played against the computer at five levels, online with a friend by
+room code, link or QR code, as rated games matched by Elo rating, or at the
+table with a free print-and-play kit. Created by Piero Barrette, in Quebec.
+
+## Pages
+
+- [RuneBags — a free runic tactics board game for two](https://runebags.ca/play/): Drop runes into a seven-column board, line up four to win the round, and build a bag of runes that bend the rules. Free, no ads, no account needed: play the computer or a friend online.
+- [Rules](https://runebags.ca/rules/): The complete rules of RuneBags: the goal, the shop phase, the round phase, the end of the game, neutral, cursed, corrupted and ethereal runes, and every rune's effect.
+- [Beginner's guide](https://runebags.ca/guide/): Your first round, five tips to win more often, the mistakes beginners make, and how the computer's five levels differ.
+- [The runes](https://runebags.ca/runes/): Every rune of RuneBags: its power, its level-2 effect, whether it is cursed, corrupted or ethereal, and a diagram of what it does.
+- [FAQ](https://runebags.ca/faq/): Is RuneBags free, do you need an account, how to play a friend, how ranked games and the computer's levels work, and more.
+- [Print and play](https://runebags.ca/print-and-play/): Play RuneBags at the table: download the free board, quick reference and token labels, and see what you need.
+- [The game itself](https://runebags.ca/): the playable application.
+
+## In French
+
+- [RuneBags — un jeu de tactique runique gratuit pour deux](https://runebags.ca/fr/jouer/)
+- [Règles](https://runebags.ca/fr/regles/)
+- [Guide du débutant](https://runebags.ca/fr/guide/)
+- [Les runes](https://runebags.ca/fr/runes/)
+- [FAQ](https://runebags.ca/fr/faq/)
+- [Imprimer et jouer](https://runebags.ca/fr/imprimer/)
+
+## Optional
+
+- [Privacy policy](https://runebags.ca/privacy/)
+- [Terms of use](https://runebags.ca/terms/)

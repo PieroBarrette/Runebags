@@ -181,6 +181,296 @@ h2 {
   border-top: 1px solid var(--panel-border);
 }
 
+/* The site's generated pages (tools/make-pages.mjs): a header with the
+   sections, the rule diagrams drawn as SVG, the rune sheets and the files. */
+:root {
+  --fig-board: #232b36;
+  --fig-grid: rgba(220, 230, 241, 0.14);
+}
+
+html[data-theme="light"] {
+  --fig-board: #e7edf5;
+  --fig-grid: rgba(35, 50, 72, 0.18);
+}
+
+.site-header {
+  width: min(760px, 100% - 2rem);
+  margin-inline: auto;
+  padding: 1rem 0 0.2rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1rem;
+}
+
+.site-header .page-brand {
+  margin-right: auto;
+}
+
+.site-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.site-lang {
+  color: var(--text-soft);
+}
+
+.site-play {
+  margin-top: 0;
+  padding: 0.45rem 1.1rem;
+}
+
+.site-nav {
+  flex: 1 0 100%;
+  display: flex;
+  gap: 0.2rem 1.15rem;
+  overflow-x: auto;
+  padding: 0.45rem 0 0.3rem;
+  border-top: 1px solid var(--panel-border);
+  scrollbar-width: none;
+}
+
+.site-nav a {
+  padding: 0.15rem 0;
+  color: var(--text-soft);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.site-nav a:hover,
+.site-nav a[aria-current="page"] {
+  color: var(--text-main);
+}
+
+.site-nav a[aria-current="page"] {
+  box-shadow: inset 0 -2px 0 var(--gold);
+}
+
+.rule-figure {
+  margin: 0.8rem 0 1.2rem;
+}
+
+.rule-figure svg {
+  display: block;
+  width: min(100%, 280px);
+  height: auto;
+}
+
+.fig-board {
+  fill: var(--fig-board);
+}
+
+.fig-grid {
+  stroke: var(--fig-grid);
+  stroke-width: 1;
+}
+
+.fig-forced {
+  fill: rgba(212, 175, 88, 0.16);
+}
+
+.fig-black {
+  fill: #15181d;
+  stroke: #4b5563;
+  stroke-width: 1.5;
+}
+
+.fig-white {
+  fill: #f1f1f1;
+  stroke: #9aa3ad;
+  stroke-width: 1.5;
+}
+
+.fig-neutral {
+  fill: #8f8f8f;
+  stroke: #5c6772;
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+}
+
+/* The rune an effect is about to remove or move away. */
+.fig-fading {
+  opacity: 0.42;
+  stroke: #d9705f;
+  stroke-width: 2.5;
+}
+
+.fig-win {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 3;
+}
+
+.fig-glyph-light {
+  filter: invert(1);
+}
+
+.rule-rune,
+.rune-entry {
+  scroll-margin-top: 1rem;
+}
+
+.rule-rune-glyph,
+.rune-entry-glyph {
+  border-radius: 50%;
+  background: #f1f1f1;
+}
+
+.rule-rune-glyph {
+  width: 1.6rem;
+  height: 1.6rem;
+  margin-right: 0.45rem;
+  padding: 0.15rem;
+  vertical-align: -0.45rem;
+}
+
+.rune-index {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.85rem;
+  margin: 0.6rem 0 0.4rem;
+  font-size: 0.92rem;
+}
+
+.rune-entry {
+  padding: 1rem 0;
+  border-top: 1px solid var(--panel-border);
+}
+
+.rune-entry p {
+  margin: 0.45rem 0;
+}
+
+.rune-entry-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.rune-entry-head h3 {
+  margin: 0;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 1.15rem;
+}
+
+.rune-entry-glyph {
+  width: 2.6rem;
+  height: 2.6rem;
+  padding: 0.35rem;
+}
+
+.rune-entry-chip {
+  display: inline-block;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 50%;
+}
+
+.rune-entry-chip-plain {
+  background: radial-gradient(circle at 30% 25%, #6d6d6d, #111111 60%);
+}
+
+.rune-entry-chip-neutral {
+  background: radial-gradient(circle at 30% 25%, #cfcfcf, #808080 60%);
+}
+
+.page .rune-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.6rem 0 0.2rem;
+  padding: 0;
+  list-style: none;
+}
+
+.page .rune-tags li {
+  margin: 0;
+  padding: 0.1rem 0.55rem;
+  border: 1px solid rgba(212, 175, 88, 0.55);
+  border-radius: 999px;
+  font-size: 0.8rem;
+}
+
+.rune-entry-note {
+  color: var(--text-soft);
+  font-size: 0.92rem;
+}
+
+.page .file-list {
+  padding: 0;
+  list-style: none;
+}
+
+.page .file-list li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.2rem 1rem;
+  margin: 0;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.file-meta,
+.supply-count {
+  color: var(--text-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.file-meta {
+  font-size: 0.88rem;
+}
+
+.page .supply-list {
+  columns: 2 11rem;
+  column-gap: 2rem;
+}
+
+.page .supply-list li {
+  margin: 0 0 0.3rem;
+  break-inside: avoid;
+}
+
+.faq-item h2 {
+  margin: 1.6rem 0 0.4rem;
+  font-size: 1.05rem;
+}
+
+.faq-item p {
+  margin: 0;
+}
+
+.page-cta-box {
+  text-align: center;
+}
+
+.page-cta-box h2 {
+  margin-top: 0;
+  color: var(--text-main);
+}
+
+.page-cta-box h3 {
+  margin: 1.6rem 0 0.4rem;
+  color: var(--text-soft);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.page .read-next {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem 1.2rem;
+  padding: 0;
+  list-style: none;
+}
+
+.page .read-next li {
+  margin: 0;
+}
+
 /* Audience counts */
 .metrics-controls {
   display: flex;

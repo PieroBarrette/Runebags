@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Règles — RuneBags</title>
+  <meta name="description" content="Les règles complètes de RuneBags : le but, la phase de boutique, la phase d'affrontement, la fin de partie, les runes neutres, maudites, corrompues et éthérées, et l'effet de chaque rune.">
+  <meta name="theme-color" content="#131820">
+  <link rel="canonical" href="https://runebags.ca/fr/regles/">
+  <link rel="alternate" hreflang="en" href="https://runebags.ca/rules/">
+  <link rel="alternate" hreflang="fr" href="https://runebags.ca/fr/regles/">
+  <link rel="alternate" hreflang="x-default" href="https://runebags.ca/rules/">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="RuneBags">
+  <meta property="og:title" content="Règles — RuneBags">
+  <meta property="og:description" content="Les règles complètes de RuneBags : le but, la phase de boutique, la phase d'affrontement, la fin de partie, les runes neutres, maudites, corrompues et éthérées, et l'effet de chaque rune.">
+  <meta property="og:url" content="https://runebags.ca/fr/regles/">
+  <meta property="og:locale" content="fr_CA">
+  <meta property="og:locale:alternate" content="en_CA">
+  <meta property="og:image" content="https://runebags.ca/assets/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Règles — RuneBags">
+  <meta name="twitter:description" content="Les règles complètes de RuneBags : le but, la phase de boutique, la phase d'affrontement, la fin de partie, les runes neutres, maudites, corrompues et éthérées, et l'effet de chaque rune.">
+  <meta name="twitter:image" content="https://runebags.ca/assets/og-image.png">
+  <link rel="icon" type="image/svg+xml" href="/assets/RuneBags_Logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Space+Grotesk:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles/page.css">
+  <script>
+    // The theme chosen in the game, before first paint.
+    try {
+      if (localStorage.getItem("runebags-theme-v1") === "light") {
+        document.documentElement.setAttribute("data-theme", "light");
+      }
+    } catch (e) { /* private mode: keep the dark default */ }
+  </script>
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "Comment jouer à RuneBags",
+  "inLanguage": "fr",
+  "step": [
+    {
+      "@type": "HowToStep",
+      "name": "But du jeu",
+      "text": "Gagner la majorité d'une réserve commune de 10 points en formant des lignes gagnantes de 4 runes ou plus."
+    },
+    {
+      "@type": "HowToStep",
+      "name": "Phase de boutique",
+      "text": "Une phase simultanée dans laquelle chaque joueur révèle 5 runes de sa réserve de boutique personnelle et peut faire les actions suivantes dans n'importe quel ordre : Ajouter jusqu'à 2 runes proposées à son sac Retirer 1 rune de son sac : les runes de base et à symbole sont retirées définitivement, sauf Inguz et Jera qui retournent à la réserve de boutique du joueur ; les runes neutres retournent à la réserve. Combiner 2 runes de niveau 1 identiques en une rune de niveau 2 (sauf les runes non combinables)"
+    },
+    {
+      "@type": "HowToStep",
+      "name": "Phase d'affrontement",
+      "text": "Chaque joueur pige une main de 2 runes. Si le nombre de points restant dans la réserve est pair, Blanc commence. S'il est impair, Noir commence. À son tour, le joueur actif doit : Jouer une rune de sa main dans l'une des 7 colonnes du plateau (il ne peut jamais y avoir plus de 6 runes dans une colonne) Appliquer l'effet de la rune jouée s'il y a lieu, puis piger des runes de son sac pour remplir sa main La phase d'affrontement se termine dès qu'un joueur forme une ligne gagnante d'au moins 4 runes. Ce joueur prend 1 point de la réserve."
+    },
+    {
+      "@type": "HowToStep",
+      "name": "Fin de partie",
+      "text": "Un joueur gagne la partie en obtenant la majorité des points encore disponibles. Si la réserve atteint 0, le meilleur score l'emporte. À égalité de score, le moins de runes dans le sac l'emporte."
+    }
+  ]
+}
+  </script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="page-brand" href="/?lang=fr"><img src="/assets/RuneBags_Logo.svg" alt="" width="40" height="40">RuneBags</a>
+    <div class="site-header-actions">
+      <a class="site-lang" href="/rules/" hreflang="en" lang="en">English</a>
+      <a class="page-cta site-play" href="/?lang=fr">Jouer</a>
+    </div>
+    <nav class="site-nav" aria-label="Sections du site">
+      <a href="/fr/jouer/">Le jeu</a>
+      <a href="/fr/regles/" aria-current="page">Règles</a>
+      <a href="/fr/guide/">Guide</a>
+      <a href="/fr/runes/">Les runes</a>
+      <a href="/fr/faq/">FAQ</a>
+      <a href="/fr/imprimer/">Imprimer et jouer</a>
+    </nav>
+  </header>
+
+  <main class="page">
+    <h1>Règles de RuneBags</h1>
+    <p class="page-lede">Tout ce que le jeu applique, dans l'ordre. Vous découvrez RuneBags ? Le <a href="/fr/guide/">guide du débutant</a> est une entrée en matière plus douce.</p>
+
+<h2>1. But du jeu</h2>
+<p>Gagner la majorité d'une réserve commune de 10 points en formant des lignes gagnantes de 4 runes ou plus.</p>
+<figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Une ligne gagnante de quatre runes"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="60" cy="100" r="14"/><circle class="fig-win" cx="60" cy="100" r="17.5"/><circle class="fig-piece fig-black" cx="100" cy="100" r="14"/><circle class="fig-win" cx="100" cy="100" r="17.5"/><circle class="fig-piece fig-black" cx="140" cy="100" r="14"/><circle class="fig-win" cx="140" cy="100" r="17.5"/><circle class="fig-piece fig-black" cx="180" cy="100" r="14"/><circle class="fig-win" cx="180" cy="100" r="17.5"/><circle class="fig-piece fig-white" cx="20" cy="100" r="14"/><circle class="fig-piece fig-white" cx="100" cy="60" r="14"/><circle class="fig-piece fig-white" cx="140" cy="60" r="14"/></svg></figure>
+
+<h2>2. Déroulement d'une manche</h2>
+<ol><li>Phase de boutique</li><li>Phase d'affrontement</li></ol>
+
+<h2>3. Phase de boutique</h2>
+<p>Une phase simultanée dans laquelle chaque joueur révèle 5 runes de sa réserve de boutique personnelle et peut faire les actions suivantes dans n'importe quel ordre :</p>
+<ul><li>Ajouter jusqu'à 2 runes proposées à son sac</li><li>Retirer 1 rune de son sac : les runes de base et à symbole sont retirées définitivement, sauf Inguz et Jera qui retournent à la réserve de boutique du joueur ; les runes neutres retournent à la réserve.</li><li>Combiner 2 runes de niveau 1 identiques en une rune de niveau 2 (sauf les runes non combinables)</li></ul>
+
+<h2>4. Phase d'affrontement</h2>
+<p>Chaque joueur pige une main de 2 runes. Si le nombre de points restant dans la réserve est pair, Blanc commence. S'il est impair, Noir commence.</p>
+<p>À son tour, le joueur actif doit :</p>
+<ol><li>Jouer une rune de sa main dans l'une des 7 colonnes du plateau (il ne peut jamais y avoir plus de 6 runes dans une colonne)</li><li>Appliquer l'effet de la rune jouée s'il y a lieu, puis piger des runes de son sac pour remplir sa main</li></ol>
+<p>Si un joueur n'a aucune rune jouable légalement, il doit passer.</p>
+<p>Si les deux joueurs ne peuvent pas jouer, la manche est nulle.</p>
+<p>Si les deux joueurs forment une ligne gagnante à la résolution de la même action, la manche est nulle.</p>
+<p>Si une manche est nulle, 1 point est retiré de la réserve au lieu d'être attribué.</p>
+<p>La phase d'affrontement se termine dès qu'un joueur forme une ligne gagnante d'au moins 4 runes. Ce joueur prend 1 point de la réserve.</p>
+
+<h2>5. Fin de partie</h2>
+<p>Un joueur gagne la partie en obtenant la majorité des points encore disponibles. Si la réserve atteint 0, le meilleur score l'emporte. À égalité de score, le moins de runes dans le sac l'emporte.</p>
+
+<h2>6. Runes neutres</h2>
+<p>Les runes neutres sont des bloqueurs gris. Elles n'appartiennent ni à Noir ni à Blanc.</p>
+<p>Elles ne marquent pas de points seules, ne reviennent pas dans les sacs des joueurs, et retournent à la réserve neutre lorsqu'elles sont retirées ou à la fin d'une manche.</p>
+
+<h2>7. Runes maudites</h2>
+<p>Ajoute 1 rune neutre au sac du propriétaire lorsqu'elle est ajoutée au sac durant la phase de boutique.</p>
+
+<h2>8. Runes corrompues</h2>
+<p>Ajoute 1 rune neutre au sac du propriétaire à chaque fois qu'elle est jouée.</p>
+
+<h2>9. Runes éthérées</h2>
+<p>Elles retournent à la réserve de boutique plutôt qu'au sac à la fin d'une manche.</p>
+
+<h2>10. Effets des runes</h2>
+<p>Chaque rune en détail, avec son effet de niveau 2, se trouve sur la <a href="/fr/runes/">page des runes</a>.</p>
+
+<div class="rule-rune" id="algiz">
+  <p><img class="rule-rune-glyph" src="/assets/runes/algiz.svg" alt="" width="28" height="28"><strong>Algiz</strong> : s'insère par le bas de la colonne et pousse vers le haut ; maudite et corrompue.</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Algiz"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="140" cy="20" r="14"/><circle class="fig-piece fig-white" cx="140" cy="60" r="14"/><circle class="fig-piece fig-black" cx="140" cy="100" r="14"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/algiz.svg" x="131" y="91" width="18" height="18"/><circle class="fig-piece fig-white" cx="100" cy="100" r="14"/><circle class="fig-piece fig-black" cx="180" cy="100" r="14"/></svg></figure>
+</div>
+<div class="rule-rune" id="ansuz">
+  <p><img class="rule-rune-glyph" src="/assets/runes/ansuz.svg" alt="" width="28" height="28"><strong>Ansuz</strong> : renvoie la rune juste en dessous dans le sac du propriétaire (pas les runes neutres).</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Ansuz"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="140" cy="60" r="14"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/ansuz.svg" x="131" y="51" width="18" height="18"/><circle class="fig-piece fig-white fig-fading" cx="140" cy="100" r="14"/><circle class="fig-piece fig-black" cx="100" cy="100" r="14"/><circle class="fig-piece fig-white" cx="180" cy="100" r="14"/></svg></figure>
+</div>
+<div class="rule-rune" id="berkana">
+  <p><img class="rule-rune-glyph" src="/assets/runes/berkana.svg" alt="" width="28" height="28"><strong>Berkana</strong> : si dans une ligne gagnante du propriétaire, accorde +1 point bonus une fois pour cette manche.</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Berkana"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="60" cy="100" r="14"/><circle class="fig-win" cx="60" cy="100" r="17.5"/><circle class="fig-piece fig-black" cx="100" cy="100" r="14"/><circle class="fig-win" cx="100" cy="100" r="17.5"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/berkana.svg" x="91" y="91" width="18" height="18"/><circle class="fig-piece fig-black" cx="140" cy="100" r="14"/><circle class="fig-win" cx="140" cy="100" r="17.5"/><circle class="fig-piece fig-black" cx="180" cy="100" r="14"/><circle class="fig-win" cx="180" cy="100" r="17.5"/></svg></figure>
+</div>
+<div class="rule-rune" id="dagaz">
+  <p><img class="rule-rune-glyph" src="/assets/runes/dagaz.svg" alt="" width="28" height="28"><strong>Dagaz</strong> : copie l'effet de la rune juste en dessous ; corrompue.</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Dagaz"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="140" cy="60" r="14"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/dagaz.svg" x="131" y="51" width="18" height="18"/><circle class="fig-piece fig-black" cx="140" cy="100" r="14"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/gebo.svg" x="131" y="91" width="18" height="18"/><circle class="fig-piece fig-white" cx="100" cy="100" r="14"/><circle class="fig-piece fig-white" cx="180" cy="100" r="14"/></svg></figure>
+</div>
+<div class="rule-rune" id="ehwaz">
+  <p><img class="rule-rune-glyph" src="/assets/runes/ehwaz.svg" alt="" width="28" height="28"><strong>Ehwaz</strong> : augmente la taille de main maximale du propriétaire à 3 tant qu'elle est sur le plateau. Taille de main maximale à 4 au niveau 2.</p>
+  
+</div>
+<div class="rule-rune" id="eihwaz">
+  <p><img class="rule-rune-glyph" src="/assets/runes/eihwaz.svg" alt="" width="28" height="28"><strong>Eihwaz</strong> : si retirée ou défaussée pour la manche, son propriétaire gagne 1 point sans terminer la manche.</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Eihwaz"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black fig-fading" cx="140" cy="100" r="14"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/eihwaz.svg" x="131" y="91" width="18" height="18"/><circle class="fig-piece fig-white" cx="100" cy="100" r="14"/><circle class="fig-piece fig-black" cx="180" cy="100" r="14"/></svg></figure>
+</div>
+<div class="rule-rune" id="fehu">
+  <p><img class="rule-rune-glyph" src="/assets/runes/fehu.svg" alt="" width="28" height="28"><strong>Fehu</strong> : renvoie 1 rune défaussée dans votre sac, 2 runes au niveau 2. Les runes récupérées peuvent inclure des runes adverses.</p>
+  
+</div>
+<div class="rule-rune" id="gebo">
+  <p><img class="rule-rune-glyph" src="/assets/runes/gebo.svg" alt="" width="28" height="28"><strong>Gebo</strong> : retire la rune juste en dessous pour la manche, choisit une cible adjacente au niveau 2 ; maudite.</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Gebo"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="140" cy="60" r="14"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/gebo.svg" x="131" y="51" width="18" height="18"/><circle class="fig-piece fig-white fig-fading" cx="140" cy="100" r="14"/><circle class="fig-piece fig-black" cx="100" cy="100" r="14"/><circle class="fig-piece fig-white" cx="180" cy="100" r="14"/></svg></figure>
+</div>
+<div class="rule-rune" id="hagalz">
+  <p><img class="rule-rune-glyph" src="/assets/runes/hagalz.svg" alt="" width="28" height="28"><strong>Hagalz</strong> : une rune neutre adjacente peut compter dans votre ligne gagnante.</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Hagalz"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="60" cy="100" r="14"/><circle class="fig-win" cx="60" cy="100" r="17.5"/><circle class="fig-piece fig-black" cx="100" cy="100" r="14"/><circle class="fig-win" cx="100" cy="100" r="17.5"/><circle class="fig-piece fig-neutral" cx="140" cy="100" r="14"/><circle class="fig-win" cx="140" cy="100" r="17.5"/><circle class="fig-piece fig-black" cx="180" cy="100" r="14"/><circle class="fig-win" cx="180" cy="100" r="17.5"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/hagalz.svg" x="171" y="91" width="18" height="18"/><circle class="fig-piece fig-white" cx="60" cy="60" r="14"/><circle class="fig-piece fig-white" cx="220" cy="100" r="14"/></svg></figure>
+</div>
+<div class="rule-rune" id="inguz">
+  <p><img class="rule-rune-glyph" src="/assets/runes/inguz.svg" alt="" width="28" height="28"><strong>Inguz</strong> : colonne centrale uniquement ; retourne à la boutique quand retirée.</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Inguz"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><rect class="fig-forced" x="120" y="0" width="40" height="120"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="140" cy="100" r="14"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/inguz.svg" x="131" y="91" width="18" height="18"/></svg></figure>
+</div>
+<div class="rule-rune" id="isa">
+  <p><img class="rule-rune-glyph" src="/assets/runes/isa.svg" alt="" width="28" height="28"><strong>Isa</strong> : reste sur le plateau d'une manche à l'autre.</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Isa"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="140" cy="100" r="14"/><circle class="fig-win" cx="140" cy="100" r="17.5"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/isa.svg" x="131" y="91" width="18" height="18"/></svg></figure>
+</div>
+<div class="rule-rune" id="jera">
+  <p><img class="rule-rune-glyph" src="/assets/runes/jera.svg" alt="" width="28" height="28"><strong>Jera</strong> : colonnes en bordure uniquement ; retourne à la boutique quand retirée.</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Jera"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><rect class="fig-forced" x="0" y="0" width="40" height="120"/><rect class="fig-forced" x="240" y="0" width="40" height="120"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="20" cy="100" r="14"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/jera.svg" x="11" y="91" width="18" height="18"/><circle class="fig-piece fig-black" cx="260" cy="100" r="14"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/jera.svg" x="251" y="91" width="18" height="18"/></svg></figure>
+</div>
+<div class="rule-rune" id="kenaz">
+  <p><img class="rule-rune-glyph" src="/assets/runes/kenaz.svg" alt="" width="28" height="28"><strong>Kenaz</strong> : une seule rune Kenaz ne fait rien. Quand votre deuxième Kenaz entre en jeu, détruit définitivement 1 rune du plateau.</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Kenaz"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="60" cy="100" r="14"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/kenaz.svg" x="51" y="91" width="18" height="18"/><circle class="fig-piece fig-black" cx="140" cy="100" r="14"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/kenaz.svg" x="131" y="91" width="18" height="18"/><circle class="fig-piece fig-white fig-fading" cx="220" cy="100" r="14"/></svg></figure>
+</div>
+<div class="rule-rune" id="laguz">
+  <p><img class="rule-rune-glyph" src="/assets/runes/laguz.svg" alt="" width="28" height="28"><strong>Laguz</strong> : ne peut être ni déplacée ni retirée.</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Laguz"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="140" cy="100" r="14"/><circle class="fig-win" cx="140" cy="100" r="17.5"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/laguz.svg" x="131" y="91" width="18" height="18"/><circle class="fig-piece fig-white" cx="100" cy="100" r="14"/><circle class="fig-piece fig-white" cx="180" cy="100" r="14"/></svg></figure>
+</div>
+<div class="rule-rune" id="mannaz">
+  <p><img class="rule-rune-glyph" src="/assets/runes/mannaz.svg" alt="" width="28" height="28"><strong>Mannaz</strong> : ajoute 1 rune neutre au sac de l'adversaire, 2 runes neutres au niveau 2.</p>
+  
+</div>
+<div class="rule-rune" id="nauthiz">
+  <p><img class="rule-rune-glyph" src="/assets/runes/nauthiz.svg" alt="" width="28" height="28"><strong>Nauthiz</strong> : peut flotter et être placée sur n'importe quelle case libre ; éthérée et maudite.</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Nauthiz"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="180" cy="20" r="14"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/nauthiz.svg" x="171" y="11" width="18" height="18"/><circle class="fig-piece fig-white" cx="60" cy="100" r="14"/><circle class="fig-piece fig-black" cx="100" cy="100" r="14"/></svg></figure>
+</div>
+<div class="rule-rune" id="odal">
+  <p><img class="rule-rune-glyph" src="/assets/runes/odal.svg" alt="" width="28" height="28"><strong>Odal</strong> : si jouée sur la rangée du haut, le propriétaire gagne 1 point sans terminer la manche.</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Odal"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="140" cy="20" r="14"/><circle class="fig-win" cx="140" cy="20" r="17.5"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/odal.svg" x="131" y="11" width="18" height="18"/><circle class="fig-piece fig-white" cx="140" cy="60" r="14"/><circle class="fig-piece fig-black" cx="140" cy="100" r="14"/></svg></figure>
+</div>
+<div class="rule-rune" id="perth">
+  <p><img class="rule-rune-glyph" src="/assets/runes/perth.svg" alt="" width="28" height="28"><strong>Perth</strong> : contraint le prochain tour de l'adversaire aux colonnes adjacentes, la colonne forcée adjacente est choisie au niveau 2.</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Perth"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><rect class="fig-forced" x="80" y="0" width="40" height="120"/><rect class="fig-forced" x="160" y="0" width="40" height="120"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-white" cx="140" cy="100" r="14"/><image class="fig-glyph" href="/assets/runes/perth.svg" x="131" y="91" width="18" height="18"/><circle class="fig-piece fig-black" cx="60" cy="100" r="14"/><circle class="fig-piece fig-black" cx="140" cy="60" r="14"/></svg></figure>
+</div>
+<div class="rule-rune" id="raido">
+  <p><img class="rule-rune-glyph" src="/assets/runes/raido.svg" alt="" width="28" height="28"><strong>Raido</strong> : accorde un tour supplémentaire ; éthérée seulement au niveau 1 ; maudite.</p>
+  
+</div>
+<div class="rule-rune" id="sowelu">
+  <p><img class="rule-rune-glyph" src="/assets/runes/sowelu.svg" alt="" width="28" height="28"><strong>Sowelu</strong> : défausse 1 rune aléatoire du sac de l'adversaire pour la manche, 2 runes au niveau 2.</p>
+  
+</div>
+<div class="rule-rune" id="teiwaz">
+  <p><img class="rule-rune-glyph" src="/assets/runes/teiwaz.svg" alt="" width="28" height="28"><strong>Teiwaz</strong> : déplace la rune du sommet de n'importe quelle colonne vers une colonne adjacente au niveau 1, ou vers n'importe quelle colonne au niveau 2 ; maudite.</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Teiwaz"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><rect class="fig-forced" x="40" y="0" width="40" height="120"/><rect class="fig-forced" x="120" y="0" width="40" height="120"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-white fig-fading" cx="100" cy="100" r="14"/><circle class="fig-piece fig-black" cx="140" cy="100" r="14"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/teiwaz.svg" x="131" y="91" width="18" height="18"/><circle class="fig-piece fig-white" cx="60" cy="100" r="14"/></svg></figure>
+</div>
+<div class="rule-rune" id="thurisa">
+  <p><img class="rule-rune-glyph" src="/assets/runes/thurisa.svg" alt="" width="28" height="28"><strong>Thurisa</strong> : place 1 rune neutre sur le plateau, 2 runes neutres au niveau 2.</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Thurisa"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="140" cy="100" r="14"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/thurisa.svg" x="131" y="91" width="18" height="18"/><circle class="fig-piece fig-neutral" cx="180" cy="100" r="14"/><circle class="fig-piece fig-white" cx="100" cy="100" r="14"/></svg></figure>
+</div>
+<div class="rule-rune" id="uruz">
+  <p><img class="rule-rune-glyph" src="/assets/runes/uruz.svg" alt="" width="28" height="28"><strong>Uruz</strong> : la main de l'adversaire ne peut pas être cachée tant que Uruz est sur le plateau.</p>
+  
+</div>
+<div class="rule-rune" id="wunjo">
+  <p><img class="rule-rune-glyph" src="/assets/runes/wunjo.svg" alt="" width="28" height="28"><strong>Wunjo</strong> : si aucune rune alliée n'est adjacente en fin de manche, le propriétaire obtient +1 ajout et +1 retrait à la prochaine phase de boutique.</p>
+  <figure class="rule-figure"><svg viewBox="0 0 280 120" width="280" height="120" role="img" aria-label="Wunjo"><rect class="fig-board" x="0" y="0" width="280" height="120" rx="8"/><line class="fig-grid" x1="40" y1="0" x2="40" y2="120"/><line class="fig-grid" x1="80" y1="0" x2="80" y2="120"/><line class="fig-grid" x1="120" y1="0" x2="120" y2="120"/><line class="fig-grid" x1="160" y1="0" x2="160" y2="120"/><line class="fig-grid" x1="200" y1="0" x2="200" y2="120"/><line class="fig-grid" x1="240" y1="0" x2="240" y2="120"/><line class="fig-grid" x1="0" y1="40" x2="280" y2="40"/><line class="fig-grid" x1="0" y1="80" x2="280" y2="80"/><circle class="fig-piece fig-black" cx="140" cy="100" r="14"/><image class="fig-glyph fig-glyph-light" href="/assets/runes/wunjo.svg" x="131" y="91" width="18" height="18"/><circle class="fig-piece fig-white" cx="60" cy="100" r="14"/><circle class="fig-piece fig-white" cx="220" cy="100" r="14"/></svg></figure>
+</div>
+  </main>
+
+  <section class="page page-cta-box">
+    <h2>Prêt pour une manche ?</h2>
+    <p>Gratuit, dans votre navigateur, sans compte.</p>
+    <a class="page-cta" href="/?lang=fr">Jouer à RuneBags</a>
+    <h3>À lire ensuite</h3>
+    <ul class="read-next"><li><a href="/fr/jouer/">Le jeu</a></li><li><a href="/fr/guide/">Guide</a></li><li><a href="/fr/runes/">Les runes</a></li><li><a href="/fr/faq/">FAQ</a></li><li><a href="/fr/imprimer/">Imprimer et jouer</a></li></ul>
+  </section>
+
+  <footer class="page-footer">
+    <nav aria-label="Liens du site">
+      <a href="/confidentialite/">Confidentialité</a>
+      <a href="/conditions/">Conditions d'utilisation</a>
+      <a href="mailto:info@hexaequo.com">info@hexaequo.com</a>
+      <a href="https://hexaequo.com/">Hexaequo, du même créateur</a>
+    </nav>
+    <p>Un jeu créé par Piero Barrette</p>
+  </footer>
+</body>
+</html>

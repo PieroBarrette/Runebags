@@ -16,18 +16,21 @@ const EMPTY = 0;
 const BLACK = 1;
 const WHITE = 2;
 const NEUTRAL_OWNER = 3;
-const POINT_POOL_TOTAL = 10;
+// The constants and rune sets the site's pages describe (tools/make-pages.mjs)
+// are exported, so a page can never state a rule the engine does not play.
+export const POINT_POOL_TOTAL = 10;
 const BASE_HAND_SIZE = 2;
-const STARTING_NEUTRAL_SUPPLY = 20;
+export const STARTING_NEUTRAL_SUPPLY = 20;
 const SHOP_OFFER_SIZE = 5;
 const SHOP_ADD_LIMIT = 2;
 const SHOP_REMOVE_LIMIT = 1;
-const NON_COMBINABLE_RUNES = new Set(["basic", "inguz", "jera", "neutral", "berkana", "dagaz", "hagalz", "isa", "kenaz", "laguz", "wunjo", "nauthiz", "eihwaz"]);
+export const NON_COMBINABLE_RUNES = new Set(["basic", "inguz", "jera", "neutral", "berkana", "dagaz", "hagalz", "isa", "kenaz", "laguz", "wunjo", "nauthiz", "eihwaz"]);
 const DAGAZ_ON_PLAY_COPYABLE = new Set(["raido", "sowelu", "teiwaz", "thurisa", "perth", "odal", "mannaz", "gebo", "ansuz", "fehu"]);
 const DAGAZ_PASSIVE_COPYABLE = new Set(["laguz", "berkana", "ehwaz", "hagalz", "isa", "uruz", "wunjo", "eihwaz"]);
 // Corrupted runes add 1 neutral rune to their owner's bag every time they are
 // played (cursed runes, by contrast, only do it once, when bought in the shop).
-const CORRUPTED_RUNES = new Set(["dagaz", "algiz"]);
+export const CORRUPTED_RUNES = new Set(["dagaz", "algiz"]);
+export const CURSED_RUNES = new Set(["algiz", "gebo", "raido", "teiwaz", "nauthiz"]);
 
 // Bumped whenever a rule change would make an older recording replay
 // differently. Replays stamped with an older version are flagged, not trusted.
@@ -1039,7 +1042,7 @@ function createCombinedShopRune(state, runeId, level, combineOwner, bagOwnerId) 
 }
 
 function applyShopEffectIfAny(state, playerId, rune) {
-  if (!["algiz", "gebo", "raido", "teiwaz", "nauthiz"].includes(rune.id)) {
+  if (!CURSED_RUNES.has(rune.id)) {
     return;
   }
 

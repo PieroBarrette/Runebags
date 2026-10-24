@@ -4344,6 +4344,15 @@ function getActiveOverlay() {
 }
 
 function initializeLanguage() {
+  // The site's pages open the game in their own language (/?lang=fr); the
+  // choice is kept like one made in Settings, and the address is cleaned.
+  const url = new URL(window.location.href);
+  const requested = url.searchParams.get("lang");
+  if (requested === "en" || requested === "fr") {
+    setLang(requested);
+    url.searchParams.delete("lang");
+    history.replaceState(null, "", url);
+  }
   setLang(getLang());
   if (elements.languageSelect) {
     elements.languageSelect.value = getLang();
